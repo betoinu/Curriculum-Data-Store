@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="eu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Curriculum Kudeatzailea (Google Auth)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Style for the editable textarea to look like a list input */
+        .editable-list-textarea {
+            min-height: 100px;
+            white-space: pre-wrap;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+        }
+        /* Style for the Google Sign-in button */
+        #googleSignInBtn {
+            background-color: #4285F4; /* Google Blue */
+            color: white;
+            transition: background-color 0.3s;
+        }
+        #googleSignInBtn:hover {
+            background-color: #357ae8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Karga Adierazlea -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="flex flex-col items-center text-indigo-700">
+            <i class="fas fa-spinner fa-spin text-4xl mb-3"></i>
+            <p>Datuak kargatzen eta autentifikatzen...</p>
+        </div>
+    </div>
+
+    <!-- Goiburua -->
+    <header class="bg-indigo-700 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-2xl font-bold mb-4 md:mb-0"><i class="fas fa-graduation-cap mr-2"></i>Curriculum Kudeatzailea</h1>
+            
+            <div class="flex flex-wrap gap-2 md:gap-4 items-center justify-end">
+                
+                <!-- JSON Karga Botoia (Lehengo tokikoa, orain goiburuan) -->
+                <button id="localJsonLoadBtn" onclick="window.loadLocalJsonData()" class="bg-yellow-500 hover:bg-yellow-600 px-3 py-1.5 rounded transition flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hidden" title="Kargatu aurrez kargatutako JSON datuak berrezartzeko">
+                    <i class="fas fa-file-upload mr-2"></i> Kargatu Tokiko JSON
+                </button>
+                
+                <!-- JSON Deskarga Botoia (Segurtasun Kopia) -->
+                <button onclick="window.downloadJsonData()" class="bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded transition flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed" id="downloadBackupBtn" disabled>
+                    <i class="fas fa-download mr-2"></i> Deskargatu JSON
+                </button>
+                
+                <!-- Gorde Botoia (Lankidetza) -->
+                <button onclick="window.saveAllDataToFirestore()" class="bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded transition flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed" id="saveBtn" disabled>
+                    <i class="fas fa-save mr-2"></i> Aldaketak Gorde
+                </button>
+                
+                <!-- Erabiltzailearen Egoera -->
+                <span id="authStatusContainer" class="flex items-center gap-2">
+                    <span id="userIdDisplay" class="text-xs bg-indigo-500 px-2 py-1 rounded-full italic font-mono truncate max-w-[100px] sm:max-w-xs">Anonimoa</span>
+                    <button id="googleSignInBtn" onclick="window.signInWithGoogle()" class="px-3 py-1 rounded transition flex items-center text-sm hidden">
+                        <i class="fab fa-google mr-1"></i> Saioa hasi
+                    </button>
+                    <button id="signOutBtn" onclick="window.signOutUser()" class="bg-red-500 hover:bg-red-600 px-3 py-1 rounded transition flex items-center text-sm hidden">
+                        <i class="fas fa-sign-out-alt"></i> Irten
+                    </button>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Eduki Nagusia -->
+    <main class="container mx-auto p-4 flex-grow flex flex-col md:flex-row gap-6">
+        
+        <!-- Ezkerreko Zutabea: Nabigazioa -->
+        <aside class="w-full md:w-1/3 bg-white p-6 rounded-lg shadow-md h-fit">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">Irakasgaiak Aukeratu</h2>
+            
+            <div id="noDataMessage" class="text-center text-gray-500 py-8">
+                <i class="fas fa-lock text-4xl mb-3"></i>
+                <p>Curriculum datuak kargatzeko, mesedez **hasi saioa Google-rekin**.</p>
+                <p class="text-xs mt-2">Datu-basea lankideekin partekatzeko erabilgarria da.</p>
+            </div>
+
+            <div id="navigationPanel" class="hidden space-y-4">
+
+                <!-- Gradua Hautatu -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Gradua</label>
+                    <select id="degreeSelect" class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none" onchange="window.onDegreeChange()">
+                        <option value="">-- Aukeratu Gradua --</option>
+                    </select>
+                </div>
+
+                <!-- Maila Hautatu -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Maila</label>
+                    <div class="flex gap-2" id="yearButtons">
+                        <!-- Buttons will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Irakasgaien Zerrenda -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Irakasgaiak</label>
+                    <ul id="subjectList" class="border border-gray-200 rounded divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                        <li class="p-3 text-gray-500 text-sm italic">Lehenengo Gradua eta Maila aukeratu...</li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Eskuineko Zutabea: Editorea -->
+        <section class="w-full md:w-2/3 bg-white p-6 rounded-lg shadow-md min-h-[500px]">
+            <div id="welcomeEditor" class="h-full flex flex-col items-center justify-center text-gray-400">
+                <i class="fas fa-edit text-5xl mb-4"></i>
+                <p class="text-lg">Aukeratu irakasgai bat ezkerreko menuan edukiak editatzeko.</p>
+            </div>
+
+            <div id="editorPanel" class="hidden fade-in">
+                <!-- Irakasgaiaren Goiburua eta Oinarrizko Datuak -->
+                <div class="border-b pb-4 mb-6">
+                    <span class="inline-block bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full mb-2" id="subjectType">Mota</span>
+                    <h2 class="text-2xl font-bold text-gray-800" id="subjectTitle">Irakasgaiaren Izena</h2>
+                    <p class="text-gray-600 mt-1" id="subjectCredits">Kredituak: -</p>
+                </div>
+                
+                <!-- Datu Ofizialen Editorea -->
+                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 mb-6">
+                    <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-info-circle text-indigo-600 mr-2"></i>Datu Ofizialak Editatu</h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-4 mb-4">
+                        <!-- Arloa/Eremua -->
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Arloa / Eremua</label>
+                            <input type="text" id="subjectArea" class="w-full border p-2 rounded focus:outline-none focus:border-indigo-500" 
+                                onchange="window.updateSubjectData('arloa', this.value)">
+                        </div>
+                        <!-- Irakasgaiaren Izena (editagarria) -->
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Irakasgaiaren Izena</label>
+                            <input type="text" id="subjectNameEdit" class="w-full border p-2 rounded focus:outline-none focus:border-indigo-500" 
+                                onchange="window.updateSubjectName(this.value)">
+                        </div>
+                    </div>
+
+                    <!-- Ikaskuntza Emaitza Ofizialak (lerro bakoitza elementu bat) -->
+                    <div>
+                        <label class="block text-sm text-gray-600 mb-1">Ikaskuntza Emaitza Ofizialak (lerro bakoitza emaitza bat da)</label>
+                        <textarea id="subjectRAs" rows="5" class="editable-list-textarea w-full border p-2 rounded focus:outline-none focus:border-indigo-500"
+                            onchange="window.updateSubjectRAs(this.value)"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Lerro berri bat sartu behar duzu emaitza bakoitzeko.</p>
+                    </div>
+                </div>
+
+
+                <!-- Unitateak Gehitu Formularioa -->
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                    <h3 class="font-bold text-gray-700 mb-3"><i class="fas fa-plus-circle text-indigo-600 mr-2"></i>Unitate Didaktiko Berria Sortu</h3>
+                    <div class="grid gap-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Unitatearen Izena / Zenbakia</label>
+                            <input type="text" id="unitName" placeholder="Adib: 1. Unitatea - Sarrera" class="w-full border p-2 rounded focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">Edukiak / Azalpena</label>
+                            <textarea id="unitContent" rows="3" placeholder="Unitate honetan landuko diren edukiak..." class="w-full border p-2 rounded focus:outline-none focus:border-indigo-500"></textarea>
+                        </div>
+                        <button onclick="window.addUnit()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition w-full md:w-auto">
+                            Gehitu Unitatea
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Dauden Unitateen Zerrenda -->
+                <div>
+                    <h3 class="font-bold text-gray-800 mb-4 text-lg border-b pb-2">Unitate Didaktikoak eta Edukiak</h3>
+                    <div id="unitsContainer" class="space-y-4">
+                        <!-- Units will be injected here -->
+                    </div>
+                    <div id="noUnitsMessage" class="text-gray-500 italic text-center py-4 hidden">
+                        Ez dago unitaterik sortuta irakasgai honetarako.
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Oina -->
+    <footer class="bg-gray-200 text-center p-4 text-gray-600 text-sm mt-auto">
+        &copy; 2024 Curriculum Kudeaketa Sistema
+    </footer>
+
+    <!-- Feedback Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded shadow-lg transform translate-y-20 transition-transform duration-300">
+        Mezua hemen
+    </div>
+
+    <!-- Firebase SDK-ak eta JavaScript Logika -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Datu-basearen loga aktibatu (Debugging-erako)
+        setLogLevel('debug');
+
+        // Global variables to store state (Egoera gordetzeko aldagai globalak)
+        window.curriculumData = null; 
+        window.selectedDegree = null;
+        window.selectedYear = null;
+        window.selectedSubjectIndex = null;
+        window.db = null;
+        window.auth = null;
+        window.userId = null;
+        window.appId = null;
+        window.isAuthReady = false;
+        // Tokiko JSON datuen edukia (fitxategi igoa)
+        window.defaultJsonContent = null; 
+
+        // --- Auth UI Kudeaketa ---
+
+        function updateAuthUI(user) {
+            const userIdDisplay = document.getElementById('userIdDisplay');
+            const googleSignInBtn = document.getElementById('googleSignInBtn');
+            const signOutBtn = document.getElementById('signOutBtn');
+            const noDataMessage = document.getElementById('noDataMessage');
+            const saveBtn = document.getElementById('saveBtn');
+            const downloadBackupBtn = document.getElementById('downloadBackupBtn');
+            const localJsonLoadBtn = document.getElementById('localJsonLoadBtn');
+
+            if (user) {
+                // Erabiltzailea autentifikatuta dago
+                window.userId = user.uid;
+                userIdDisplay.textContent = `${user.email || user.uid.substring(0, 8)}...`;
+                googleSignInBtn.classList.add('hidden');
+                signOutBtn.classList.remove('hidden');
+                saveBtn.disabled = false;
+                downloadBackupBtn.disabled = false;
+                noDataMessage.innerHTML = '<i class="fas fa-spinner fa-spin text-4xl mb-3"></i><p>Datuak kargatzen Firebase-tik...</p>';
+            } else {
+                // Erabiltzailea ez dago autentifikatuta
+                window.userId = null;
+                userIdDisplay.textContent = `Anonimoa`;
+                googleSignInBtn.classList.remove('hidden');
+                signOutBtn.classList.add('hidden');
+                saveBtn.disabled = true;
+                downloadBackupBtn.disabled = true;
+                document.getElementById('navigationPanel').classList.add('hidden');
+                document.getElementById('editorPanel').classList.add('hidden');
+                document.getElementById('welcomeEditor').classList.remove('hidden');
+                noDataMessage.classList.remove('hidden');
+            }
+            
+            // Kargatu JSON botoiaren agerpena (beti JSON-a badago)
+            if (window.defaultJsonContent) {
+                localJsonLoadBtn.classList.remove('hidden');
+            } else {
+                localJsonLoadBtn.classList.add('hidden');
+            }
+        }
+        
+        // --- Autentifikazio Funtzioak ---
+
+        window.signInWithGoogle = async function() {
+            if (!window.auth) return;
+            const provider = new GoogleAuthProvider();
+            try {
+                await signInWithPopup(window.auth, provider);
+                window.showToast("Saioa ondo hasi da Google-rekin!", "success");
+            } catch (error) {
+                console.error("Google Sign-In Errorea:", error);
+                window.showToast(`Errorea Google bidezko saioa hasten: ${error.message}`, "error");
+            }
+        }
+        
+        window.signOutUser = async function() {
+            if (!window.auth) return;
+            try {
+                await signOut(window.auth);
+                window.showToast("Saioa itxi da.", "normal");
+            } catch (error) {
+                console.error("Saioa ixteko errorea:", error);
+                window.showToast("Errorea saioa ixten.", "error");
+            }
+        }
+
+        // --- Firebase Hasieraketa eta Autentifikazioa ---
+
+        async function initializeFirebase() {
+            try {
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                
+                // Tokiko JSON edukia kargatu fitxategi kargatutik
+                window.defaultJsonContent = window.__file_contents ? window.__file_contents['curriculumBD (4).json'] : null;
+
+
+                if (!firebaseConfig) {
+                    window.showToast("Errorea: Firebase konfigurazioa ez da aurkitu.", "error");
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                window.db = getFirestore(app);
+                window.auth = getAuth(app);
+
+                // onAuthStateChanged: Saioaren egoera aldatzen denean exekutatzen da
+                onAuthStateChanged(window.auth, (user) => {
+                    updateAuthUI(user);
+                    window.isAuthReady = true;
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    
+
+                    if (user) {
+                        // Erabiltzailea badago, datuak kargatzen hasi
+                        loadCurriculumFromFirestore();
+                    } else {
+                        // Erabiltzailea ez badago, datu guztiak garbitu
+                        window.curriculumData = null;
+                    }
+                });
+
+                // Inguneko token-a erabili lehenik, ingurune horretan saioa automatikoki hasteko
+                if (initialAuthToken) {
+                    await signInWithCustomToken(window.auth, initialAuthToken);
+                } else {
+                    // Tokenik ez badago, saioa modu anonimoan hasi, baina saioa hasteko botoia erakutsi
+                    await signInAnonymously(window.auth);
+                }
+
+            } catch (error) {
+                console.error("Firebase hasieraketa errorea:", error);
+                window.showToast(`Firebase errorea: ${error.message}.`, "error");
+                document.getElementById('loadingOverlay').classList.add('hidden');
+            }
+        }
+
+        // --- Datu Kudeaketa (Firestore) ---
+
+        // Datuak gordetzeko bidea (Publikoa, lankidetzarako)
+        function getCurriculumDocRef() {
+            if (!window.db || !window.appId) return null;
+            return doc(window.db, `artifacts/${window.appId}/public/data/curriculumData`, 'masterCurriculum');
+        }
+        
+        function loadCurriculumFromFirestore() {
+            const docRef = getCurriculumDocRef();
+            if (!docRef || !window.userId) return; 
+
+            // onSnapshot-ekin datuak denbora errealean kargatu eta eguneratzen dira
+            onSnapshot(docRef, (docSnapshot) => {
+                if (!window.isAuthReady) return;
+
+                if (docSnapshot.exists()) {
+                    const loadedData = docSnapshot.data();
+                    window.curriculumData = loadedData.curriculum || {};
+                    window.normalizeData(window.curriculumData); 
+                    window.initializeUI();
+                    window.showToast("Curriculum datuak eguneratu dira (denbora erreala).", "normal");
+                } else {
+                    // Datu-basea hutsik dago.
+                    if (window.curriculumData === null) {
+                        // Kopia igoa badago, datu-basean kargatu
+                        if (window.defaultJsonContent) {
+                            window.loadLocalJsonData(true); // IsInitialLoad=true
+                        } else {
+                            window.curriculumData = {};
+                        }
+                    }
+                }
+                document.getElementById('navigationPanel').classList.remove('hidden');
+                document.getElementById('noDataMessage').classList.add('hidden'); 
+            }, (error) => {
+                console.error("Firestore error (onSnapshot):", error);
+                window.showToast(`Errorea datuak kargatzean: ${error.message}`, "error");
+            });
+        }
+        
+        window.saveAllDataToFirestore = async function(isInitialLoad = false) {
+            if (!window.db || !window.curriculumData || !window.userId || !window.auth.currentUser || window.auth.currentUser.isAnonymous) {
+                window.showToast("Errorea: Saioa hasi behar duzu (Google-rekin) datuak gordetzeko.", "error");
+                return;
+            }
+
+            const docRef = getCurriculumDocRef();
+            if (!docRef) return;
+
+            document.getElementById('saveBtn').disabled = true;
+
+            try {
+                // Gorde datu guztiak curriculum eremuan
+                await setDoc(docRef, { 
+                    curriculum: window.curriculumData, 
+                    lastUpdated: new Date().toISOString(),
+                    updatedBy: window.userId
+                });
+                
+                if (!isInitialLoad) {
+                    window.showToast("Curriculum datuak ondo gorde dira hodeian!", "success");
+                }
+            } catch (error) {
+                console.error("Firestore gordetze errorea:", error);
+                window.showToast(`Errorea datuak gordetzerakoan: ${error.message}`, "error");
+            } finally {
+                document.getElementById('saveBtn').disabled = false;
+            }
+        }
+
+        // --- JSON fitxategia tokiko datuetatik kargatzeko funtzioa ---
+        window.loadLocalJsonData = function(isInitialLoad = false) {
+            if (!window.defaultJsonContent) {
+                window.showToast("Errorea: Ez da aurkitu kargatzeko tokiko JSON fitxategia.", "error");
+                return;
+            }
+
+            try {
+                const parsedData = JSON.parse(window.defaultJsonContent);
+                window.curriculumData = parsedData;
+                window.normalizeData(window.curriculumData);
+                
+                // UI eguneratu
+                window.selectedDegree = null;
+                window.selectedYear = null;
+                window.selectedSubjectIndex = null;
+                window.initializeUI(); 
+                window.resetEditor();
+
+                if (isInitialLoad) {
+                    window.showToast("Datu-basea hutsik dago. Tokiko JSON kargatu da automatikoki.", "normal");
+                } else {
+                    window.showToast("Tokiko JSON datuak kargatu dira. Orain 'Aldaketak Gorde' botoia sakatu dezakezu hodeiko datuak eguneratzeko.", "success");
+                }
+                
+                // Kopia hasierakoa bada, automatikoki gorde saiatu
+                if (isInitialLoad) {
+                   window.saveAllDataToFirestore(true);
+                }
+
+            } catch (e) {
+                console.error("Tokiko JSON parseatze errorea:", e);
+                window.showToast("Errorea tokiko JSON datuak kargatzean. Fitxategia ez da zuzena.", "error");
+            }
+        }
+        
+        // --- JSON Deskarga Funtzioa (Segurtasun Kopia) ---
+        window.downloadJsonData = function() {
+            if (!window.curriculumData) {
+                window.showToast("Ez dago daturik deskargatzeko!", "error");
+                return;
+            }
+            try {
+                const dataStr = JSON.stringify(window.curriculumData, null, 2);
+                const blob = new Blob([dataStr], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // Fitxategi izena data-rekin sortu
+                const date = new Date().toISOString().slice(0, 10);
+                a.download = `curriculum_backup_${date}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                window.showToast("Datuak JSON fitxategi gisa deskargatu dira (segurtasun kopia).", "success");
+            } catch (e) {
+                console.error("JSON deskarga errorea:", e);
+                window.showToast("Errorea datuak deskargatzean.", "error");
+            }
+        }
+
+
+        // --- Datuen Normalizazioa (JSON Egitura Bermatzea) ---
+        window.normalizeData = function(data) {
+            // ... (Funtzio hau ez da aldatu aurreko bertsiotik, eragiketa konplexua da)
+            for (const degree in data) {
+                for (const year in data[degree]) {
+                    if (Array.isArray(data[degree][year])) {
+                        data[degree][year].forEach((subject, subjectIndex) => {
+                            if (!Array.isArray(subject.unitateak)) {
+                                if (typeof subject.unitateak === 'string') {
+                                    try {
+                                        const parsedUnits = JSON.parse(subject.unitateak);
+                                        subject.unitateak = Array.isArray(parsedUnits) ? parsedUnits : [];
+                                    } catch (e) {
+                                        subject.unitateak = [];
+                                    }
+                                } else {
+                                    subject.unitateak = [];
+                                }
+                            }
+                            
+                            subject.unitateak.forEach((unit, unitIndex) => {
+                                if (typeof unit.id !== 'string' || isNaN(parseInt(unit.id)) || unit.id.startsWith('fallback-')) {
+                                    unit.id = `fallback-${subjectIndex}-${unitIndex}-${Date.now() + Math.floor(Math.random() * 1000)}`;
+                                }
+                            });
+
+                            if (!Array.isArray(subject.currentOfficialRAs)) {
+                                subject.currentOfficialRAs = [];
+                            }
+                        });
+                    }
+                }
+            }
+        };
+
+
+        // --- UI Rendering eta Ekintza Funtzioak (Laburtuta) ---
+        
+        window.initializeUI = function() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+            document.getElementById('saveBtn').disabled = false;
+            document.getElementById('downloadBackupBtn').disabled = false;
+
+            const degreeSelect = document.getElementById('degreeSelect');
+            degreeSelect.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
+            
+            Object.keys(window.curriculumData).forEach(degree => {
+                const option = document.createElement('option');
+                option.value = degree;
+                option.textContent = degree;
+                degreeSelect.appendChild(option);
+            });
+            
+            if (window.selectedDegree) {
+                degreeSelect.value = window.selectedDegree;
+                window.renderYears();
+                if (window.selectedYear) {
+                    window.renderSubjects();
+                    if (window.selectedSubjectIndex !== null) {
+                        window.loadSubjectEditor(window.selectedSubjectIndex);
+                    }
+                }
+            }
+            document.getElementById('navigationPanel').classList.remove('hidden');
+        }
+
+        // --- UI Funtzio Laguntzaileak (window objektuan gordeta) ---
+        window.onDegreeChange = function() {
+            const degreeSelect = document.getElementById('degreeSelect');
+            window.selectedDegree = degreeSelect.value;
+            window.selectedYear = null;
+            window.selectedSubjectIndex = null;
+            window.renderYears();
+            document.getElementById('subjectList').innerHTML = '<li class="p-3 text-gray-500 text-sm italic">Aukeratu maila bat irakasgaiak ikusteko.</li>';
+            window.resetEditor();
+        }
+
+        window.renderYears = function() {
+            const container = document.getElementById('yearButtons');
+            container.innerHTML = '';
+            if (!window.selectedDegree || !window.curriculumData[window.selectedDegree]) return;
+            const years = Object.keys(window.curriculumData[window.selectedDegree]).sort();
+            years.forEach(year => {
+                const btn = document.createElement('button');
+                btn.textContent = `${year}. Maila`;
+                btn.className = `flex-1 py-2 px-3 rounded text-sm font-medium transition border ${window.selectedYear === year ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50'}`;
+                btn.onclick = () => {
+                    window.selectedYear = year;
+                    window.renderYears(); 
+                    window.renderSubjects();
+                    window.resetEditor();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        window.renderSubjects = function() {
+            const list = document.getElementById('subjectList');
+            list.innerHTML = '';
+            if (!window.selectedDegree || !window.selectedYear || !window.curriculumData[window.selectedDegree][window.selectedYear]) {
+                 list.innerHTML = '<li class="p-3 text-gray-500 italic">Ez dago irakasgairik maila honetan.</li>';
+                 return;
+            }
+            const subjects = window.curriculumData[window.selectedDegree][window.selectedYear];
+            if (subjects.length === 0) {
+                list.innerHTML = '<li class="p-3 text-gray-500 italic">Ez dago irakasgairik maila honetan.</li>';
+                return;
+            }
+            subjects.forEach((subject, index) => {
+                const li = document.createElement('li');
+                li.className = `p-3 cursor-pointer hover:bg-indigo-50 flex justify-between items-center transition ${window.selectedSubjectIndex === index ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`;
+                li.onclick = () => window.loadSubjectEditor(index);
+                const hasUnits = (subject.unitateak && subject.unitateak.length > 0);
+                const iconColor = hasUnits ? 'text-green-500' : 'text-gray-300';
+                li.innerHTML = `<span class="font-medium text-gray-700">${subject.izena}</span><i class="fas fa-circle ${iconColor} text-xs" title="${hasUnits ? 'Edukiak ditu' : 'Edukirik gabe'}"></i>`;
+                list.appendChild(li);
+            });
+        }
+        
+        window.getSelectedSubject = function() {
+            if (window.selectedDegree && window.selectedYear && window.selectedSubjectIndex !== null) {
+                return window.curriculumData[window.selectedDegree][window.selectedYear][window.selectedSubjectIndex];
+            }
+            return null;
+        }
+
+        window.loadSubjectEditor = function(index) {
+            window.selectedSubjectIndex = index;
+            window.renderSubjects(); 
+            const subject = window.getSelectedSubject();
+            if (!subject) return;
+            document.getElementById('welcomeEditor').classList.add('hidden');
+            document.getElementById('editorPanel').classList.remove('hidden');
+            document.getElementById('subjectTitle').textContent = subject.izena;
+            document.getElementById('subjectType').textContent = subject.mota || "Zehaztugabea";
+            document.getElementById('subjectCredits').textContent = `Kredituak: ${subject.kredituak || '-'}`;
+            document.getElementById('subjectNameEdit').value = subject.izena || '';
+            document.getElementById('subjectArea').value = subject.arloa || '';
+            const RAsText = (Array.isArray(subject.currentOfficialRAs) ? subject.currentOfficialRAs.join('\n') : subject.currentOfficialRAs || '');
+            document.getElementById('subjectRAs').value = RAsText;
+            if (!Array.isArray(subject.unitateak)) { subject.unitateak = []; }
+            window.renderUnitsList();
+        }
+
+        window.resetEditor = function() {
+            document.getElementById('welcomeEditor').classList.remove('hidden');
+            document.getElementById('editorPanel').classList.add('hidden');
+        }
+
+        window.updateSubjectData = function(key, value) {
+            const subject = window.getSelectedSubject();
+            if (subject) {
+                subject[key] = value;
+                window.showToast(`${key} eremua eguneratu da. (Gordetzeko zain)`, "normal");
+                window.saveAllDataToFirestore(); 
+            }
+        }
+        
+        window.updateSubjectName = function(newName) {
+            const subject = window.getSelectedSubject();
+            if (subject) {
+                subject.izena = newName;
+                document.getElementById('subjectTitle').textContent = newName; 
+                window.renderSubjects(); 
+                window.showToast("Irakasgaiaren izena eguneratu da. (Gordetzeko zain)", "normal");
+                window.saveAllDataToFirestore(); 
+            }
+        }
+        
+        window.updateSubjectRAs = function(rawText) {
+            const subject = window.getSelectedSubject();
+            if (subject) {
+                const RAsArray = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                subject.currentOfficialRAs = RAsArray;
+                window.showToast("Ikaskuntza Emaitzak eguneratu dira. (Gordetzeko zain)", "normal");
+                window.saveAllDataToFirestore(); 
+            }
+        }
+
+        window.addUnit = function() {
+            const nameInput = document.getElementById('unitName');
+            const contentInput = document.getElementById('unitContent');
+            const subject = window.getSelectedSubject();
+            if (!subject) return;
+            if (!nameInput.value.trim() || !contentInput.value.trim()) { window.showToast("Mesedez, bete eremu guztiak.", "error"); return; }
+            const newUnit = { id: Date.now().toString(), izena: nameInput.value.trim(), edukiak: contentInput.value.trim(), data: new Date().toISOString().slice(0, 10) };
+            subject.unitateak.push(newUnit);
+            nameInput.value = '';
+            contentInput.value = '';
+            window.renderUnitsList();
+            window.renderSubjects(); 
+            window.showToast("Unitatea ondo gehitu da! (Gordetzeko zain)", "success");
+            window.saveAllDataToFirestore(); 
+        }
+
+        window.deleteUnit = function(unitIndex) {
+            const subject = window.getSelectedSubject();
+            if (!subject) return;
+            subject.unitateak.splice(unitIndex, 1);
+            window.renderUnitsList();
+            window.renderSubjects();
+            window.showToast("Unitatea ezabatu da! (Gordetzeko zain)", "normal");
+            window.saveAllDataToFirestore(); 
+        }
+        
+        window.renderUnitsList = function() {
+            const container = document.getElementById('unitsContainer');
+            const noUnitsMsg = document.getElementById('noUnitsMessage');
+            const subject = window.getSelectedSubject();
+            if (!subject) return;
+
+            const sortedUnits = subject.unitateak.slice().sort((a, b) => {
+                const idA = parseInt(a.id);
+                const idB = parseInt(b.id);
+                return (!isNaN(idA) && !isNaN(idB)) ? idB - idA : 0; 
+            });
+
+            container.innerHTML = '';
+            if (sortedUnits.length === 0) {
+                noUnitsMsg.classList.remove('hidden');
+            } else {
+                noUnitsMsg.classList.add('hidden');
+                sortedUnits.forEach((unit) => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white border border-gray-200 rounded p-4 shadow-sm relative hover:shadow-md transition";
+                    const contentFormatted = unit.edukiak ? unit.edukiak.replace(/\n/g, '<br>') : 'Ez dago edukirik.';
+                    const originalIndex = subject.unitateak.findIndex(u => u.id === unit.id);
+                    card.innerHTML = `
+                        <button onclick="window.deleteUnit(${originalIndex})" class="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1" title="Ezabatu">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <h4 class="font-bold text-indigo-700 mb-2 text-lg">${unit.izena || 'Izenik gabe'}</h4>
+                        <p class="text-xs text-gray-500 mb-2">Gehitze data: ${unit.data || 'Ezezaguna'}</p>
+                        <div class="text-gray-600 text-sm leading-relaxed bg-gray-50 p-3 rounded">
+                            ${contentFormatted}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+        }
+        
+        window.showToast = function(message, type = 'normal') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'fixed bottom-5 right-5 px-6 py-3 rounded shadow-lg transform transition-transform duration-300';
+            if (type === 'error') { toast.classList.add('bg-red-600', 'text-white'); } 
+            else if (type === 'success') { toast.classList.add('bg-green-600', 'text-white'); } 
+            else { toast.classList.add('bg-gray-800', 'text-white'); }
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-20');
+                setTimeout(() => { toast.classList.add('translate-y-20'); }, 3000);
+            });
+        }
+        
+        // --- Hasi aplikazioa kargatzen ---
+        window.onload = initializeFirebase;
+    </script>
+</body>
+</html>
