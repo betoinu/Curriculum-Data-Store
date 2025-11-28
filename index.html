@@ -60,6 +60,21 @@
                     <i class="fas fa-file-upload mr-2"></i> Kargatu Tokiko JSON
                 </button>
                 
+				<!-- GEHITU HAU BOTOIEN ONDOREN: -->
+				<button onclick="uploadJsonFile()" class="bg-purple-500 hover:bg-purple-600 px-3 py-1.5 rounded transition flex items-center text-sm">
+					<i class="fas fa-file-upload mr-2"></i> Kargatu JSON
+				</button>
+				<input type="file" id="jsonFileInput" accept=".json" class="hidden">
+				
+				<!-- SUPABASE BOTOI BERRIAK - GEHITU HAU -->
+				<button onclick="supabaseIkusiDatuak()" class="bg-indigo-600 hover:bg-indigo-800 px-3 py-1.5 rounded transition flex items-center text-sm">
+					<i class="fas fa-database mr-2"></i> Supabase Datuak
+				</button>
+				
+				<button onclick="supabaseGehituDatuak()" class="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded transition flex items-center text-sm">
+					<i class="fas fa-cloud-upload-alt mr-2"></i> Gorde Supabase
+				</button>
+				
                 <!-- JSON Deskarga Botoia (Segurtasun Kopia) -->
                 <button onclick="window.downloadJsonData()" class="bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded transition flex items-center text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed" id="downloadBackupBtn" disabled>
                     <i class="fas fa-download mr-2"></i> Deskargatu JSON
@@ -211,255 +226,314 @@
         Mezua hemen
     </div>
 
-    <!-- Firebase SDK-ak eta JavaScript Logika -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+	<!-- Supabase SDK eta JavaScript Logika -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+	<script>
+	// 🔥 ALDATU HAU ZURE SUPABASE DATUEKIN 🔥
+	const SUPABASE_URL = "https://rthjrzmkozvungmiiikt.supabase.co";
+	const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0aGpyem1rb3p2dW5nbWlpaWt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMTEwMTQsImV4cCI6MjA3OTg4NzAxNH0.cWWo4Pi6dURT3kdg_1E4Ujn1pG5bZhZTaFy0tcWZn6g";
 
-        // Datu-basearen loga aktibatu (Debugging-erako)
-        setLogLevel('debug');
+	// Supabase hasieratu
+	const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Global variables to store state (Egoera gordetzeko aldagai globalak)
-        window.curriculumData = null; 
-        window.selectedDegree = null;
-        window.selectedYear = null;
-        window.selectedSubjectIndex = null;
-        window.db = null;
-        window.auth = null;
-        window.userId = null;
-        window.appId = null;
-        window.isAuthReady = false;
-        // Tokiko JSON datuen edukia (fitxategi igoa)
-        window.defaultJsonContent = null; 
+        // Global variables to store state
+		window.curriculumData = null; 
+		window.selectedDegree = null;
+		window.selectedYear = null;
+		window.selectedSubjectIndex = null;
+		window.userId = "anonimoa";
+		window.isAuthReady = true;
 
-        // --- Auth UI Kudeaketa ---
+		// Datuak kargatu Supabase-tik
+		async function loadCurriculumData() {
+			try {
+				// 1. Saiatu Supabase-tik datuak lortzen
+				const { data } = await supabase
+					.from('Curriculum Data Store')
+					.select('*')
+					.limit(1);
+				
+				// 2. Datuak badaude, erabili
+				if (data && data.length > 0) {
+					window.curriculumData = data[0].curriculum;
+				} 
+				// 3. Bestela, hutsik hasieratu
+				else {
+					window.curriculumData = {};
+				}
+				
+			} catch (error) {
+				// 4. Errore bat badago, hutsik hasieratu
+				console.log('Supabase errorea, hutsik hasieratzen:', error);
+				window.curriculumData = {};
+			}
+			
+			// 5. BETI jarraitu aurrera
+			document.getElementById('loadingOverlay').classList.add('hidden');
+			updateAuthUI(true);
+			window.initializeUI();
+		}
 
-        function updateAuthUI(user) {
-            const userIdDisplay = document.getElementById('userIdDisplay');
-            const googleSignInBtn = document.getElementById('googleSignInBtn');
-            const signOutBtn = document.getElementById('signOutBtn');
-            const noDataMessage = document.getElementById('noDataMessage');
-            const saveBtn = document.getElementById('saveBtn');
-            const downloadBackupBtn = document.getElementById('downloadBackupBtn');
-            const localJsonLoadBtn = document.getElementById('localJsonLoadBtn');
+		
+		// Datuak gorde Supabase-n (HOBETU HAU)
+		async function saveCurriculumData() {
+			try {
+				console.log('Datuak gordetzen Supabase-n...');
+				
+				// Egiaztatu datuak daudela
+				if (!window.curriculumData || Object.keys(window.curriculumData).length === 0) {
+					window.showToast('❌ Ez dago daturik gordetzeko', 'error');
+					return;
+				}
+				
+				const { error } = await supabase
+					.from('Curriculum Data Store')
+					.upsert({
+						curriculum: window.curriculumData,
+						last_updated: new Date().toISOString(),
+						updated_by: window.userId || 'user'
+					}, {
+						onConflict: 'id'
+					});
+				
+				if (error) throw error;
+				
+				console.log('Datuak gorde dira Supabase-n!');
+				window.showToast('✅ Datuak gorde dira Supabase-n!', 'success');
+				
+			} catch (error) {
+				console.error('ERROREA datuak gordetzean:', error);
+				window.showToast('❌ Errorea gordetzean: ' + error.message, 'error');
+			}
+		}
+		
+		// Denbora errealeko eguneraketak
+		function setupRealtimeUpdates() {
+			supabase
+				.channel('curriculum-changes')
+				.on('postgres_changes', 
+					{ 
+						event: '*', 
+						schema: 'public', 
+						table: 'Curriculum Data Store' 
+					},
+					(payload) => {
+						console.log('DENBORA ERREALEKO ALDAKETA:', payload);
+						if (payload.new && payload.new.curriculum) {
+							window.curriculumData = payload.new.curriculum;
+							window.initializeUI();
+							window.showToast('🔄 Datuak eguneratu dira (lankideak)', 'normal');
+						}
+					}
+				)
+				.subscribe();
+		}
 
-            if (user) {
-                // Erabiltzailea autentifikatuta dago
-                window.userId = user.uid;
-                userIdDisplay.textContent = `${user.email || user.uid.substring(0, 8)}...`;
-                googleSignInBtn.classList.add('hidden');
-                signOutBtn.classList.remove('hidden');
-                saveBtn.disabled = false;
-                downloadBackupBtn.disabled = false;
-                noDataMessage.innerHTML = '<i class="fas fa-spinner fa-spin text-4xl mb-3"></i><p>Datuak kargatzen Firebase-tik...</p>';
-            } else {
-                // Erabiltzailea ez dago autentifikatuta
-                window.userId = null;
-                userIdDisplay.textContent = `Anonimoa`;
-                googleSignInBtn.classList.remove('hidden');
-                signOutBtn.classList.add('hidden');
-                saveBtn.disabled = true;
-                downloadBackupBtn.disabled = true;
-                document.getElementById('navigationPanel').classList.add('hidden');
-                document.getElementById('editorPanel').classList.add('hidden');
-                document.getElementById('welcomeEditor').classList.remove('hidden');
-                noDataMessage.classList.remove('hidden');
-            }
-            
-            // Kargatu JSON botoiaren agerpena (beti JSON-a badago)
-            if (window.defaultJsonContent) {
-                localJsonLoadBtn.classList.remove('hidden');
-            } else {
-                localJsonLoadBtn.classList.add('hidden');
-            }
-        }
-        
-        // --- Autentifikazio Funtzioak ---
+		// GEHITU HAU ZURE SUPABASE KODEAren ONDOREN:
 
-        window.signInWithGoogle = async function() {
-            if (!window.auth) return;
-            const provider = new GoogleAuthProvider();
-            try {
-                await signInWithPopup(window.auth, provider);
-                window.showToast("Saioa ondo hasi da Google-rekin!", "success");
-            } catch (error) {
-                console.error("Google Sign-In Errorea:", error);
-                window.showToast(`Errorea Google bidezko saioa hasten: ${error.message}`, "error");
-            }
-        }
-        
-        window.signOutUser = async function() {
-            if (!window.auth) return;
-            try {
-                await signOut(window.auth);
-                window.showToast("Saioa itxi da.", "normal");
-            } catch (error) {
-                console.error("Saioa ixteko errorea:", error);
-                window.showToast("Errorea saioa ixten.", "error");
-            }
-        }
+		// Supabase-tik datuak berkargatu (behartu)
+		async function forceReloadFromSupabase() {
+			try {
+				document.getElementById('loadingOverlay').classList.remove('hidden');
+				
+				const { data, error } = await supabase
+					.from('Curriculum Data Store')
+					.select('*')
+					.limit(1);
+				
+				if (error) throw error;
+				
+				if (data && data.length > 0) {
+					window.curriculumData = data[0].curriculum;
+					window.initializeUI();
+					window.showToast('✅ Datuak berkargatu dira Supabase-tik', 'success');
+				} else {
+					window.showToast('ℹ️ Ez dago daturik Supabase-n', 'normal');
+				}
+				
+			} catch (error) {
+				console.error('Errorea Supabase-tik berkargatzean:', error);
+				window.showToast('❌ Errorea datuak berkargatzean', 'error');
+			} finally {
+				document.getElementById('loadingOverlay').classList.add('hidden');
+			}
+		}
 
-        // --- Firebase Hasieraketa eta Autentifikazioa ---
+		// Datuak ikusi Supabase-n (debug)
+		async function viewSupabaseData() {
+			try {
+				const { data, error } = await supabase
+					.from('Curriculum Data Store')
+					.select('*');
+				
+				if (error) throw error;
+				
+				console.log('Supabase Datuak:', data);
+				alert(`Supabase-n dauden erregistroak: ${data.length}\nIkusi kontsola datu guztiekin.`);
+				
+			} catch (error) {
+				console.error('Errorea datuak ikustean:', error);
+				window.showToast('❌ Errorea datuak ikustean', 'error');
+			}
+		}
 
-        async function initializeFirebase() {
-            try {
-                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-                window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-                
-                // Tokiko JSON edukia kargatu fitxategi kargatutik
-                window.defaultJsonContent = window.__file_contents ? window.__file_contents['curriculumBD (4).json'] : null;
+		// Supabase egoera egiaztatu
+		async function checkSupabaseStatus() {
+			try {
+				const { data, error } = await supabase
+					.from('Curriculum Data Store')
+					.select('count')
+					.limit(1);
+				
+				if (!error) {
+					console.log('✅ Supabase konektatuta');
+					return true;
+				} else {
+					console.warn('⚠️ Supabase konexio arazoak');
+					return false;
+				}
+			} catch (error) {
+				console.error('❌ Supabase konexio errorea:', error);
+				return false;
+			}
+		}
+
+		// App hasieratzean egiaztatu
+		document.addEventListener('DOMContentLoaded', function() {
+			checkSupabaseStatus();
+		});
 
 
-                if (!firebaseConfig) {
-                    window.showToast("Errorea: Firebase konfigurazioa ez da aurkitu.", "error");
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    return;
-                }
+		// Auth UI eguneratu (Firebase-rik gabe)
+		function updateAuthUI(authenticated) {
+			const userIdDisplay = document.getElementById('userIdDisplay');
+			const googleSignInBtn = document.getElementById('googleSignInBtn');
+			const signOutBtn = document.getElementById('signOutBtn');
+			const noDataMessage = document.getElementById('noDataMessage');
+			const saveBtn = document.getElementById('saveBtn');
+			const downloadBackupBtn = document.getElementById('downloadBackupBtn');
+			const localJsonLoadBtn = document.getElementById('localJsonLoadBtn');
 
-                const app = initializeApp(firebaseConfig);
-                window.db = getFirestore(app);
-                window.auth = getAuth(app);
+			if (authenticated) {
+				userIdDisplay.textContent = `Supabase`;
+				googleSignInBtn.classList.add('hidden');
+				signOutBtn.classList.add('hidden');
+				saveBtn.disabled = false;
+				downloadBackupBtn.disabled = false;
+				noDataMessage.classList.add('hidden');
+				document.getElementById('navigationPanel').classList.remove('hidden');
+			}
+		}
+		
+		// JSON fitxategia kargatzeko funtzioa
+		function uploadJsonFile() {
+			document.getElementById('jsonFileInput').click();
+		}
 
-                // onAuthStateChanged: Saioaren egoera aldatzen denean exekutatzen da
-                onAuthStateChanged(window.auth, (user) => {
-                    updateAuthUI(user);
-                    window.isAuthReady = true;
-                    document.getElementById('loadingOverlay').classList.add('hidden');
-                    
+		document.getElementById('jsonFileInput').addEventListener('change', function(e) {
+			const file = e.target.files[0];
+			if (file) {
+				const reader = new FileReader();
+				reader.onload = function(e) {
+					try {
+						const jsonData = JSON.parse(e.target.result);
+						window.curriculumData = jsonData;
+						window.normalizeData(window.curriculumData);
+						window.initializeUI();
+						window.showToast('✅ JSON datuak kargatu dira!', 'success');
+						
+						// Automatikoki gorde Supabase-n
+						setTimeout(() => {
+							window.saveCurriculumData();
+						}, 1000);
+						
+					} catch (error) {
+						window.showToast('❌ JSON fitxategi okerra', 'error');
+					}
+				};
+				reader.readAsText(file);
+			}
+		});
+		</script>
+		
+		// Datuak gordetzeko botoia
+		window.saveAllDataToFirestore = saveCurriculumData;
 
-                    if (user) {
-                        // Erabiltzailea badago, datuak kargatzen hasi
-                        loadCurriculumFromFirestore();
-                    } else {
-                        // Erabiltzailea ez badago, datu guztiak garbitu
-                        window.curriculumData = null;
-                    }
-                });
+		// Datuak kargatu orria kargatzean
+		window.addEventListener('DOMContentLoaded', function() {
+			document.getElementById('loadingOverlay').classList.add('hidden');
+			loadCurriculumData();
+		});
 
-                // Inguneko token-a erabili lehenik, ingurune horretan saioa automatikoki hasteko
-                if (initialAuthToken) {
-                    await signInWithCustomToken(window.auth, initialAuthToken);
-                } else {
-                    // Tokenik ez badago, saioa modu anonimoan hasi, baina saioa hasteko botoia erakutsi
-                    await signInAnonymously(window.auth);
-                }
+		// Datuak normalizatzeko funtzioa (zure kodea mantendu)
+		window.normalizeData = function(data) {
+			for (const degree in data) {
+				for (const year in data[degree]) {
+					if (Array.isArray(data[degree][year])) {
+						data[degree][year].forEach((subject, subjectIndex) => {
+							if (!Array.isArray(subject.unitateak)) {
+								if (typeof subject.unitateak === 'string') {
+									try {
+										const parsedUnits = JSON.parse(subject.unitateak);
+										subject.unitateak = Array.isArray(parsedUnits) ? parsedUnits : [];
+									} catch (e) {
+										subject.unitateak = [];
+									}
+								} else {
+									subject.unitateak = [];
+								}
+							}
+							
+							subject.unitateak.forEach((unit, unitIndex) => {
+								if (typeof unit.id !== 'string' || isNaN(parseInt(unit.id)) || unit.id.startsWith('fallback-')) {
+									unit.id = `fallback-${subjectIndex}-${unitIndex}-${Date.now() + Math.floor(Math.random() * 1000)}`;
+								}
+							});
 
-            } catch (error) {
-                console.error("Firebase hasieraketa errorea:", error);
-                window.showToast(`Firebase errorea: ${error.message}.`, "error");
-                document.getElementById('loadingOverlay').classList.add('hidden');
-            }
-        }
-
-        // --- Datu Kudeaketa (Firestore) ---
-
-        // Datuak gordetzeko bidea (Publikoa, lankidetzarako)
-        function getCurriculumDocRef() {
-            if (!window.db || !window.appId) return null;
-            return doc(window.db, `artifacts/${window.appId}/public/data/curriculumData`, 'masterCurriculum');
-        }
-        
-        function loadCurriculumFromFirestore() {
-            const docRef = getCurriculumDocRef();
-            if (!docRef || !window.userId) return; 
-
-            // onSnapshot-ekin datuak denbora errealean kargatu eta eguneratzen dira
-            onSnapshot(docRef, (docSnapshot) => {
-                if (!window.isAuthReady) return;
-
-                if (docSnapshot.exists()) {
-                    const loadedData = docSnapshot.data();
-                    window.curriculumData = loadedData.curriculum || {};
-                    window.normalizeData(window.curriculumData); 
-                    window.initializeUI();
-                    window.showToast("Curriculum datuak eguneratu dira (denbora erreala).", "normal");
-                } else {
-                    // Datu-basea hutsik dago.
-                    if (window.curriculumData === null) {
-                        // Kopia igoa badago, datu-basean kargatu
-                        if (window.defaultJsonContent) {
-                            window.loadLocalJsonData(true); // IsInitialLoad=true
-                        } else {
-                            window.curriculumData = {};
-                        }
-                    }
-                }
-                document.getElementById('navigationPanel').classList.remove('hidden');
-                document.getElementById('noDataMessage').classList.add('hidden'); 
-            }, (error) => {
-                console.error("Firestore error (onSnapshot):", error);
-                window.showToast(`Errorea datuak kargatzean: ${error.message}`, "error");
-            });
-        }
-        
-        window.saveAllDataToFirestore = async function(isInitialLoad = false) {
-            if (!window.db || !window.curriculumData || !window.userId || !window.auth.currentUser || window.auth.currentUser.isAnonymous) {
-                window.showToast("Errorea: Saioa hasi behar duzu (Google-rekin) datuak gordetzeko.", "error");
-                return;
-            }
-
-            const docRef = getCurriculumDocRef();
-            if (!docRef) return;
-
-            document.getElementById('saveBtn').disabled = true;
-
-            try {
-                // Gorde datu guztiak curriculum eremuan
-                await setDoc(docRef, { 
-                    curriculum: window.curriculumData, 
-                    lastUpdated: new Date().toISOString(),
-                    updatedBy: window.userId
-                });
-                
-                if (!isInitialLoad) {
-                    window.showToast("Curriculum datuak ondo gorde dira hodeian!", "success");
-                }
-            } catch (error) {
-                console.error("Firestore gordetze errorea:", error);
-                window.showToast(`Errorea datuak gordetzerakoan: ${error.message}`, "error");
-            } finally {
-                document.getElementById('saveBtn').disabled = false;
-            }
-        }
-
+							if (!Array.isArray(subject.currentOfficialRAs)) {
+								subject.currentOfficialRAs = [];
+							}
+						});
+					}
+				}
+			}
+		};
+		
         // --- JSON fitxategia tokiko datuetatik kargatzeko funtzioa ---
         window.loadLocalJsonData = function(isInitialLoad = false) {
-            if (!window.defaultJsonContent) {
-                window.showToast("Errorea: Ez da aurkitu kargatzeko tokiko JSON fitxategia.", "error");
-                return;
-            }
+			if (!window.defaultJsonContent) {
+				window.showToast("Errorea: Ez da aurkitu kargatzeko tokiko JSON fitxategia.", "error");
+				return;
+			}
 
-            try {
-                const parsedData = JSON.parse(window.defaultJsonContent);
-                window.curriculumData = parsedData;
-                window.normalizeData(window.curriculumData);
-                
-                // UI eguneratu
-                window.selectedDegree = null;
-                window.selectedYear = null;
-                window.selectedSubjectIndex = null;
-                window.initializeUI(); 
-                window.resetEditor();
+			try {
+				const parsedData = JSON.parse(window.defaultJsonContent);
+				window.curriculumData = parsedData;
+				window.normalizeData(window.curriculumData);
+				
+				// UI eguneratu
+				window.selectedDegree = null;
+				window.selectedYear = null;
+				window.selectedSubjectIndex = null;
+				window.initializeUI(); 
+				window.resetEditor();
 
-                if (isInitialLoad) {
-                    window.showToast("Datu-basea hutsik dago. Tokiko JSON kargatu da automatikoki.", "normal");
-                } else {
-                    window.showToast("Tokiko JSON datuak kargatu dira. Orain 'Aldaketak Gorde' botoia sakatu dezakezu hodeiko datuak eguneratzeko.", "success");
-                }
-                
-                // Kopia hasierakoa bada, automatikoki gorde saiatu
-                if (isInitialLoad) {
-                   window.saveAllDataToFirestore(true);
-                }
+				if (isInitialLoad) {
+					window.showToast("Supabase hutsik dago. Tokiko JSON kargatu da.", "normal");
+				} else {
+					window.showToast("Tokiko JSON datuak kargatu dira.", "success");
+				}
+				
+				// ✅ SUPABASE-N GORDE
+				if (isInitialLoad) {
+				   window.saveCurriculumData(); // 🔥 ALDAKETA HAU
+				}
 
-            } catch (e) {
-                console.error("Tokiko JSON parseatze errorea:", e);
-                window.showToast("Errorea tokiko JSON datuak kargatzean. Fitxategia ez da zuzena.", "error");
-            }
-        }
+			} catch (e) {
+				console.error("Tokiko JSON parseatze errorea:", e);
+				window.showToast("Errorea tokiko JSON datuak kargatzean.", "error");
+			}
+		}
         
         // --- JSON Deskarga Funtzioa (Segurtasun Kopia) ---
         window.downloadJsonData = function() {
@@ -743,8 +817,7 @@
             });
         }
         
-        // --- Hasi aplikazioa kargatzen ---
-        window.onload = initializeFirebase;
+	console.log('Supabase kodea kargatuta!');
     </script>
 </body>
 </html>
