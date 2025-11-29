@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Curriculum Kudeatzailea (Supabase)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -210,10 +211,11 @@
     <!-- Supabase SDK eta JavaScript Logika -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // Supabase konfigurazioa
-        const SUPABASE_URL = "https://rthjrzmkozvungmiiikt.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0aGpyem1rb3p2dW5nbWlpaWt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMTEwMTQsImV4cCI6MjA3OTg4NzAxNH0.cWWo4Pi6dURT3kdg_1E4Ujn1pG5bZhZTaFy0tcWZn6g";
 
+        // Supabase konfigurazioa - .env fitxategitik kargatuko da
+        const SUPABASE_URL = window.SUPABASE_URL;
+        const SUPABASE_KEY = window.SUPABASE_KEY;
+    
         // Supabase hasieratu
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -780,3 +782,4 @@
     </script>
 </body>
 </html>
+
