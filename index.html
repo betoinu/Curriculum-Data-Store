@@ -6,6 +6,16 @@
     <title>Curriculum Kudeatzailea (Supabase)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="config.js"></script>
+    <script>
+    // Datuak automatikoki kargatu orria kargatzean
+    document.addEventListener('DOMContentLoaded', function() {
+        // Supabase egoera egiaztatu
+        checkSupabaseStatus();
+        
+        // Datuak kargatu (Supabase-tik edo JSON lokala)
+        loadCurriculumData();
+    });
+    </script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -782,4 +792,5 @@
     </script>
 </body>
 </html>
+
 
