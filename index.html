@@ -249,7 +249,7 @@
 			try {
 				// 1. Saiatu Supabase-tik datuak lortzen
 				const { data } = await supabase
-					.from('Curriculum Data Store')
+					.from('curriculum_data')
 					.select('*')
 					.limit(1);
 				
@@ -287,7 +287,7 @@
 				}
 				
 				const { error } = await supabase
-					.from('Curriculum Data Store')
+					.from('curriculum_data')
 					.upsert({
 						curriculum: window.curriculumData,
 						last_updated: new Date().toISOString(),
@@ -315,7 +315,7 @@
 					{ 
 						event: '*', 
 						schema: 'public', 
-						table: 'Curriculum Data Store' 
+						table: 'curriculum_data' 
 					},
 					(payload) => {
 						console.log('DENBORA ERREALEKO ALDAKETA:', payload);
@@ -337,7 +337,7 @@
 				document.getElementById('loadingOverlay').classList.remove('hidden');
 				
 				const { data, error } = await supabase
-					.from('Curriculum Data Store')
+					.from('curriculum_data')
 					.select('*')
 					.limit(1);
 				
@@ -363,7 +363,7 @@
 		async function viewSupabaseData() {
 			try {
 				const { data, error } = await supabase
-					.from('Curriculum Data Store')
+					.from('curriculum_data')
 					.select('*');
 				
 				if (error) throw error;
@@ -381,7 +381,7 @@
 		async function checkSupabaseStatus() {
 			try {
 				const { data, error } = await supabase
-					.from('Curriculum Data Store')
+					.from('curriculum_data')
 					.select('count')
 					.limit(1);
 				
@@ -821,3 +821,4 @@
     </script>
 </body>
 </html>
+
