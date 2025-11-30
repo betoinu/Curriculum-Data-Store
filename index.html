@@ -491,21 +491,30 @@
    
         // Datuak gorde (erabiltzaile infoarekin)
        async function saveCurriculumData() {
-            // 🔥 EGIAZTATU SAIORIK DAGOEN (BEHIN BAKARRIK)
+            // 🔥 EGIAZTATU SAIORIK DAGOEN
             const user = await checkAuth();
             if (!user) {
                 window.showToast('❌ Saioa hasi behar duzu gordetzeko', 'error');
                 return;
             }
             
+            // 🔥 EGIAZTATU DATUAK DAUDELA
+            if (!window.curriculumData) {
+                window.showToast('❌ Ez dago daturik gordetzeko', 'error');
+                return;
+            }
+            
             try {
+                // 🔥 Karga adierazlea erakutsi
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                
                 const { error } = await supabase
                     .from('curriculum_data')
                     .upsert({
                         curriculum: window.curriculumData,
                         last_updated: new Date().toISOString(),
-                        updated_by: user.email,  // Nork egin duen
-                        user_role: isAdmin(user) ? 'admin' : 'teacher'  // Rola gorde
+                        updated_by: user.email,
+                        user_role: isAdmin(user) ? 'admin' : 'teacher'
                     });
                 
                 if (error) throw error;
@@ -514,7 +523,10 @@
                 
             } catch (error) {
                 console.error('Errorea gordetzean:', error);
-                window.showToast('❌ Errorea gordetzean', 'error');
+                window.showToast('❌ Errorea gordetzean: ' + error.message, 'error');
+            } finally {
+                // 🔥 Karga adierazlea ezkutatu (erroreren bat gertatu ala ez)
+                document.getElementById('loadingOverlay').classList.add('hidden');
             }
         }
         
@@ -1027,6 +1039,7 @@
     </script>
 </body>
 </html>
+
 
 
 
