@@ -354,14 +354,28 @@
                     document.getElementById('uploadJsonBtn').classList.add('hidden');
                 }
                 
+                // 🔥 DATUAK KARGATU soilik saioa hasita badago
                 await loadCurriculumData();
+                
             } else {
+                // 🔥 SAIORIK EZ - EZIKUTU DATU GUZTIAK
                 document.getElementById('signInBtn').classList.remove('hidden');
                 document.getElementById('signOutBtn').classList.add('hidden');
                 document.getElementById('userInfo').classList.add('hidden');
                 document.getElementById('appButtons').classList.add('hidden');
                 document.getElementById('noDataMessage').classList.remove('hidden');
+                document.getElementById('navigationPanel').classList.add('hidden');
                 document.getElementById('loadingOverlay').classList.add('hidden');
+                
+                // 🔥 GARBIAGU DATUAK
+                window.curriculumData = null;
+                window.selectedDegree = null;
+                window.selectedYear = null;
+                window.selectedSubjectIndex = null;
+                
+                // 🔥 EDITOREA GARBIAGU
+                document.getElementById('welcomeEditor').classList.remove('hidden');
+                document.getElementById('editorPanel').classList.add('hidden');
             }
         }
         
@@ -370,7 +384,28 @@
             try {
                 console.log('Datuak kargatzen...');
                 
-                // RLS desgaituta dago, datuak kargatu behar dira
+                const user = await checkAuth();
+                
+                // 🔥 SAIOA EGIAZTATU - HAU DA GARRANTZITSUENA
+                if (!user) {
+                    console.log('Ez dago erabiltzailerik saiatuta, datuak ezin kargatu');
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('noDataMessage').classList.remove('hidden');
+                    document.getElementById('navigationPanel').classList.add('hidden');
+                    return;
+                }
+                
+                // 🔥 EMAILA EGIAZTATU
+                if (!isValidEmail(user.email)) {
+                    console.log('Email desegokia:', user.email);
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                    document.getElementById('noDataMessage').classList.remove('hidden');
+                    document.getElementById('navigationPanel').classList.add('hidden');
+                    await supabase.auth.signOut();
+                    return;
+                }
+        
+                // Datuak kargatu (soilik saioa hasita badago)
                 const { data, error } = await supabase
                     .from('curriculum_data')
                     .select('*')
@@ -398,9 +433,14 @@
             } catch (error) {
                 console.error('Errorea datuak kargatzean:', error);
                 document.getElementById('loadingOverlay').classList.add('hidden');
+                
+                // 🔥 Errorea bada, erakutsi saioa hasteko mezua
+                document.getElementById('noDataMessage').classList.remove('hidden');
+                document.getElementById('navigationPanel').classList.add('hidden');
+                
                 window.showToast('❌ Errorea datuak kargatzean', 'error');
             }
-        }    
+        } 
    
         // Datuak gorde (erabiltzaile infoarekin)
         async function saveCurriculumData() {
@@ -917,6 +957,7 @@
     </script>
 </body>
 </html>
+
 
 
 
