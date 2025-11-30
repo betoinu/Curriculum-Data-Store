@@ -87,6 +87,11 @@
                     <button onclick="viewSupabaseData()" class="bg-indigo-600 hover:bg-indigo-800 px-3 py-1.5 rounded transition flex items-center text-sm">
                         <i class="fas fa-database mr-2"></i> Datuak Ikusi
                     </button>
+
+                    <!-- 🔥 GEHITU HEMEN - HISTORIA BOTOIA -->
+                    <button onclick="viewEditHistory()" class="bg-yellow-500 hover:bg-yellow-600 px-3 py-1.5 rounded transition flex items-center text-sm">
+                        <i class="fas fa-history mr-2"></i> Editore Historia
+                    </button>
                     
                     <!-- 🛑 ADMIN BOTOIAK (soilik administratzaileentzat) -->
                     <button id="downloadBackupBtn" class="bg-blue-500 hover:bg-blue-600 px-3 py-1.5 rounded transition flex items-center text-sm hidden">
@@ -299,7 +304,6 @@
             document.getElementById('yearButtons').innerHTML = '';
             document.getElementById('subjectList').innerHTML = '<li class="p-3 text-gray-500 text-sm italic">Saioa hasi behar duzu...</li>';
         }
-
         
         // FUNtzioak DEFINITU
         function checkSupabaseStatus() {
@@ -353,6 +357,39 @@
             location.reload();
         }
         
+        async function viewEditHistory() {
+            const user = await checkAuth();
+            if (!user) {
+                window.showToast('❌ Saioa hasi behar duzu historia ikusteko', 'error');
+                return;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('curriculum_data')
+                    .select('last_updated, updated_by, user_role')
+                    .order('last_updated', { ascending: false });
+                
+                if (error) throw error;
+                
+                console.log('Editore historia:', data);
+                
+                // Datuak erakutsi alerta batean
+                let message = '🕐 Editore Historia:\n\n';
+                data.forEach((item, index) => {
+                    const data = new Date(item.last_updated).toLocaleString('eu-EU');
+                    message += `${index + 1}. ${data}\n`;
+                    message += `   Erabiltzailea: ${item.updated_by}\n`;
+                    message += `   Rola: ${item.user_role}\n\n`;
+                });
+                
+                alert(message);
+                
+            } catch (error) {
+                console.error('Errorea historia kargatzean:', error);
+                window.showToast('❌ Errorea historia kargatzean', 'error');
+            }
+        }        
         // UI EGUNERAKETA
         async function updateUI() {
             const user = await checkAuth();
@@ -873,18 +910,33 @@
             }
         }
 
-        window.addUnit = function() {
+        window.addUnit = async function() {
+            // 🔥 EGIAZTATU SAIORIK DAGOEN
             const user = await checkAuth();
-                if (!user) {
-                    window.showToast('❌ Saioa hasi behar duzu unitateak gehitzeko', 'error');
-                    return;
-                }
+            if (!user) {
+                window.showToast('❌ Saioa hasi behar duzu unitateak gehitzeko', 'error');
+                return;
+            }
+            
             const nameInput = document.getElementById('unitName');
             const contentInput = document.getElementById('unitContent');
             const subject = window.getSelectedSubject();
+            
             if (!subject) return;
-            if (!nameInput.value.trim() || !contentInput.value.trim()) { window.showToast("Mesedez, bete eremu guztiak.", "error"); return; }
-            const newUnit = { id: Date.now().toString(), izena: nameInput.value.trim(), edukiak: contentInput.value.trim(), data: new Date().toISOString().slice(0, 10) };
+            if (!nameInput.value.trim() || !contentInput.value.trim()) { 
+                window.showToast("Mesedez, bete eremu guztiak.", "error"); 
+                return; 
+            }
+            
+            const newUnit = { 
+                id: Date.now().toString(), 
+                izena: nameInput.value.trim(), 
+                edukiak: contentInput.value.trim(), 
+                data: new Date().toISOString().slice(0, 10),
+                egilea: user.email,  // 🆕 GEHITU HAU
+                egile_rola: isAdmin(user) ? 'admin' : 'teacher'  // 🆕 GEHITU HAU
+            };
+            
             subject.unitateak.push(newUnit);
             nameInput.value = '';
             contentInput.value = '';
@@ -909,13 +961,13 @@
             const noUnitsMsg = document.getElementById('noUnitsMessage');
             const subject = window.getSelectedSubject();
             if (!subject) return;
-
+        
             const sortedUnits = subject.unitateak.slice().sort((a, b) => {
                 const idA = parseInt(a.id);
                 const idB = parseInt(b.id);
                 return (!isNaN(idA) && !isNaN(idB)) ? idB - idA : 0; 
             });
-
+        
             container.innerHTML = '';
             if (sortedUnits.length === 0) {
                 noUnitsMsg.classList.remove('hidden');
@@ -926,12 +978,18 @@
                     card.className = "bg-white border border-gray-200 rounded p-4 shadow-sm relative hover:shadow-md transition";
                     const contentFormatted = unit.edukiak ? unit.edukiak.replace(/\n/g, '<br>') : 'Ez dago edukirik.';
                     const originalIndex = subject.unitateak.findIndex(u => u.id === unit.id);
+                    
+                    // 🔥 EGUNERATUTA - EGILEAREN INFORMAZIOA GEHITU
                     card.innerHTML = `
                         <button onclick="window.deleteUnit(${originalIndex})" class="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1" title="Ezabatu">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                         <h4 class="font-bold text-indigo-700 mb-2 text-lg">${unit.izena || 'Izenik gabe'}</h4>
-                        <p class="text-xs text-gray-500 mb-2">Gehitze data: ${unit.data || 'Ezezaguna'}</p>
+                        <p class="text-xs text-gray-500 mb-2">
+                            Gehitze data: ${unit.data || 'Ezezaguna'} 
+                            ${unit.egilea ? `| Egilea: ${unit.egilea}` : ''}
+                            ${unit.egile_rola ? ` (${unit.egile_rola})` : ''}
+                        </p>
                         <div class="text-gray-600 text-sm leading-relaxed bg-gray-50 p-3 rounded">
                             ${contentFormatted}
                         </div>
@@ -1039,6 +1097,7 @@
     </script>
 </body>
 </html>
+
 
 
 
