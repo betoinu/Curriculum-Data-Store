@@ -496,21 +496,15 @@
         // AUTH FUNtzioak
         // HTML barruan dagoen kodea eguneratu
         // 6. AUTH FUNtzioak
-        window.signInWithGoogle = async function() {
-            try {
-                const { error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: { 
-                        redirectTo: window.location.href  // 🔥 CAMBIA ESTO
-                    }
-                });
-                
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error Google Auth:', error);
-                window.showToast('❌ Errorea Google saioa hastean', 'error');
-            }
-        };
+       window.signInWithGoogle = async function() {
+        await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: location.href }
+        });
+        
+        // 🔥 ESTA ES LA CLAVE - Forzar recarga después de 3 segundos
+        setTimeout(() => location.reload(), 3000);
+    };
         
         window.signOut = async function() {
             try {
@@ -1352,6 +1346,7 @@
     </script>
 </body>
 </html>
+
 
 
 
