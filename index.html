@@ -928,7 +928,7 @@ window.setupEventListeners = function() {
         function handleLogoutFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             const hasLogoutParam = urlParams.has('logout');
-            const hasTimestamp = urlParams.has('_');
+            
             // 1. Garbitu URL-a
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
@@ -1655,6 +1655,7 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
 
 
