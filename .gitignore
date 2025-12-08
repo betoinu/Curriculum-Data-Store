@@ -34,4 +34,16 @@ temp/
 
 # Config fitxategi pribatuak
 config_private.js
+
+# Service workers
+/sw.js
+/service-worker.js
+
+# Node modules (si usas npm)
+node_modules/
+
+# Entornos virtuales Python
+venv/
+env/
+
 supabase_keys.js
