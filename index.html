@@ -51,28 +51,6 @@
             z-index: 50;
         }
     </style>
-    <script>
-        // 🔥 DESREGISTRAR SERVICE WORKERS AL CARGAR
-        (function() {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    console.log('Service workers encontrados:', registrations.length);
-                    registrations.forEach(function(registration) {
-                        console.log('Desregistrando:', registration.scope);
-                        registration.unregister();
-                    });
-                });
-                
-                if (window.caches) {
-                    caches.keys().then(function(cacheNames) {
-                        cacheNames.forEach(function(cacheName) {
-                            caches.delete(cacheName);
-                        });
-                    });
-                }
-            }
-        })();
-    </script>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
     
@@ -667,49 +645,91 @@ window.setupEventListeners = function() {
 
         // Funtzio SIMPLE eta BUKLE GABEKO
         function setUILoginState(isLoggedIn, user = null) {
-            console.log('🎯 setUILoginState:', isLoggedIn, user?.email || 'no user');
+            console.log('🎯 setUILoginState llamado:', isLoggedIn, user?.email || 'no-user');
             
-            // 1. KARGA ADIERAZLEA BETI EZKUTATU
+            // 🔥 1. OCULTAR LOADING SIEMPRE
             const loading = document.getElementById('loadingOverlay');
             if (loading) {
+                loading.style.display = 'none';
                 loading.classList.add('hidden');
-                loading.style.display = 'none'; // 🔥 ESTA ES LA CLAVE
+                console.log('✅ Loading ocultado');
             }
             
-            // 2. SAIOREN ARABERA EGUNERATU
+            // 🔥 2. PREVENIR LLAMADAS MÚLTIPLES
+            if (window.lastUILoginState === isLoggedIn && 
+                window.lastUILoginUser === (user?.email || 'no-user')) {
+                console.log('⏭️ Saltando - mismo estado');
+                return;
+            }
+            window.lastUILoginState = isLoggedIn;
+            window.lastUILoginUser = user?.email || 'no-user';
+            
+            // 🔥 3. SI ESTÁ LOGUEADO
             if (isLoggedIn && user) {
-                // ✅ SAIOREN HASITA
-                document.getElementById('signInBtn')?.classList.add('hidden');
-                document.getElementById('signOutBtn')?.classList.remove('hidden');
-                document.getElementById('userInfo')?.classList.remove('hidden');
-                document.getElementById('appButtons')?.classList.remove('hidden');
+                console.log('👤 Mostrando UI para usuario:', user.email);
                 
-                // Erabiltzaile info
-                if (document.getElementById('userEmail')) {
-                    document.getElementById('userEmail').textContent = user.email;
-                }
-                if (document.getElementById('userRole')) {
-                    document.getElementById('userRole').textContent = 
-                        isAdmin(user) ? 'Admin' : 'Irakaslea';
+                // Ocultar botón de login
+                const signInBtn = document.getElementById('signInBtn');
+                if (signInBtn) signInBtn.classList.add('hidden');
+                
+                // Mostrar botón de logout
+                const signOutBtn = document.getElementById('signOutBtn');
+                if (signOutBtn) signOutBtn.classList.remove('hidden');
+                
+                // Mostrar info usuario
+                const userInfo = document.getElementById('userInfo');
+                if (userInfo) {
+                    userInfo.classList.remove('hidden');
+                    
+                    // Actualizar email
+                    const userEmail = document.getElementById('userEmail');
+                    if (userEmail) userEmail.textContent = user.email;
+                    
+                    // Actualizar rol
+                    const userRole = document.getElementById('userRole');
+                    if (userRole) {
+                        const isAdmin = ADMIN_EMAILS.includes(user.email);
+                        userRole.textContent = isAdmin ? 'Admin' : 'Irakaslea';
+                        userRole.className = isAdmin ? 
+                            'text-xs bg-red-500 px-2 py-1 rounded' : 
+                            'text-xs bg-green-500 px-2 py-1 rounded';
+                    }
                 }
                 
-                // Admin botoiak
-                if (isAdmin(user)) {
-                    document.getElementById('downloadBackupBtn')?.classList?.remove('hidden');
-                    document.getElementById('uploadJsonBtn')?.classList?.remove('hidden');
+                // 🔥 CRÍTICO: Mostrar botones de app
+                const appButtons = document.getElementById('appButtons');
+                if (appButtons) {
+                    appButtons.classList.remove('hidden');
+                    appButtons.style.display = 'flex';
+                    console.log('✅ appButtons mostrado');
                 }
+                
+                // Mostrar panel de navegación
+                const navPanel = document.getElementById('navigationPanel');
+                if (navPanel) navPanel.classList.remove('hidden');
+                
+                // Ocultar mensaje "no data"
+                const noDataMsg = document.getElementById('noDataMessage');
+                if (noDataMsg) noDataMsg.classList.add('hidden');
+                
+                // Mostrar botones admin si corresponde
+                const isAdmin = ADMIN_EMAILS.includes(user.email);
+                document.getElementById('downloadBackupBtn')?.classList.toggle('hidden', !isAdmin);
+                document.getElementById('uploadJsonBtn')?.classList.toggle('hidden', !isAdmin);
                 
             } else {
-                // 🔓 SAIOREN IRTENDA
+                // 🔥 4. SI NO ESTÁ LOGUEADO
+                console.log('👤 Ocultando UI - no logueado');
+                
                 document.getElementById('signInBtn')?.classList.remove('hidden');
                 document.getElementById('signOutBtn')?.classList.add('hidden');
                 document.getElementById('userInfo')?.classList.add('hidden');
                 document.getElementById('appButtons')?.classList.add('hidden');
-                document.getElementById('noDataMessage')?.classList.remove('hidden');
                 document.getElementById('navigationPanel')?.classList.add('hidden');
-                document.getElementById('welcomeEditor')?.classList.remove('hidden');
-                document.getElementById('editorPanel')?.classList.add('hidden');
+                document.getElementById('noDataMessage')?.classList.remove('hidden');
             }
+            
+            console.log('✅ setUILoginState completado');
         }
         
         // DATUAK KARGATU
@@ -1565,8 +1585,31 @@ window.setupEventListeners = function() {
         console.log('✅ BLOQUEADOR TAC AGGRESIVO ACTIVADO');
     })();
     </script>
+        <script>
+        // 🔥 DESREGISTRAR SERVICE WORKERS AL CARGAR
+        (function() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    console.log('Service workers encontrados:', registrations.length);
+                    registrations.forEach(function(registration) {
+                        console.log('Desregistrando:', registration.scope);
+                        registration.unregister();
+                    });
+                });
+                
+                if (window.caches) {
+                    caches.keys().then(function(cacheNames) {
+                        cacheNames.forEach(function(cacheName) {
+                            caches.delete(cacheName);
+                        });
+                    });
+                }
+            }
+        })();
+    </script>
 </body>
 </html>
+
 
 
 
