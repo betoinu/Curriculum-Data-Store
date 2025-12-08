@@ -1640,7 +1640,11 @@ window.setupEventListeners = function() {
             }
             
             // 2. Logout parametroak kudeatu (UPDATE EGINDUA)
-            handleLogoutFromUrl(); // Orain setUILoginState() erabiliko du
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('logout')) {
+                handleLogoutFromUrl();
+            }
+        });
             
             // 3. ❌ KENDU HAU: setTimeout updateUI
             // ✅ ORDEZKATU HONEGAZ:
@@ -1663,6 +1667,7 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
 
 
