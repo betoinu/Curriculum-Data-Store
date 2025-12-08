@@ -298,26 +298,6 @@
     
         // Supabase hasieratu
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        // Después de: const supabase = window.supabase.createClient(...);
-            // 🔥 PROTEJER SUPABASE DE TAC
-        const originalSupabaseAuth = supabase.auth;
-        
-        // Interceptar llamadas a Supabase Auth
-        Object.keys(originalSupabaseAuth).forEach(key => {
-            if (typeof originalSupabaseAuth[key] === 'function') {
-                supabase.auth[key] = function(...args) {
-                    console.log('🔒 Supabase Auth llamado:', key);
-                    
-                    // Verificar que no haya TAC activo
-                    if (window.TAC_INJECTED) {
-                        console.error('🚨 TAC DETECTADO - Bloqueando Supabase');
-                        return Promise.reject(new Error('TAC interference detected'));
-                    }
-                    
-                    return originalSupabaseAuth[key].apply(this, args);
-                };
-            }
-        });
         // Detectar si hay sesión en la URL (después de redirección de Google)
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         if (hashParams.has('access_token') || hashParams.has('error')) {
@@ -326,92 +306,98 @@
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-let Initialized = false;
-let authCheckInProgress = false; // 🔥 NUEVO: Evitar múltiples ejecuciones simultáneas
+let authInitialized = false;
+let authEventCount = 0;
 
 supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 Auth State Change:', event, session?.user?.email || 'sin usuario');
+    authEventCount++;
     
-    // 🔥 EVITAR EJECUCIÓN MÚLTIPLE
-    if (authCheckInProgress && (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
-        console.log('⏭️ Saltando evento duplicado:', event);
+    // 🔥 LIMITAR EVENTOS - SI hay más de 5 eventos en 10 segundos, PARAR
+    if (authEventCount > 5) {
+        console.error('🚨 DEMASIADOS EVENTOS AUTH - DETENIENDO LISTENER');
         return;
     }
     
-    authCheckInProgress = true;
+    console.log('🔐 Auth State Change:', event, 'Contador:', authEventCount);
     
-    try {
-        switch (event) {
-            case 'SIGNED_IN':
-                if (session?.user) {
-                    console.log('✅ SIGNED_IN:', session.user.email);
-                    
-                    // 1. Actualizar UI INMEDIATAMENTE
-                    setUILoginState(true, session.user);
-                    
-                    // 2. Marcar como inicializado
-                    authInitialized = true;
-                    
-                    // 3. Cargar datos con pequeño delay
-                    setTimeout(() => {
-                        if (!window.curriculumData) {
-                            console.log('📥 Cargando datos tras login...');
-                            loadCurriculumData();
-                        }
-                    }, 800);
-                }
-                break;
-                
-            case 'INITIAL_SESSION':
-                // 🔥 SOLO EJECUTAR LA PRIMERA VEZ
-                if (!authInitialized && session?.user) {
-                    console.log('🔄 INITIAL_SESSION (primera vez):', session.user.email);
-                    authInitialized = true;
-                    
-                    // Actualizar UI
-                    setUILoginState(true, session.user);
-                    
-                    // Cargar datos
-                    setTimeout(() => {
-                        if (!window.curriculumData) {
-                            console.log('📥 Cargando datos iniciales...');
-                            loadCurriculumData();
-                        }
-                    }, 1000);
-                } else {
-                    console.log('⏭️ INITIAL_SESSION ignorado (ya inicializado)');
-                }
-                break;
-                
-            case 'SIGNED_OUT':
-                console.log('🚪 SIGNED_OUT');
-                authInitialized = false;
-                setUILoginState(false);
-                
-                // Limpiar datos
-                window.curriculumData = null;
-                window.selectedDegree = null;
-                window.selectedYear = null;
-                window.selectedSubjectIndex = null;
-                break;
-                
-            case 'TOKEN_REFRESHED':
-            case 'USER_UPDATED':
-                // 🔥 IGNORAR COMPLETAMENTE - no hacer nada
-                console.log('⚡ Evento ignorado:', event);
-                break;
-                
-            default:
-                console.log('📌 Otro evento auth:', event);
-        }
-    } catch (error) {
-        console.error('❌ Error en auth state change:', error);
-    } finally {
-        // 🔥 PERMITIR NUEVAS EJECUCIONES
-        setTimeout(() => {
-            authCheckInProgress = false;
-        }, 500);
+    // 🔥 IGNORAR EVENTOS DUPLICADOS/INNECESARIOS
+    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        console.log('⏭️ Evento ignorado:', event);
+        return;
     }
+    
+    // 🔥 EVITAR MÚLTIPLES INICIALIZACIONES
+    if (event === 'INITIAL_SESSION' && authInitialized) {
+        console.log('⏭️ INITIAL_SESSION ya procesado');
+        return;
+    }
+    
+    switch (event) {
+        case 'SIGNED_IN':
+            console.log('✅ SIGNED_IN:', session?.user?.email || 'no email');
+            authInitialized = true;
+            
+            // 🔥 SIN setTimeout - actualizar INMEDIATAMENTE
+            if (typeof setUILoginState === 'function') {
+                setUILoginState(true, session.user);
+            }
+            
+            // 🔥 Cargar datos SOLO si no están cargados
+            setTimeout(() => {
+                if (!window.curriculumData && typeof loadCurriculumData === 'function') {
+                    console.log('📥 Cargando datos después de login...');
+                    loadCurriculumData();
+                }
+            }, 500);
+            break;
+            
+        case 'INITIAL_SESSION':
+            console.log('🔄 INITIAL_SESSION:', session?.user?.email || 'sin sesión');
+            
+            if (session?.user) {
+                authInitialized = true;
+                
+                // 🔥 Usuario ya logueado - actualizar UI
+                if (typeof setUILoginState === 'function') {
+                    setUILoginState(true, session.user);
+                }
+                
+                // Cargar datos con retraso
+                setTimeout(() => {
+                    if (!window.curriculumData && typeof loadCurriculumData === 'function') {
+                        console.log('📥 Cargando datos existentes...');
+                        loadCurriculumData();
+                    }
+                }, 1000);
+            } else {
+                // 🔥 NO hay sesión - estado inicial
+                authInitialized = true;
+                
+                if (typeof setUILoginState === 'function') {
+                    setTimeout(() => {
+                        setUILoginState(false);
+                    }, 500);
+                }
+            }
+            break;
+            
+        case 'SIGNED_OUT':
+            console.log('🚪 SIGNED_OUT');
+            authInitialized = false;
+            
+            if (typeof setUILoginState === 'function') {
+                setUILoginState(false);
+            }
+            break;
+            
+        default:
+            console.log('⚡ Otro evento:', event);
+    }
+    
+    // 🔥 RESETEAR CONTADOR después de 10 segundos
+    setTimeout(() => {
+        authEventCount = 0;
+    }, 10000);
 });
         // Global variables to store state
         window.curriculumData = null; 
@@ -530,33 +516,44 @@ window.setupEventListeners = function() {
         // HTML barruan dagoen kodea eguneratu
         // 6. AUTH FUNtzioak
         window.signInWithGoogle = async function() {
+            console.log('🔐 Iniciando login Google...');
+            
             try {
-                console.log('🔐 Iniciando login con Google...');
+                // 🔥 URL LIMPIA - sin parámetros
+                const cleanRedirectUrl = window.location.origin + window.location.pathname;
+                console.log('📍 Redirect URL:', cleanRedirectUrl);
                 
                 // Mostrar loading
-                document.getElementById('loadingOverlay').classList.remove('hidden');
-                document.getElementById('loadingText').textContent = 'Google-rekin konektatzen...';
+                const loading = document.getElementById('loadingOverlay');
+                if (loading) {
+                    loading.classList.remove('hidden');
+                    document.getElementById('loadingText').textContent = 'Google-rekin konektatzen...';
+                }
                 
-                // Login sin recarga forzada
                 const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
-                        redirectTo: window.location.origin + window.location.pathname,
+                        redirectTo: cleanRedirectUrl,
                         queryParams: {
-                            prompt: 'select_account' // Para evitar problemas de caché
+                            prompt: 'select_account',
+                            access_type: 'offline'
                         }
                     }
                 });
                 
-                if (error) throw error;
+                if (error) {
+                    console.error('❌ Error login Google:', error);
+                    if (loading) loading.classList.add('hidden');
+                    window.showToast('❌ Errorea Google-rekin saioa hastean', 'error');
+                }
                 
-                // NO recargar automáticamente - dejar que Supabase maneje la redirección
-                console.log('✅ Login iniciado - esperando redirección de Google');
+                // 🔥 NO recargar automáticamente - Supabase maneja la redirección
+                console.log('✅ Login iniciado - redireccionando a Google');
                 
             } catch (error) {
-                console.error('❌ Error en login Google:', error);
-                document.getElementById('loadingOverlay').classList.add('hidden');
-                window.showToast('❌ Errorea Google-rekin saioa hastean', 'error');
+                console.error('❌ Error en signInWithGoogle:', error);
+                document.getElementById('loadingOverlay')?.classList.add('hidden');
+                window.showToast('❌ Errorea login prozesuan', 'error');
             }
         };
         
@@ -1597,6 +1594,7 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
 
 
