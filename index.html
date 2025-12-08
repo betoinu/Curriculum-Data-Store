@@ -300,27 +300,16 @@
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         // Detectar si hay sesión en la URL (después de redirección de Google)
 
+let authEventCount = 0;
+let authInitialized = false;
 let authHandlerActive = true;
-supabase.auth.onAuthStateChange(async (event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
     authEventCount++;
+    console.log('🔐 Auth event:', event, 'Count:', authEventCount);
     
-    // 🔥 LIMITAR EVENTOS - SI hay más de 5 eventos en 10 segundos, PARAR
-    if (authEventCount > 5) {
-        console.error('🚨 DEMASIADOS EVENTOS AUTH - DETENIENDO LISTENER');
-        return;
-    }
-    
-    console.log('🔐 Auth State Change:', event, 'Contador:', authEventCount);
-    
-    // 🔥 IGNORAR EVENTOS DUPLICADOS/INNECESARIOS
-    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        console.log('⏭️ Evento ignorado:', event);
-        return;
-    }
-    
-    // 🔥 EVITAR MÚLTIPLES INICIALIZACIONES
-    if (event === 'INITIAL_SESSION' && authInitialized) {
-        console.log('⏭️ INITIAL_SESSION ya procesado');
+    // 🔥 LIMITAR EVENTOS (prevenir bucles)
+    if (authEventCount > 10) {
+        console.error('🚨 DEMASIADOS EVENTOS AUTH - IGNORANDO');
         return;
     }
     
@@ -329,46 +318,39 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('✅ SIGNED_IN:', session?.user?.email || 'no email');
             authInitialized = true;
             
-            // 🔥 SIN setTimeout - actualizar INMEDIATAMENTE
             if (typeof setUILoginState === 'function') {
                 setUILoginState(true, session.user);
             }
             
-            // 🔥 Cargar datos SOLO si no están cargados
+            // Cargar datos después de 500ms
             setTimeout(() => {
                 if (!window.curriculumData && typeof loadCurriculumData === 'function') {
-                    console.log('📥 Cargando datos después de login...');
                     loadCurriculumData();
                 }
             }, 500);
             break;
             
         case 'INITIAL_SESSION':
-            console.log('🔄 INITIAL_SESSION:', session?.user?.email || 'sin sesión');
+            console.log('🔄 INITIAL_SESSION:', session?.user?.email || 'no session');
             
             if (session?.user) {
                 authInitialized = true;
                 
-                // 🔥 Usuario ya logueado - actualizar UI
                 if (typeof setUILoginState === 'function') {
                     setUILoginState(true, session.user);
                 }
                 
-                // Cargar datos con retraso
                 setTimeout(() => {
                     if (!window.curriculumData && typeof loadCurriculumData === 'function') {
-                        console.log('📥 Cargando datos existentes...');
                         loadCurriculumData();
                     }
                 }, 1000);
             } else {
-                // 🔥 NO hay sesión - estado inicial
+                // NO hay sesión - estado inicial
                 authInitialized = true;
                 
                 if (typeof setUILoginState === 'function') {
-                    setTimeout(() => {
-                        setUILoginState(false);
-                    }, 500);
+                    setUILoginState(false);
                 }
             }
             break;
@@ -382,14 +364,22 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             }
             break;
             
+        case 'TOKEN_REFRESHED':
+        case 'USER_UPDATED':
+            // Ignorar completamente
+            break;
+            
         default:
-            console.log('⚡ Otro evento:', event);
+            console.log('📌 Otro evento auth:', event);
     }
     
-    // 🔥 RESETEAR CONTADOR después de 10 segundos
+    // 🔥 Resetear contador después de 5 segundos
     setTimeout(() => {
-        authEventCount = 0;
-    }, 10000);
+        if (authEventCount > 0) {
+            authEventCount = 0;
+            console.log('🔄 Contador auth reseteado');
+        }
+    }, 5000);
 });
         // Global variables to store state
         window.curriculumData = null; 
@@ -1563,6 +1553,7 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
 
 
