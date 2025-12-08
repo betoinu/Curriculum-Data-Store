@@ -1,46 +1,88 @@
-// app.js - Código principal de la aplicación
+javascript
+// app.js - INICIO DEL ARCHIVO
+console.log('🔍 Verificando dependencias...');
+
+// 🔥 VERIFICACIÓN DE SEGURIDAD
+function verificarDependencias() {
+    const errores = [];
+    
+    // 1. Verificar Supabase SDK
+    if (typeof window.supabase === 'undefined') {
+        errores.push('Supabase SDK no cargado');
+        console.error('❌ window.supabase es undefined');
+    }
+    
+    // 2. Verificar configuración
+    if (!window.SUPABASE_URL || !window.SUPABASE_KEY) {
+        errores.push('Credenciales Supabase faltantes');
+        console.error('❌ SUPABASE_URL o SUPABASE_KEY faltan');
+    }
+    
+    // 3. Mostrar estado
+    console.log('📊 Estado:', {
+        supabaseSDK: typeof window.supabase,
+        tieneURL: !!window.SUPABASE_URL,
+        tieneKEY: !!window.SUPABASE_KEY,
+        URL: window.SUPABASE_URL?.substring(0, 30) + '...' || 'NO',
+        KEY: window.SUPABASE_KEY?.substring(0, 10) + '...' || 'NO'
+    });
+    
+    return errores;
+}
+
+// Ejecutar verificación
+const errores = verificarDependencias();
+
+if (errores.length > 0) {
+    console.error('🚨 ERRORES CRÍTICOS:', errores);
+    
+    // Mostrar error en pantalla
+    document.addEventListener('DOMContentLoaded', function() {
+        const loading = document.getElementById('loadingOverlay');
+        if (loading) {
+            loading.innerHTML = `
+                <div class="text-center text-red-600 p-6">
+                    <i class="fas fa-exclamation-triangle text-4xl mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">Error de Configuración</h3>
+                    <p class="mb-3">${errores.join('<br>')}</p>
+                    <p class="text-sm">Verifica que:</p>
+                    <ul class="text-sm text-left inline-block mt-2">
+                        <li>1. config.js existe en /js/</li>
+                        <li>2. Contiene SUPABASE_URL y SUPABASE_KEY</li>
+                        <li>3. Los scripts se cargan en orden correcto</li>
+                    </ul>
+                    <button onclick="location.reload()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded">
+                        <i class="fas fa-redo mr-2"></i>Recargar Página
+                    </button>
+                </div>
+            `;
+        }
+    });
+    
+    // Detener ejecución
+    throw new Error('Dependencias faltantes: ' + errores.join(', '));
+}
 
 // ============================================
-// 1. CONFIGURACIÓN Y VARIABLES GLOBALES
-// ============================================   
-// Variable global para Supabase (NO CONST, usar let)
-let supabase = null;
+// SOLO CONTINUAR SI TODO ESTÁ BIEN
+// ============================================
 
-// Función para inicializar Supabase de forma segura
-function inicializarSupabase() {
-    console.log('🔧 Inicializando Supabase...');
-    
-    // 1. Verificar que config.js se cargó
-    if (!window.SUPABASE_URL || !window.SUPABASE_KEY) {
-        console.error('❌ ERROR CRÍTICO: Variables de Supabase no definidas');
-        console.error('   Razón: config.js no se cargó antes que app.js');
-        console.error('   Solución: Verificar orden de scripts en index.html');
-        return false;
-    }
-    
-    // 2. Verificar que la librería Supabase esté disponible
-    if (typeof window.supabase === 'undefined') {
-        console.error('❌ ERROR: Librería Supabase no cargada');
-        console.error('   Razón: CDN de Supabase no se cargó');
-        return false;
-    }
-    
-    try {
-        // 3. Crear cliente de Supabase
-        supabase = window.supabase.createClient(
-            window.SUPABASE_URL, 
-            window.SUPABASE_KEY
-        );
-        
-        console.log('✅ Supabase inicializado correctamente');
-        console.log('   URL:', window.SUPABASE_URL.substring(0, 30) + '...');
-        return true;
-    } catch (error) {
-        console.error('❌ ERROR creando cliente Supabase:', error);
-        return false;
-    }
+console.log('✅ Dependencias verificadas - Iniciando aplicación');
+
+// Tu código original continúa aquí...
+const SUPABASE_URL = window.SUPABASE_URL;
+const SUPABASE_KEY = window.SUPABASE_KEY;
+
+// 🔥 INICIALIZACIÓN SEGURA
+let supabase;
+try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    window.supabase = supabase; // Guardar globalmente
+    console.log('✅ Supabase inicializado correctamente');
+} catch (error) {
+    console.error('❌ Error inicializando Supabase:', error);
+    throw error;
 }
-// Detectar si hay sesión en la URL (después de redirección de Google)
 
 let authEventCount = 0;
 let authInitialized = false;
@@ -2461,6 +2503,7 @@ window.setupEventListeners = function() {
             }
                     })();
  
+
 
 
 
