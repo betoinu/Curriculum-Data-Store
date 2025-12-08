@@ -1442,10 +1442,16 @@ window.setupEventListeners = function() {
         // 🔥 FUNCIÓN PARA ACTUALIZAR CRÉDITOS
         window.actualizarCreditos = function() {
             const creditosInput = document.getElementById('subjectCreditsEdit');
+            if (!creditosInput) {
+                console.error('❌ subjectCreditsEdit ez dago');
+                return;
+            }
+            
             const creditos = parseFloat(creditosInput.value);
             
-            if (isNaN(creditos) || creditos < 0) {
-                window.showToast('❌ Kreditu baliogabea', 'error');
+            // Validar
+            if (isNaN(creditos) || creditos < 0 || creditos > 30) {
+                window.showToast('❌ Kreditu baliogabea (0-30 artean)', 'error');
                 return;
             }
             
@@ -1454,10 +1460,15 @@ window.setupEventListeners = function() {
                 subject.kredituak = creditos;
                 
                 // Actualizar visualización
-                document.getElementById('subjectCredits').textContent = `Kredituak: ${creditos}`;
+                const creditsDisplay = document.getElementById('subjectCredits');
+                if (creditsDisplay) {
+                    creditsDisplay.textContent = `Kredituak: ${creditos}`;
+                }
                 
                 window.showToast(`✅ Kredituak eguneratuta: ${creditos} ECTS`, 'success');
                 window.saveCurriculumData();
+            } else {
+                console.error('❌ Ez dago asignaturarik aukeratuta');
             }
         };
         
@@ -1478,6 +1489,19 @@ window.setupEventListeners = function() {
             
             // 🔥 AÑADE ESTO:
             document.getElementById('subjectArea').value = subject.arloa || '';
+
+            // 🔥 AÑADIR ESTO:
+            const creditosInput = document.getElementById('subjectCreditsEdit');
+            if (creditosInput) {
+                creditosInput.value = subject.kredituak || '';
+                
+                // Eliminar listeners antiguos y añadir nuevo
+                creditosInput.removeEventListener('change', window.actualizarCreditos);
+                creditosInput.removeEventListener('blur', window.actualizarCreditos);
+                
+                creditosInput.addEventListener('change', window.actualizarCreditos);
+                creditosInput.addEventListener('blur', window.actualizarCreditos);
+            }
             
             const RAsText = (Array.isArray(subject.currentOfficialRAs) ? subject.currentOfficialRAs.join('\n') : subject.currentOfficialRAs || '');
             document.getElementById('subjectRAs').value = RAsText;
@@ -1689,16 +1713,44 @@ window.setupEventListeners = function() {
             document.getElementById('loadingOverlay').classList.add('hidden');
             document.getElementById('saveBtn').disabled = false;
             document.getElementById('downloadBackupBtn').disabled = false;
-
+        
             const degreeSelect = document.getElementById('degreeSelect');
             degreeSelect.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
             
+            // 🔥 FILTRAR: Solo mostrar GRADOS, NO competencias/metadata
             Object.keys(window.curriculumData).forEach(degree => {
-                const option = document.createElement('option');
-                option.value = degree;
-                option.textContent = degree;
-                degreeSelect.appendChild(option);
+                // ❌ EXCLUIR estas keys (NO son grados):
+                if (degree === 'kompetentziak_ingreso' || 
+                    degree === 'kompetentziak_egreso' || 
+                    degree === '_metadata' ||
+                    degree.startsWith('kompetentziak')) {
+                    return; // Saltar esta iteración
+                }
+                
+                // ✅ Solo añadir si es un grado real
+                const cursos = window.curriculumData[degree];
+                if (cursos && typeof cursos === 'object') {
+                    // Verificar que tiene estructura de grado (cursos 1-4)
+                    const tieneCursos = cursos['1. Maila'] || cursos['1. curso'] || 
+                                       Object.keys(cursos).some(key => 
+                                           key.includes('Maila') || 
+                                           key.includes('curso') || 
+                                           key.includes('Curso')
+                                       );
+                    
+                    if (tieneCursos) {
+                        const option = document.createElement('option');
+                        option.value = degree;
+                        option.textContent = degree;
+                        degreeSelect.appendChild(option);
+                    }
+                }
             });
+            
+            // 🔥 LLENAR SELECT DE EREMUAK (si existe la función)
+            if (typeof llenarSelectEremuak === 'function') {
+                setTimeout(llenarSelectEremuak, 500);
+            }
             
             if (window.selectedDegree) {
                 degreeSelect.value = window.selectedDegree;
@@ -1711,19 +1763,38 @@ window.setupEventListeners = function() {
                 }
             }
             document.getElementById('navigationPanel').classList.remove('hidden');
-        }
+        };
 
         // --- UI Funtzio Laguntzaileak (window objektuan gordeta) ---
         window.onDegreeChange = function() {
             const degreeSelect = document.getElementById('degreeSelect');
-            window.selectedDegree = degreeSelect.value;
+            const selectedValue = degreeSelect.value;
+            
+            // 🔥 Si selecciona competencias, manejarlo diferente
+            if (selectedValue === 'kompetentziak_ingreso' || selectedValue === 'kompetentziak_egreso') {
+                console.log('🎯 Kompetentziak aukeratuta:', selectedValue);
+                
+                // Mostrar editor de competencias
+                const tipo = selectedValue === 'kompetentziak_ingreso' ? 'ingreso' : 'egreso';
+                
+                if (typeof window.showCompetenciasGlobales === 'function') {
+                    window.showCompetenciasGlobales(tipo);
+                } else {
+                    console.error('❌ showCompetenciasGlobales ez dago definitua');
+                    window.showToast('❌ Funzioa ez dago erabilgarri', 'error');
+                }
+                
+                return;
+            }
+            
+            // ✅ Si es un grado normal, proceder como siempre
+            window.selectedDegree = selectedValue;
             window.selectedYear = null;
             window.selectedSubjectIndex = null;
             window.renderYears();
             document.getElementById('subjectList').innerHTML = '<li class="p-3 text-gray-500 text-sm italic">Aukeratu maila bat irakasgaiak ikusteko.</li>';
             window.resetEditor();
-        }
-
+        };
         window.renderYears = function() {
             const container = document.getElementById('sectionButtons');
             container.innerHTML = '';
@@ -1785,11 +1856,29 @@ window.setupEventListeners = function() {
             document.getElementById('subjectCredits').textContent = `Kredituak: ${subject.kredituak || '-'}`;
             document.getElementById('subjectNameEdit').value = subject.izena || '';
             document.getElementById('subjectArea').value = subject.arloa || '';
+
+            // 🔥 CRÍTICO: CARGAR CRÉDITOS
+            const creditosInput = document.getElementById('subjectCreditsEdit');
+            if (creditosInput) {
+                creditosInput.value = subject.kredituak || '';
+                console.log(`✅ Créditos cargados: ${subject.kredituak || 'vacío'}`);
+            }
+            
             const RAsText = (Array.isArray(subject.currentOfficialRAs) ? subject.currentOfficialRAs.join('\n') : subject.currentOfficialRAs || '');
             document.getElementById('subjectRAs').value = RAsText;
             if (!Array.isArray(subject.unitateak)) { subject.unitateak = []; }
             window.renderUnitsList();
-        }
+            
+            // 🔥 FORZAR ACTUALIZACIÓN DE EREMUAK SI ESTÁ VACÍO
+            const areaSelect = document.getElementById('subjectArea');
+            if (areaSelect && areaSelect.options.length <= 1) {
+                setTimeout(() => {
+                    if (typeof llenarSelectEremuak === 'function') {
+                        llenarSelectEremuak();
+                    }
+                }, 300);
+            }
+        };
 
         window.resetEditor = function() {
             document.getElementById('welcomeEditor').classList.remove('hidden');
@@ -2326,4 +2415,5 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
