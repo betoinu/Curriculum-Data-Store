@@ -2194,7 +2194,7 @@ window.setupEventListeners = function() {
             console.log('🚀 DOM Cargado - Inicialización segura');
             
             // 🔥 NUEVO: 1. INICIALIZAR SUPABASE PRIMERO
-            if (!inicializarSupabase()) {
+  /*          if (!inicializarSupabase()) {
                 // ERROR CRÍTICO: Mostrar mensaje y detener
                 const loading = document.getElementById('loadingOverlay');
                 if (loading) {
@@ -2210,7 +2210,7 @@ window.setupEventListeners = function() {
                     `;
                 }
                 return; // ⚠️ DETENER la ejecución si Supabase falla
-            }
+            }  */
             
             // 2. Ocultar loading overlay
             const loading = document.getElementById('loadingOverlay');
@@ -2502,6 +2502,7 @@ window.setupEventListeners = function() {
             }
                     })();
  
+
 
 
 
