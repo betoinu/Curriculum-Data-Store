@@ -19,171 +19,10 @@
                object-src 'none';
                base-uri 'self';
                form-action 'self' https://rthjrzmkozvungmiiikt.supabase.co;">
-    <!-- Diagnostiko script-a CSP meta tag-aren ONDOREN -->
-    <script>
-    // 🔥 DIAGNOSTIKO SCRIPT - Zer gertatzen ari den jakiteko
-    console.log('🔍 === DIAGNOSTIKO SCRIPT HASIERA ===');
-    
-    // 1. CSP KONFIGURAZIOA EGIAZTATU
-    const cspMeta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-    if (cspMeta) {
-        console.log('✅ CSP Meta tag aurkitua');
-        console.log('📋 CSP Politika:', cspMeta.getAttribute('content'));
-    } else {
-        console.warn('⚠️ CSP Meta tag EZ dago');
-    }
-    
-    // 2. FONT-SRC EGIAZTATU
-    const cspContent = cspMeta ? cspMeta.getAttribute('content') : '';
-    if (cspContent.includes('font-src')) {
-        const fontSrcMatch = cspContent.match(/font-src([^;]+)/);
-        if (fontSrcMatch) {
-            console.log('🔤 Font-src direktoriboa:', fontSrcMatch[1]);
-            console.log('❓ Gstatic baimenduta?', fontSrcMatch[1].includes('gstatic') ? '✅ BAI' : '❌ EZ');
-        }
-    }
-    
-    // 3. ERROREAK HARTZEKO LISTENERRAK
-    window.addEventListener('error', function(e) {
-        console.error('🔥 GLOBAL ERROR:', {
-            message: e.message,
-            filename: e.filename,
-            lineno: e.lineno,
-            colno: e.colno,
-            error: e.error
-        });
-        
-        // Font errorea bada
-        if (e.message.includes('font') || e.message.includes('gstatic')) {
-            console.warn('🎯 FONT ERROREA DETEXATUTA - Tailwind edo Font Awesome-tik etor daiteke');
-        }
-    });
-    
-    // 4. CSP VIOLAZIOAK HARTAZEKO
-    document.addEventListener('securitypolicyviolation', function(e) {
-        console.warn('🚨 CSP VIOLAZIOA:', {
-            blockedURI: e.blockedURI,
-            violatedDirective: e.violatedDirective,
-            originalPolicy: e.originalPolicy
-        });
-        
-        // Font violazioa bada
-        if (e.violatedDirective.includes('font')) {
-            console.log('🔤 FONT VIOLAZIOA - Arrazoiak:');
-            console.log('   - Font Awesome (cdnjs) erabiltzen ari al gara?');
-            console.log('   - Material Icons (gstatic) beharrezkoa al da?');
-            console.log('   - Tailwind-ek font kanpokoak erabiltzen ditu?');
-        }
-    });
-    
-    // 5. STYLESHEET-EN KARGA EGIAZTATU
-    function checkStylesheets() {
-        console.log('🎨 STYLESHEET-EN EGIAZTAPENA:');
-        
-        // Tailwind
-        const tailwindLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-            .filter(link => link.href.includes('tailwind'));
-        
-        console.log('   Tailwind esteka(k):', tailwindLinks.length);
-        tailwindLinks.forEach((link, i) => {
-            console.log(`   ${i+1}. ${link.href}`);
-            console.log(`      Ondo kargatuta? ${link.sheet ? '✅ BAI' : '❌ EZ'}`);
-        });
-        
-        // Font Awesome
-        const faLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-            .filter(link => link.href.includes('font-awesome') || link.href.includes('all.min.css'));
-        
-        console.log('   Font Awesome esteka(k):', faLinks.length);
-    }
-    
-    // 6. FONT KARGATZEKO ERROREAK DETEKTATU
-    const originalFontFace = window.FontFace;
-    window.FontFace = function(family, source, descriptors) {
-        console.log('🔤 FONT-A SORTZEN:', {
-            family: family,
-            source: typeof source === 'string' ? source.substring(0, 100) : source,
-            external: typeof source === 'string' && source.includes('http')
-        });
-        
-        const font = new originalFontFace(family, source, descriptors);
-        
-        font.load().then(function(loadedFont) {
-            console.log(`✅ FONT KARGATUTA: ${family}`);
-        }).catch(function(error) {
-            console.error(`❌ FONT KARGATZEKO ERROREA (${family}):`, error);
-        });
-        
-        return font;
-    };
-    
-    // 7. ORRIAREN KARGA EGIAZTATU
-    window.addEventListener('load', function() {
-        console.log('📄 === ORRIA OSO KARGATUTA ===');
-        
-        checkStylesheets();
-        
-        // Tailwind klase batzuk egiaztatu
-        const testDiv = document.createElement('div');
-        testDiv.className = 'hidden';
-        document.body.appendChild(testDiv);
-        const hasHiddenClass = window.getComputedStyle(testDiv).display === 'none';
-        console.log('   Tailwind "hidden" klasea funtzionatzen?', hasHiddenClass ? '✅ BAI' : '❌ EZ');
-        testDiv.remove();
-        
-        // Font Awesome ikonoak
-        const faTest = document.createElement('i');
-        faTest.className = 'fas fa-test';
-        document.body.appendChild(faTest);
-        const faLoaded = window.getComputedStyle(faTest, '::before').content !== 'none';
-        console.log('   Font Awesome ikonoak funtzionatzen?', faLoaded ? '✅ BAI' : '❌ EZ');
-        faTest.remove();
-    });
-    
-    // 8. DOM KARGATZEAN EGIAZTATU
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('🌳 === DOM KARGATUTA ===');
-        console.log('   Body elementua:', document.body ? '✅ BAI' : '❌ EZ');
-        console.log('   Head elementua:', document.head ? '✅ BAI' : '❌ EZ');
-        
-        // Tailwind CSS-aren presentzia
-        setTimeout(checkStylesheets, 100);
-    });
-    
-    // 9. AZKEN EGIAZTAPENAK
-    setTimeout(function() {
-        console.log('⏱️ === 3s ONDOREN EGIAZTAPENA ===');
-        
-        // Tailwind erabiliz CSS propietate batzuk
-        const bodyStyles = window.getComputedStyle(document.body);
-        console.log('   Body background-color:', bodyStyles.backgroundColor);
-        console.log('   Body font-family:', bodyStyles.fontFamily);
-        
-        // Font errore kopurua
-        const errors = performance.getEntriesByType('resource')
-            .filter(entry => entry.initiatorType === 'css' && entry.name.includes('font'));
-        console.log('   Font resource erroreak:', errors.length);
-        
-    }, 3000);
-    
-    console.log('🔍 === DIAGNOSTIKO SCRIPT AMAITUTA (listenerrak aktibo) ===');
-    </script>
     <title>Curriculum Kudeatzailea (Supabase)</title>
     <!-- Changed Tailwind from CDN to local -->
     <link href="css/tailwind.min.css" rel="stylesheet">
     <!-- Original: <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet"> -->
-    <script>
-    // 🔥 MOVER ESTO AL INICIO - Definiciones críticas
-    function checkSupabaseStatus() {
-        console.log('✅ Supabase egoera: Konektatuta');
-        return true;
-    }
-    
-    // 🔥 Función placeholder para evitar errores
-    window.updateUI = window.setUILoginState || function() {
-        console.log('⚠️ updateUI deprecated - use setUILoginState instead');
-    };
-    </script>
     <script src="config.js"></script>
     <!-- Aldatu Font Awesome esteka: -->
     <link rel="stylesheet" 
@@ -212,214 +51,6 @@
             z-index: 50;
         }
     </style>
-    <script>
-    // 🛡️ BLOQUEADOR TAC/ADS - BERSIO HOBETUA ETA SEGURUA
-    (function() {
-        'use strict';  // Modu segurua aktibatu
-        
-        console.log('🛡️ BLOQUEADOR HOBETUA - Inicializando protección...');
-        
-        // 🔥 1. LEHENENGO: DOM EDO CONSOLEN ERABILERA BLOKEATU
-        const originalConsoleWarn = console.warn;
-        const originalConsoleError = console.error;
-        
-        console.warn = function(...args) {
-            // TAC mezuak isildu
-            if (args[0] && typeof args[0] === 'string' && 
-                (args[0].includes('TAC') || args[0].includes('tac') || args[0].includes('content-v2'))) {
-                return; // Ez erakutsi
-            }
-            originalConsoleWarn.apply(console, args);
-        };
-        
-        console.error = function(...args) {
-            // TAC erroreak isildu
-            if (args[0] && typeof args[0] === 'string' && 
-                (args[0].includes('TAC') || args[0].includes('tac') || args[0].includes('content-v2'))) {
-                return; // Ez erakutsi
-            }
-            originalConsoleError.apply(console, args);
-        };
-        
-        // 🔥 2. SCRIPT SORTZE PREBENTZIOA (GEHIEN ERAGINKORRA)
-        const originalCreateElement = document.createElement;
-        document.createElement = function(tagName, options) {
-            const element = originalCreateElement.call(document, tagName, options);
-            
-            // Script berria bada
-            if (tagName.toLowerCase() === 'script') {
-                // Src propietatea kontrolatu
-                let srcValue = '';
-                
-                Object.defineProperty(element, 'src', {
-                    set: function(value) {
-                        // TAC script-ak blokeatu
-                        if (value && (value.includes('content-v2') || 
-                                      value.includes('tac') || 
-                                      value.includes('/tac/'))) {
-                            console.log('🚫 Script TAC prevenido (src):', value.substring(0, 50));
-                            srcValue = '';
-                            return;
-                        }
-                        srcValue = value;
-                        element.setAttribute('src', value || '');
-                    },
-                    get: function() {
-                        return srcValue;
-                    },
-                    configurable: true
-                });
-                
-                // TextContent propietatea kontrolatu
-                let textValue = '';
-                Object.defineProperty(element, 'textContent', {
-                    set: function(value) {
-                        // TAC kodea blokeatu
-                        if (value && (value.includes('TAC') || 
-                                      value.includes('tac-Floater') || 
-                                      value.includes('tac-Container'))) {
-                            console.log('🚫 Script TAC prevenido (inline):', value.substring(0, 50));
-                            textValue = '';
-                            return;
-                        }
-                        textValue = value;
-                        element.textContent = value;
-                    },
-                    get: function() {
-                        return textValue;
-                    },
-                    configurable: true
-                });
-            }
-            
-            return element;
-        };
-        
-        // 🔥 3. APPEND/INSERT PREBENTZIOA
-        const originalAppendChild = Node.prototype.appendChild;
-        Node.prototype.appendChild = function(child) {
-            // Script elementuak blokeatu
-            if (child.tagName === 'SCRIPT') {
-                const src = child.src || '';
-                const text = child.textContent || '';
-                
-                if (src.includes('content-v2') || src.includes('tac') ||
-                    text.includes('TAC') || text.includes('tac-Floater')) {
-                    console.log('🚫 Script TAC eliminado en appendChild');
-                    return child; // Ez gehitu
-                }
-            }
-            
-            // TAC klaseak dituzten elementuak blokeatu
-            if (child.className && 
-                (child.className.includes('tac') || child.id && child.id.includes('tac'))) {
-                console.log('🚫 Elemento TAC eliminado en appendChild');
-                return child; // Ez gehitu
-            }
-            
-            return originalAppendChild.call(this, child);
-        };
-        
-        // 🔥 4. MUTATION OBSERVER SEGURUA
-        function setupSecureObserver() {
-            try {
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        mutation.addedNodes.forEach((node) => {
-                            // Script berriak
-                            if (node.tagName === 'SCRIPT') {
-                                const src = node.src || '';
-                                const text = node.textContent || '';
-                                
-                                if (src.includes('content-v2') || src.includes('tac') ||
-                                    text.includes('TAC') || text.includes('tac-Floater')) {
-                                    console.log('👀 Script TAC detectado y eliminado');
-                                    node.remove();
-                                }
-                            }
-                            
-                            // TAC elementuak
-                            if (node.nodeType === 1) { // Element node
-                                const className = node.className || '';
-                                const id = node.id || '';
-                                
-                                if (className.includes('tac') || id.includes('tac')) {
-                                    console.log('👀 Elemento TAC detectado y eliminado');
-                                    node.remove();
-                                }
-                                
-                                // Barneko elementuak ere begiratu
-                                if (node.querySelectorAll) {
-                                    node.querySelectorAll('[class*="tac"], [id*="tac"]').forEach(el => {
-                                        console.log('👀 Elemento TAC interno eliminado');
-                                        el.remove();
-                                    });
-                                }
-                            }
-                        });
-                    });
-                });
-                
-                observer.observe(document.documentElement, {
-                    childList: true,
-                    subtree: true,
-                    attributes: false,
-                    characterData: false
-                });
-                
-                return observer;
-            } catch (e) {
-                console.error('❌ Error en observador:', e);
-                return null;
-            }
-        }
-        
-        // 🔥 5. SCRIPT EZABATZE PERIODIKOA (BACKUP)
-        function periodicCleanup() {
-            // Script TAC guztiak
-            document.querySelectorAll('script').forEach(script => {
-                const src = script.src || '';
-                const text = script.textContent || '';
-                
-                if (src.includes('content-v2') || src.includes('tac') ||
-                    text.includes('TAC') || text.includes('tac-Floater')) {
-                    console.log('🗑️ Script TAC eliminado en limpieza periódica');
-                    script.remove();
-                }
-            });
-            
-            // Elemento TAC guztiak
-            document.querySelectorAll('[class*="tac"], [id*="tac"], .tac-Floater-icon').forEach(el => {
-                console.log('🗑️ Elemento TAC eliminado en limpieza periódica');
-                el.remove();
-            });
-        }
-        
-        // 🔥 6. EXEKUTATZEKO FUNTZIOA
-        function initBlocker() {
-            console.log('✅ BLOQUEADOR HOBETUA - Iniciando...');
-            
-            // 1. Observerra konfiguratu
-            setupSecureObserver();
-            
-            // 2. Lehenengo garbiketa
-            setTimeout(periodicCleanup, 100);
-            
-            // 3. Garbiketa periodikoa (segundoro)
-            setInterval(periodicCleanup, 1000);
-            
-            console.log('🛡️ BLOQUEADOR HOBETUA - Configurado y activo');
-        }
-        
-        // 🔥 7. ABIARAZI (DOM prest dagoenean)
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initBlocker);
-        } else {
-            initBlocker();
-        }
-        
-    })();
-    </script>
     <script>
         // 🔥 DESREGISTRAR SERVICE WORKERS AL CARGAR
         (function() {
@@ -677,45 +308,93 @@
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-    let authInitialized = false; // Bandera para evitar múltiples inicializaciones
+let authInitialized = false;
+let authCheckInProgress = false; // 🔥 NUEVO: Evitar múltiples ejecuciones simultáneas
+
+supabase.auth.onAuthStateChange(async (event, session) => {
+    console.log('🔐 Auth State Change:', event, session?.user?.email || 'sin usuario');
     
-    supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('🔐 Auth State Change:', event);
-        
-        // Evitar múltiples llamadas
-        if (authInitialized && event === 'INITIAL_SESSION') {
-            return;
-        }
-        
+    // 🔥 EVITAR EJECUCIÓN MÚLTIPLE
+    if (authCheckInProgress && (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+        console.log('⏭️ Saltando evento duplicado:', event);
+        return;
+    }
+    
+    authCheckInProgress = true;
+    
+    try {
         switch (event) {
             case 'SIGNED_IN':
-            case 'INITIAL_SESSION':
                 if (session?.user) {
-                    console.log('✅ Usuario autenticado:', session.user.email);
+                    console.log('✅ SIGNED_IN:', session.user.email);
+                    
+                    // 1. Actualizar UI INMEDIATAMENTE
+                    setUILoginState(true, session.user);
+                    
+                    // 2. Marcar como inicializado
                     authInitialized = true;
                     
-                    // Pequeño delay para asegurar que todo está listo
+                    // 3. Cargar datos con pequeño delay
                     setTimeout(() => {
-                        setUILoginState(true, session.user);
-                        // Cargar datos si no están cargados
                         if (!window.curriculumData) {
+                            console.log('📥 Cargando datos tras login...');
                             loadCurriculumData();
                         }
-                    }, 500);
+                    }, 800);
+                }
+                break;
+                
+            case 'INITIAL_SESSION':
+                // 🔥 SOLO EJECUTAR LA PRIMERA VEZ
+                if (!authInitialized && session?.user) {
+                    console.log('🔄 INITIAL_SESSION (primera vez):', session.user.email);
+                    authInitialized = true;
+                    
+                    // Actualizar UI
+                    setUILoginState(true, session.user);
+                    
+                    // Cargar datos
+                    setTimeout(() => {
+                        if (!window.curriculumData) {
+                            console.log('📥 Cargando datos iniciales...');
+                            loadCurriculumData();
+                        }
+                    }, 1000);
+                } else {
+                    console.log('⏭️ INITIAL_SESSION ignorado (ya inicializado)');
                 }
                 break;
                 
             case 'SIGNED_OUT':
-                console.log('🚪 Sesión cerrada');
-                setUILoginState(false);
+                console.log('🚪 SIGNED_OUT');
                 authInitialized = false;
+                setUILoginState(false);
+                
+                // Limpiar datos
+                window.curriculumData = null;
+                window.selectedDegree = null;
+                window.selectedYear = null;
+                window.selectedSubjectIndex = null;
                 break;
                 
             case 'TOKEN_REFRESHED':
-                // Ignorar - no hacer nada
+            case 'USER_UPDATED':
+                // 🔥 IGNORAR COMPLETAMENTE - no hacer nada
+                console.log('⚡ Evento ignorado:', event);
                 break;
+                
+            default:
+                console.log('📌 Otro evento auth:', event);
         }
-    });
+    } catch (error) {
+        console.error('❌ Error en auth state change:', error);
+    } finally {
+        // 🔥 PERMITIR NUEVAS EJECUCIONES
+        setTimeout(() => {
+            authCheckInProgress = false;
+        }, 500);
+    }
+});
         // Global variables to store state
         window.curriculumData = null; 
         window.selectedDegree = null;
@@ -1657,8 +1336,217 @@ window.setupEventListeners = function() {
             }, 2000);
         }); 
     </script>
+        <script>
+    // 🛡️ BLOQUEADOR TAC/ADS - BERSIO HOBETUA ETA SEGURUA
+    (function() {
+        'use strict';  // Modu segurua aktibatu
+        
+        console.log('🛡️ BLOQUEADOR HOBETUA - Inicializando protección...');
+        
+        // 🔥 1. LEHENENGO: DOM EDO CONSOLEN ERABILERA BLOKEATU
+        const originalConsoleWarn = console.warn;
+        const originalConsoleError = console.error;
+        
+        console.warn = function(...args) {
+            // TAC mezuak isildu
+            if (args[0] && typeof args[0] === 'string' && 
+                (args[0].includes('TAC') || args[0].includes('tac') || args[0].includes('content-v2'))) {
+                return; // Ez erakutsi
+            }
+            originalConsoleWarn.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            // TAC erroreak isildu
+            if (args[0] && typeof args[0] === 'string' && 
+                (args[0].includes('TAC') || args[0].includes('tac') || args[0].includes('content-v2'))) {
+                return; // Ez erakutsi
+            }
+            originalConsoleError.apply(console, args);
+        };
+        
+        // 🔥 2. SCRIPT SORTZE PREBENTZIOA (GEHIEN ERAGINKORRA)
+        const originalCreateElement = document.createElement;
+        document.createElement = function(tagName, options) {
+            const element = originalCreateElement.call(document, tagName, options);
+            
+            // Script berria bada
+            if (tagName.toLowerCase() === 'script') {
+                // Src propietatea kontrolatu
+                let srcValue = '';
+                
+                Object.defineProperty(element, 'src', {
+                    set: function(value) {
+                        // TAC script-ak blokeatu
+                        if (value && (value.includes('content-v2') || 
+                                      value.includes('tac') || 
+                                      value.includes('/tac/'))) {
+                            console.log('🚫 Script TAC prevenido (src):', value.substring(0, 50));
+                            srcValue = '';
+                            return;
+                        }
+                        srcValue = value;
+                        element.setAttribute('src', value || '');
+                    },
+                    get: function() {
+                        return srcValue;
+                    },
+                    configurable: true
+                });
+                
+                // TextContent propietatea kontrolatu
+                let textValue = '';
+                Object.defineProperty(element, 'textContent', {
+                    set: function(value) {
+                        // TAC kodea blokeatu
+                        if (value && (value.includes('TAC') || 
+                                      value.includes('tac-Floater') || 
+                                      value.includes('tac-Container'))) {
+                            console.log('🚫 Script TAC prevenido (inline):', value.substring(0, 50));
+                            textValue = '';
+                            return;
+                        }
+                        textValue = value;
+                        element.textContent = value;
+                    },
+                    get: function() {
+                        return textValue;
+                    },
+                    configurable: true
+                });
+            }
+            
+            return element;
+        };
+        
+        // 🔥 3. APPEND/INSERT PREBENTZIOA
+        const originalAppendChild = Node.prototype.appendChild;
+        Node.prototype.appendChild = function(child) {
+            // Script elementuak blokeatu
+            if (child.tagName === 'SCRIPT') {
+                const src = child.src || '';
+                const text = child.textContent || '';
+                
+                if (src.includes('content-v2') || src.includes('tac') ||
+                    text.includes('TAC') || text.includes('tac-Floater')) {
+                    console.log('🚫 Script TAC eliminado en appendChild');
+                    return child; // Ez gehitu
+                }
+            }
+            
+            // TAC klaseak dituzten elementuak blokeatu
+            if (child.className && 
+                (child.className.includes('tac') || child.id && child.id.includes('tac'))) {
+                console.log('🚫 Elemento TAC eliminado en appendChild');
+                return child; // Ez gehitu
+            }
+            
+            return originalAppendChild.call(this, child);
+        };
+        
+        // 🔥 4. MUTATION OBSERVER SEGURUA
+        function setupSecureObserver() {
+            try {
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        mutation.addedNodes.forEach((node) => {
+                            // Script berriak
+                            if (node.tagName === 'SCRIPT') {
+                                const src = node.src || '';
+                                const text = node.textContent || '';
+                                
+                                if (src.includes('content-v2') || src.includes('tac') ||
+                                    text.includes('TAC') || text.includes('tac-Floater')) {
+                                    console.log('👀 Script TAC detectado y eliminado');
+                                    node.remove();
+                                }
+                            }
+                            
+                            // TAC elementuak
+                            if (node.nodeType === 1) { // Element node
+                                const className = node.className || '';
+                                const id = node.id || '';
+                                
+                                if (className.includes('tac') || id.includes('tac')) {
+                                    console.log('👀 Elemento TAC detectado y eliminado');
+                                    node.remove();
+                                }
+                                
+                                // Barneko elementuak ere begiratu
+                                if (node.querySelectorAll) {
+                                    node.querySelectorAll('[class*="tac"], [id*="tac"]').forEach(el => {
+                                        console.log('👀 Elemento TAC interno eliminado');
+                                        el.remove();
+                                    });
+                                }
+                            }
+                        });
+                    });
+                });
+                
+                observer.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true,
+                    attributes: false,
+                    characterData: false
+                });
+                
+                return observer;
+            } catch (e) {
+                console.error('❌ Error en observador:', e);
+                return null;
+            }
+        }
+        
+        // 🔥 5. SCRIPT EZABATZE PERIODIKOA (BACKUP)
+        function periodicCleanup() {
+            // Script TAC guztiak
+            document.querySelectorAll('script').forEach(script => {
+                const src = script.src || '';
+                const text = script.textContent || '';
+                
+                if (src.includes('content-v2') || src.includes('tac') ||
+                    text.includes('TAC') || text.includes('tac-Floater')) {
+                    console.log('🗑️ Script TAC eliminado en limpieza periódica');
+                    script.remove();
+                }
+            });
+            
+            // Elemento TAC guztiak
+            document.querySelectorAll('[class*="tac"], [id*="tac"], .tac-Floater-icon').forEach(el => {
+                console.log('🗑️ Elemento TAC eliminado en limpieza periódica');
+                el.remove();
+            });
+        }
+        
+        // 🔥 6. EXEKUTATZEKO FUNTZIOA
+        function initBlocker() {
+            console.log('✅ BLOQUEADOR HOBETUA - Iniciando...');
+            
+            // 1. Observerra konfiguratu
+            setupSecureObserver();
+            
+            // 2. Lehenengo garbiketa
+            setTimeout(periodicCleanup, 100);
+            
+            // 3. Garbiketa periodikoa (segundoro)
+            setInterval(periodicCleanup, 1000);
+            
+            console.log('🛡️ BLOQUEADOR HOBETUA - Configurado y activo');
+        }
+        
+        // 🔥 7. ABIARAZI (DOM prest dagoenean)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initBlocker);
+        } else {
+            initBlocker();
+        }
+        
+    })();
+    </script>
 </body>
 </html>
+
 
 
 
