@@ -452,7 +452,11 @@ window.setupEventListeners = function() {
         degreeSelect: document.getElementById('degreeSelect'),
         jsonFileInput: document.getElementById('jsonFileInput'),
         downloadBackupBtn: document.getElementById('downloadBackupBtn'),
-        uploadJsonBtn: document.getElementById('uploadJsonBtn')
+        uploadJsonBtn: document.getElementById('uploadJsonBtn'),
+        subjectNameEdit: document.getElementById('subjectNameEdit'),
+        subjectArea: document.getElementById('subjectArea'),
+        subjectCreditsEdit: document.getElementById('subjectCreditsEdit'),
+        subjectRAs: document.getElementById('subjectRAs')
     };
     
     console.log('🔍 Elementos encontrados:', Object.keys(elements).filter(k => elements[k]));
@@ -476,6 +480,38 @@ window.setupEventListeners = function() {
     
     if (elements.uploadJsonBtn) {
         elements.uploadJsonBtn.addEventListener('click', uploadJsonFile);
+    }
+
+        if (elements.subjectNameEdit) {
+        elements.subjectNameEdit.addEventListener('change', function() {
+            if (window.updateSubjectName) {
+                window.updateSubjectName(this.value);
+            }
+        });
+    }
+    
+    if (elements.subjectArea) {
+        elements.subjectArea.addEventListener('change', function() {
+            if (window.updateSubjectData) {
+                window.updateSubjectData('arloa', this.value);
+            }
+        });
+    }
+    
+    if (elements.subjectCreditsEdit) {
+        elements.subjectCreditsEdit.addEventListener('change', function() {
+            if (window.updateSubjectCredits) {
+                window.updateSubjectCredits();
+            }
+        });
+    }
+    
+    if (elements.subjectRAs) {
+        elements.subjectRAs.addEventListener('change', function() {
+            if (window.updateSubjectRAs) {
+                window.updateSubjectRAs(this.value);
+            }
+        });
     }
     
     // JSON FITXATEGIA
@@ -1427,13 +1463,26 @@ window.setupEventListeners = function() {
         
         // En loadSubjectEditor, añade:
         window.loadSubjectEditor = function(index) {
-            // ... código existente ...
+            window.selectedSubjectIndex = index;
+            window.renderSubjects(); 
+            const subject = window.getSelectedSubject();
+            if (!subject) return;
             
-            // 🔥 Añadir valor de créditos al input
-            document.getElementById('subjectCreditsEdit').value = subject.kredituak || '';
+            document.getElementById('welcomeEditor').classList.add('hidden');
+            document.getElementById('editorPanel').classList.remove('hidden');
+            document.getElementById('subjectTitle').textContent = subject.izena;
+            document.getElementById('subjectType').textContent = subject.mota || "Zehaztugabea";
+            document.getElementById('subjectCredits').textContent = `Kredituak: ${subject.kredituak || '-'}`;
+            document.getElementById('subjectCreditsEdit').value = subject.kredituak || 0;
+            document.getElementById('subjectNameEdit').value = subject.izena || '';
             
-            // 🔥 Añadir event listener para créditos
-            document.getElementById('subjectCreditsEdit').addEventListener('change', window.actualizarCreditos);
+            // 🔥 AÑADE ESTO:
+            document.getElementById('subjectArea').value = subject.arloa || '';
+            
+            const RAsText = (Array.isArray(subject.currentOfficialRAs) ? subject.currentOfficialRAs.join('\n') : subject.currentOfficialRAs || '');
+            document.getElementById('subjectRAs').value = RAsText;
+            if (!Array.isArray(subject.unitateak)) { subject.unitateak = []; }
+            window.renderUnitsList();
         };
         
         // Datuak normalizatzeko funtzioa
@@ -1623,6 +1672,17 @@ window.setupEventListeners = function() {
             document.getElementById('jsonFileInput').click();
         }
 
+        window.updateSubjectCredits = function() {
+            const credits = parseInt(document.getElementById('subjectCreditsEdit').value) || 0;
+            const subject = window.getSelectedSubject();
+            if (subject) {
+                subject.kredituak = credits;
+                document.getElementById('subjectCredits').textContent = `Kredituak: ${credits}`;
+                window.showToast("Kredituak eguneratu dira", "success");
+                window.saveCurriculumData();
+            }
+        };
+        
         // --- UI Rendering eta Ekintza Funtzioak ---
         
         window.initializeUI = function() {
@@ -1741,7 +1801,7 @@ window.setupEventListeners = function() {
             if (subject) {
                 subject[key] = value;
                 window.showToast(`${key} eremua eguneratu da. (Gordetzeko zain)`, "normal");
-                window.saveAllDataToFirestore(); 
+                window.saveCurriculumData(); 
             }
         }
         
@@ -1752,7 +1812,7 @@ window.setupEventListeners = function() {
                 document.getElementById('subjectTitle').textContent = newName; 
                 window.renderSubjects(); 
                 window.showToast("Irakasgaiaren izena eguneratu da. (Gordetzeko zain)", "normal");
-                window.saveAllDataToFirestore(); 
+                window.saveCurriculumData(); 
             }
         }
         
@@ -1762,7 +1822,7 @@ window.setupEventListeners = function() {
                 const RAsArray = rawText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
                 subject.currentOfficialRAs = RAsArray;
                 window.showToast("Ikaskuntza Emaitzak eguneratu dira. (Gordetzeko zain)", "normal");
-                window.saveAllDataToFirestore(); 
+                window.saveCurriculumData(); 
             }
         }
 
@@ -1799,7 +1859,7 @@ window.setupEventListeners = function() {
             window.renderUnitsList();
             window.renderSubjects(); 
             window.showToast("Unitatea ondo gehitu da! (Gordetzeko zain)", "success");
-            window.saveAllDataToFirestore(); 
+            window.saveCurriculumData(); 
         }
 
         window.deleteUnit = function(unitIndex) {
@@ -1809,7 +1869,7 @@ window.setupEventListeners = function() {
             window.renderUnitsList();
             window.renderSubjects();
             window.showToast("Unitatea ezabatu da! (Gordetzeko zain)", "normal");
-            window.saveAllDataToFirestore(); 
+            window.saveCurriculumData(); 
         }
         
         window.renderUnitsList = function() {
@@ -1867,9 +1927,6 @@ window.setupEventListeners = function() {
                 setTimeout(() => { toast.classList.add('translate-y-20'); }, 3000);
             });
         }
-        
-        // Datuak gordetzeko botoia
-        window.saveAllDataToFirestore = saveCurriculumData;
         
         // Supabase funtzioak eskuragarri
         window.supabaseIkusiDatuak = viewSupabaseData;
@@ -2269,3 +2326,4 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
