@@ -958,15 +958,7 @@ window.setupEventListeners = function() {
                 window.supabase?.auth?.signOut().catch(() => {
                     console.log('ℹ️ Supabase logout (already logged out)');
                 });
-            }, 100);
-            
-            // 4. Toast mezu bat (aukerakoa - bakarrik logout denean!)
-            if (typeof window.showToast === 'function') {
-                setTimeout(() => {
-                    window.showToast('✅ Saioa ondo itxita. Berriro hasi saioa ahal izateko.', 'success');
-                }, 500);
-            }
-            
+            }, 100);            
             return true;
         }       
         
@@ -1662,6 +1654,7 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
 
 
