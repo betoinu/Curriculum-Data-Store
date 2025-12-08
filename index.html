@@ -677,57 +677,43 @@
             window.history.replaceState({}, document.title, window.location.pathname);
         }
 
-supabase.auth.onAuthStateChange(async (event, session) => {
-    console.log('🔐 Auth State Change:', event, {
-        hasSession: !!session,
-        hasUser: session?.user ? 'YES' : 'NO',
-        userEmail: session?.user?.email || 'none'
-    });
+    let authInitialized = false; // Bandera para evitar múltiples inicializaciones
     
-    // BUKLEAK EKIDITEKO - Soilik gertaera esanguratsuak
-        if (event === 'TOKEN_REFRESHED') return;
+    supabase.auth.onAuthStateChange(async (event, session) => {
+        console.log('🔐 Auth State Change:', event);
+        
+        // Evitar múltiples llamadas
+        if (authInitialized && event === 'INITIAL_SESSION') {
+            return;
+        }
         
         switch (event) {
             case 'SIGNED_IN':
-                console.log('✅ Saioa hasita:', session.user.email);
-                setUILoginState(true, session.user);
-                // Datuak kargatu 1.5 segundoren ondoren
-                setTimeout(() => {
-                    if (!window.curriculumData) {
-                        loadCurriculumData();
-                    }
-                }, 1500);
-                break;
-                
-            case 'SIGNED_OUT':
-                console.log('🚪 Saioa itxita');
-                setUILoginState(false);
-                // Datuak garbitu
-                window.curriculumData = null;
-                window.selectedDegree = null;
-                window.selectedYear = null;
-                window.selectedSubjectIndex = null;
-                break;
-                
             case 'INITIAL_SESSION':
                 if (session?.user) {
-                    console.log('🔄 Saio existentea:', session.user.email);
-                    setUILoginState(true, session.user);
-                    // Datuak kargatu 1 segundoren ondoren
+                    console.log('✅ Usuario autenticado:', session.user.email);
+                    authInitialized = true;
+                    
+                    // Pequeño delay para asegurar que todo está listo
                     setTimeout(() => {
+                        setUILoginState(true, session.user);
+                        // Cargar datos si no están cargados
                         if (!window.curriculumData) {
                             loadCurriculumData();
                         }
-                    }, 1000);
-                } else {
-                    console.log('🔓 Ez dago saio aktiborik');
-                    setUILoginState(false);
+                    }, 500);
                 }
                 break;
                 
-            default:
-                console.log('⚡ Beste gertaera:', event);
-                // Ez egin ezer
+            case 'SIGNED_OUT':
+                console.log('🚪 Sesión cerrada');
+                setUILoginState(false);
+                authInitialized = false;
+                break;
+                
+            case 'TOKEN_REFRESHED':
+                // Ignorar - no hacer nada
+                break;
         }
     });
         // Global variables to store state
@@ -846,15 +832,36 @@ window.setupEventListeners = function() {
         // AUTH FUNtzioak
         // HTML barruan dagoen kodea eguneratu
         // 6. AUTH FUNtzioak
-       window.signInWithGoogle = async function() {
-        await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: location.href }
-        });
-        
-        // 🔥 ESTA ES LA CLAVE - Forzar recarga después de 3 segundos
-        setTimeout(() => location.reload(), 3000);
-    };
+        window.signInWithGoogle = async function() {
+            try {
+                console.log('🔐 Iniciando login con Google...');
+                
+                // Mostrar loading
+                document.getElementById('loadingOverlay').classList.remove('hidden');
+                document.getElementById('loadingText').textContent = 'Google-rekin konektatzen...';
+                
+                // Login sin recarga forzada
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin + window.location.pathname,
+                        queryParams: {
+                            prompt: 'select_account' // Para evitar problemas de caché
+                        }
+                    }
+                });
+                
+                if (error) throw error;
+                
+                // NO recargar automáticamente - dejar que Supabase maneje la redirección
+                console.log('✅ Login iniciado - esperando redirección de Google');
+                
+            } catch (error) {
+                console.error('❌ Error en login Google:', error);
+                document.getElementById('loadingOverlay').classList.add('hidden');
+                window.showToast('❌ Errorea Google-rekin saioa hastean', 'error');
+            }
+        };
         
         window.signOut = async function() {
             try {
@@ -929,36 +936,22 @@ window.setupEventListeners = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const hasLogoutParam = urlParams.has('logout');
             
-            // ⛔ GARRANTZITSUA: Ez egin ezer logout parametrorik ez badago
+            // ⚡ SOLO ejecutar si hay parámetro logout
             if (!hasLogoutParam) {
-                return false;
+                return false; // No hacer nada si no es logout
             }
             
-            console.log('🔍 Logout parametroa detektatuta URL-an');
+            console.log('🔍 Logout param detectado en URL');
             
-            // 1. Garbitu URL-a (ezabatu query parameters)
+            // 1. Limpiar URL (eliminar parámetros)
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
             
-            // 2. UI eguneratu (logged out egoerara)
+            // 2. Solo entonces cerrar sesión en UI
             if (typeof window.setUILoginState === 'function') {
                 window.setUILoginState(false);
-            } else {
-                // Fallback sinplea
-                document.getElementById('signInBtn')?.classList.remove('hidden');
-                document.getElementById('signOutBtn')?.classList.add('hidden');
-                document.getElementById('userInfo')?.classList.add('hidden');
-                document.getElementById('appButtons')?.classList.add('hidden');
-                document.getElementById('loadingOverlay')?.classList.add('hidden');
-                document.getElementById('noDataMessage')?.classList.remove('hidden');
             }
             
-            // 3. Supabase sign-out (segurtasunerako)
-            setTimeout(() => {
-                window.supabase?.auth?.signOut().catch(() => {
-                    console.log('ℹ️ Supabase logout (already logged out)');
-                });
-            }, 100);            
             return true;
         }       
         
@@ -1621,39 +1614,52 @@ window.setupEventListeners = function() {
 
         // ALDATU DOMContentLoaded:
         document.addEventListener('DOMContentLoaded', function() {
-        console.log('🚀 DOM Kargatuta - Bukle gabeko hasiera');
-        
-        // 1. Lehenengo eta behin: loading overlay EZKUTATU
-        const loading = document.getElementById('loadingOverlay');
-        if (loading) {
-            loading.classList.add('hidden');
-            loading.style.display = 'none';
-            console.log('📦 Loading overlay ezkutatuta');
-        }
-        
-        // 2. Logout parametroak kudeatu (UPDATE EGINDUA)
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('logout')) {
-            handleLogoutFromUrl();
-        }
-        
-        // 3. Event listeners
-        if (typeof setupEventListeners === 'function') {
-            setupEventListeners();
-        }
-        
-        // 4. WebSocket (geroago)
-        setTimeout(() => {
-            if (typeof setupRealtimeUpdates === 'function') {
-                setupRealtimeUpdates();
+            console.log('🚀 DOM Cargado - Inicialización segura');
+            
+            // 1. Ocultar loading overlay
+            const loading = document.getElementById('loadingOverlay');
+            if (loading) {
+                setTimeout(() => {
+                    loading.classList.add('hidden');
+                }, 1000);
             }
-        }, 3000);
-        
-        console.log('✅ App ready - Buklerik gabe');
-    }); 
+            
+            // 2. Verificar logout SOLO si hay parámetro
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('logout')) {
+                console.log('⚠️ URL tiene parámetro logout - procesando...');
+                handleLogoutFromUrl();
+            } else {
+                // 3. Si NO hay logout, verificar sesión existente
+                console.log('🔍 Verificando sesión existente...');
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    if (session) {
+                        console.log('📱 Sesión encontrada:', session.user.email);
+                        setUILoginState(true, session.user);
+                    } else {
+                        console.log('👤 No hay sesión activa');
+                        setUILoginState(false);
+                    }
+                });
+            }
+            
+            // 4. Configurar event listeners
+            if (typeof setupEventListeners === 'function') {
+                setupEventListeners();
+            }
+            
+            // 5. WebSocket con delay (evitar conflictos)
+            setTimeout(() => {
+                if (typeof setupRealtimeUpdates === 'function') {
+                    console.log('🔌 Conectando WebSocket...');
+                    setupRealtimeUpdates();
+                }
+            }, 2000);
+        }); 
     </script>
 </body>
 </html>
+
 
 
 
