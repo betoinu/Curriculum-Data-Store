@@ -1876,33 +1876,52 @@ window.setupEventListeners = function() {
             
             // 🔥 FILTRAR: Solo mostrar GRADOS, NO competencias/metadata
             Object.keys(window.curriculumData).forEach(degree => {
-                // ❌ EXCLUIR estas keys (NO son grados):
-                if (degree === 'kompetentziak_ingreso' || 
-                    degree === 'kompetentziak_egreso' || 
-                    degree === '_metadata' ||
-                    degree.startsWith('kompetentziak')) {
-                    return; // Saltar esta iteración
+            // 🔥 EXCLUIR estas keys (NO son grados):
+            if (degree === 'kompetentziak_ingreso' || 
+                degree === 'kompetentziak_egreso' || 
+                degree === '_metadata' ||
+                degree.startsWith('kompetentziak')) {
+                return;
+            }
+            
+            // ✅ Solo añadir si es un grado real
+            const cursos = window.curriculumData[degree];
+            if (cursos && typeof cursos === 'object') {
+                // 🔥 FILTRO CORREGIDO - Más flexible
+                let esGrado = false;
+                
+                // Opción 1: Tiene claves numéricas ('1', '2', '3', '4')
+                const clavesNumericas = Object.keys(cursos).filter(k => /^\d+$/.test(k));
+                if (clavesNumericas.length > 0) {
+                    esGrado = true;
+                    console.log(`✅ Grado ${degree}: tiene claves numéricas`, clavesNumericas);
                 }
                 
-                // ✅ Solo añadir si es un grado real
-                const cursos = window.curriculumData[degree];
-                if (cursos && typeof cursos === 'object') {
-                    // Verificar que tiene estructura de grado (cursos 1-4)
-                    const tieneCursos = cursos['1. Maila'] || cursos['1. curso'] || 
-                                       Object.keys(cursos).some(key => 
-                                           key.includes('Maila') || 
-                                           key.includes('curso') || 
-                                           key.includes('Curso')
-                                       );
-                    
-                    if (tieneCursos) {
-                        const option = document.createElement('option');
-                        option.value = degree;
-                        option.textContent = degree;
-                        degreeSelect.appendChild(option);
-                    }
+                // Opción 2: Tiene claves con "Maila" o "curso" (compatibilidad)
+                if (!esGrado) {
+                    esGrado = Object.keys(cursos).some(key => 
+                        key.includes('Maila') || 
+                        key.includes('curso') || 
+                        key.includes('Curso')
+                    );
+                    if (esGrado) console.log(`✅ Grado ${degree}: tiene "Maila" o "curso"`);
                 }
-            });
+                
+                // Opción 3: Tiene arrays como valores (último recurso)
+                if (!esGrado) {
+                    esGrado = Object.values(cursos).some(val => Array.isArray(val));
+                    if (esGrado) console.log(`✅ Grado ${degree}: tiene arrays`);
+                }
+                
+                if (esGrado) {
+                    const option = document.createElement('option');
+                    option.value = degree;
+                    option.textContent = degree;
+                    degreeSelect.appendChild(option);
+                    console.log(`➕ Añadido al select: ${degree}`);
+                }
+            }
+        });
             
             // 🔥 LLENAR SELECT DE EREMUAK (si existe la función)
             if (typeof llenarSelectEremuakConEditor === 'function') {
@@ -2506,6 +2525,7 @@ window.setupEventListeners = function() {
             }
                     })();
  
+
 
 
 
