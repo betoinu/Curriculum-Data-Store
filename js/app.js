@@ -1500,11 +1500,11 @@ window.setupEventListeners = function() {
         // 🔥 FUNCIÓN PARA ABRIR MATRIZ ESPECÍFICA
         window.abrirMatriz = function(tipo) {
             const paginas = {
-                'competencias-vs-asignaturas': 'matriz1.html',
-                'asignaturas-vs-resultados': 'matriz2.html', 
-                'temporalizacion': 'matriz3.html',
-                'evaluacion': 'matriz4.html'
-            };
+                'competencias-vs-asignaturas': 'matrices/matriz1.html',
+                'asignaturas-vs-resultados': 'matrices/matriz2.html', 
+                'temporalizacion': 'matrices/matriz3.html',
+                'evaluacion': 'matrices/matriz4.html'
+                    };
             
             const pagina = paginas[tipo];
             if (pagina) {
@@ -1686,6 +1686,12 @@ window.setupEventListeners = function() {
                 }
         
             } catch (e) {
+                try {
+                    const response = await fetch('/curriculum_eguneratua_2025-11-27.json');
+                    // ... procesar
+                } catch (error) {
+                    console.error('❌ No se pudo cargar el JSON:', error);
+                }
                 console.error("❌ JSON kargatze errorea:", e);
                 window.showToast("❌ Errorea JSON datuak kargatzean.", "error");
                 document.getElementById('loadingOverlay').classList.add('hidden');
@@ -2405,6 +2411,7 @@ window.setupEventListeners = function() {
             }
                     })();
  
+
 
 
 
