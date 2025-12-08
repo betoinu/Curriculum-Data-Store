@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="eu">
+<html lang="eu">setInterval
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -671,7 +671,10 @@ window.setupEventListeners = function() {
             
             // 1. KARGA ADIERAZLEA BETI EZKUTATU
             const loading = document.getElementById('loadingOverlay');
-            if (loading) loading.classList.add('hidden');
+            if (loading) {
+                loading.classList.add('hidden');
+                loading.style.display = 'none'; // 🔥 ESTA ES LA CLAVE
+            }
             
             // 2. SAIOREN ARABERA EGUNERATU
             if (isLoggedIn && user) {
@@ -1546,13 +1549,25 @@ window.setupEventListeners = function() {
         }
         
         // 🔥 10. LIMPIEZA PERIÓDICA (cada 500ms)
-        setInterval(cleanTACImmediately, 500);
+        let tacCleanupCount = 0;
+        const tacCleanupInterval = setInterval(() => {
+            tacCleanupCount++;
+            
+            // 🔥 LIMITAR a 10 limpiezas (5 segundos)
+            if (tacCleanupCount > 10) {
+                console.log('✅ TAC: Limpieza periódica DETENIDA (máximo alcanzado)');
+                clearInterval(tacCleanupInterval);
+                return;
+            }
+            cleanTACImmediately();
+        }, 500);
         
         console.log('✅ BLOQUEADOR TAC AGGRESIVO ACTIVADO');
     })();
     </script>
 </body>
 </html>
+
 
 
 
