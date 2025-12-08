@@ -3,13 +3,13 @@
 // ============================================
 // 1. CONFIGURACIÓN Y VARIABLES GLOBALES
 // ============================================   
-        // Supabase konfigurazioa - config.js fitxategitik kargatuko da
-        const SUPABASE_URL = window.SUPABASE_URL;
-        const SUPABASE_KEY = window.SUPABASE_KEY;
+// Supabase konfigurazioa - config.js fitxategitik kargatuko da
+const SUPABASE_URL = window.SUPABASE_URL;
+const SUPABASE_KEY = window.SUPABASE_KEY;
     
-        // Supabase hasieratu
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        // Detectar si hay sesión en la URL (después de redirección de Google)
+// Supabase hasieratu
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Detectar si hay sesión en la URL (después de redirección de Google)
 
 let authEventCount = 0;
 let authInitialized = false;
@@ -1433,8 +1433,8 @@ window.setupEventListeners = function() {
             });
             
             // 🔥 LLENAR SELECT DE EREMUAK (si existe la función)
-            if (typeof llenarSelectEremuak === 'function') {
-                setTimeout(llenarSelectEremuak, 500);
+            if (typeof llenarSelectEremuakConEditor === 'function') {
+                setTimeout(llenarSelectEremuakConEditor, 500);
             }
             
             if (window.selectedDegree) {
@@ -1558,8 +1558,8 @@ window.setupEventListeners = function() {
             const areaSelect = document.getElementById('subjectArea');
             if (areaSelect && areaSelect.options.length <= 1) {
                 setTimeout(() => {
-                    if (typeof llenarSelectEremuak === 'function') {
-                        llenarSelectEremuak();
+                    if (typeof llenarSelectEremuakConEditor === 'function') {
+                        llenarSelectEremuakConEditor();
                     }
                 }, 300);
             }
@@ -2392,4 +2392,5 @@ window.setupEventListeners = function() {
                     mostrarEditorEremuak();
                 }, 300);
             }
+}
 
