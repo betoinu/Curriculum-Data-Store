@@ -1551,49 +1551,10 @@ window.setupEventListeners = function() {
         
         console.log('✅ BLOQUEADOR TAC AGGRESIVO ACTIVADO');
     })();
-        async function verifySupabaseSession() {
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            
-            if (session) {
-                console.log('✅ Sesión Supabase VERIFICADA:', session.user.email);
-                
-                // Forzar setUILoginState SI hay sesión
-                setTimeout(() => {
-                    if (typeof setUILoginState === 'function') {
-                        setUILoginState(true, session.user);
-                    }
-                    if (typeof loadCurriculumData === 'function' && !window.curriculumData) {
-                        loadCurriculumData();
-                    }
-                }, 1000);
-            } else {
-                console.log('❌ NO hay sesión Supabase - TAC probablemente la eliminó');
-                
-                // Intentar recuperar desde localStorage
-                const supabaseKey = Object.keys(localStorage).find(key => 
-                    key.includes('supabase') && key.includes('auth-token')
-                );
-                
-                if (supabaseKey) {
-                    console.log('🔍 Token encontrado en localStorage, intentando recuperar...');
-                    // Forzar recarga limpia
-                    setTimeout(() => {
-                        window.location.href = window.location.origin + window.location.pathname + '?clean=1';
-                    }, 2000);
-                }
-            }
-        } catch (error) {
-            console.error('❌ Error verificando sesión:', error);
-        }
-    }
-    
-    // Llamar después de 3 segundos
-    setTimeout(verifySupabaseSession, 3000);
-    // ========== FIN DEL CÓDIGO A AÑADIR ==========
     </script>
 </body>
 </html>
+
 
 
 
