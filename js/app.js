@@ -1,6 +1,59 @@
 // app.js - INICIO DEL ARCHIVO
 console.log('🔍 Verificando dependencias...');
 
+// ============================================
+// 🔥 HELPER FUNCTIONS - MANIPULACIÓN SEGURA DEL DOM
+// ============================================
+
+function safeAddClass(elementId, className) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.classList.add(className);
+        return true;
+    }
+    return false;
+}
+
+function safeRemoveClass(elementId, className) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.classList.remove(className);
+        return true;
+    }
+    return false;
+}
+
+function safeToggleClass(elementId, className, force) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        if (force !== undefined) {
+            element.classList.toggle(className, force);
+        } else {
+            element.classList.toggle(className);
+        }
+        return true;
+    }
+    return false;
+}
+
+function safeRemoveElement(elementId) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.remove();
+        return true;
+    }
+    return false;
+}
+
+function safeSetText(elementId, text) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = text;
+        return true;
+    }
+    return false;
+}
+
 // 🔥 VERIFICACIÓN DE SEGURIDAD
 function verificarDependencias() {
     const errores = [];
@@ -351,11 +404,11 @@ window.setupEventListeners = function() {
                 // 🔥 NO recargar automáticamente - Supabase maneja la redirección
                 console.log('✅ Login iniciado - redireccionando a Google');
                 
-            } catch (error) {
-                console.error('❌ Error en signInWithGoogle:', error);
-                document.getElementById('loadingOverlay')?.classList.add('hidden');
-                window.showToast('❌ Errorea login prozesuan', 'error');
-            }
+                } catch (error) {
+                    console.error('❌ Error en signInWithGoogle:', error);
+                    safeAddClass('loadingOverlay', 'hidden');
+                    window.showToast('❌ Errorea login prozesuan', 'error');
+                }
         };
         
         window.signOut = async function() {
@@ -485,93 +538,89 @@ window.setupEventListeners = function() {
         }        
 
         // Funtzio SIMPLE eta BUKLE GABEKO
-        function setUILoginState(isLoggedIn, user = null) {
-            console.log('🎯 setUILoginState llamado:', isLoggedIn, user?.email || 'no-user');
+function setUILoginState(isLoggedIn, user = null) {
+    console.log('🎯 setUILoginState llamado:', isLoggedIn, user?.email || 'no-user');
+    
+    // 🔥 1. OCULTAR LOADING SIEMPRE
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) {
+        loading.style.display = 'none';
+        loading.classList.add('hidden');
+        console.log('✅ Loading ocultado');
+    }
+    
+    // 🔥 2. PREVENIR LLAMADAS MÚLTIPLES
+    if (window.lastUILoginState === isLoggedIn && 
+        window.lastUILoginUser === (user?.email || 'no-user')) {
+        console.log('⏭️ Saltando - mismo estado');
+        return;
+    }
+    window.lastUILoginState = isLoggedIn;
+    window.lastUILoginUser = user?.email || 'no-user';
+    
+    // 🔥 3. SI ESTÁ LOGUEADO
+    if (isLoggedIn && user) {
+        console.log('👤 Mostrando UI para usuario:', user.email);
+        
+        // Ocultar botón de login
+        safeRemoveClass('signInBtn', 'hidden');
+        
+        // Mostrar botón de logout
+        safeAddClass('signOutBtn', 'hidden');
+        
+        // Mostrar info usuario
+        const userInfo = document.getElementById('userInfo');
+        if (userInfo) {
+            userInfo.classList.remove('hidden');
             
-            // 🔥 1. OCULTAR LOADING SIEMPRE
-            const loading = document.getElementById('loadingOverlay');
-            if (loading) {
-                loading.style.display = 'none';
-                loading.classList.add('hidden');
-                console.log('✅ Loading ocultado');
-            }
+            // Actualizar email
+            const userEmail = document.getElementById('userEmail');
+            if (userEmail) userEmail.textContent = user.email;
             
-            // 🔥 2. PREVENIR LLAMADAS MÚLTIPLES
-            if (window.lastUILoginState === isLoggedIn && 
-                window.lastUILoginUser === (user?.email || 'no-user')) {
-                console.log('⏭️ Saltando - mismo estado');
-                return;
-            }
-            window.lastUILoginState = isLoggedIn;
-            window.lastUILoginUser = user?.email || 'no-user';
-            
-            // 🔥 3. SI ESTÁ LOGUEADO
-            if (isLoggedIn && user) {
-                console.log('👤 Mostrando UI para usuario:', user.email);
-                
-                // Ocultar botón de login
-                const signInBtn = document.getElementById('signInBtn');
-                if (signInBtn) signInBtn.classList.add('hidden');
-                
-                // Mostrar botón de logout
-                const signOutBtn = document.getElementById('signOutBtn');
-                if (signOutBtn) signOutBtn.classList.remove('hidden');
-                
-                // Mostrar info usuario
-                const userInfo = document.getElementById('userInfo');
-                if (userInfo) {
-                    userInfo.classList.remove('hidden');
-                    
-                    // Actualizar email
-                    const userEmail = document.getElementById('userEmail');
-                    if (userEmail) userEmail.textContent = user.email;
-                    
-                    // Actualizar rol
-                    const userRole = document.getElementById('userRole');
-                    if (userRole) {
-                        const isAdmin = ADMIN_EMAILS.includes(user.email);
-                        userRole.textContent = isAdmin ? 'Admin' : 'Irakaslea';
-                        userRole.className = isAdmin ? 
-                            'text-xs bg-red-500 px-2 py-1 rounded' : 
-                            'text-xs bg-green-500 px-2 py-1 rounded';
-                    }
-                }
-                
-                // 🔥 CRÍTICO: Mostrar botones de app
-                const appButtons = document.getElementById('appButtons');
-                if (appButtons) {
-                    appButtons.classList.remove('hidden');
-                    appButtons.style.display = 'flex';
-                    console.log('✅ appButtons mostrado');
-                }
-                
-                // Mostrar panel de navegación
-                const navPanel = document.getElementById('navigationPanel');
-                if (navPanel) navPanel.classList.remove('hidden');
-                
-                // Ocultar mensaje "no data"
-                const noDataMsg = document.getElementById('noDataMessage');
-                if (noDataMsg) noDataMsg.classList.add('hidden');
-                
-                // Mostrar botones admin si corresponde
+            // Actualizar rol
+            const userRole = document.getElementById('userRole');
+            if (userRole) {
                 const isAdmin = ADMIN_EMAILS.includes(user.email);
-                document.getElementById('downloadBackupBtn')?.classList.toggle('hidden', !isAdmin);
-                document.getElementById('uploadJsonBtn')?.classList.toggle('hidden', !isAdmin);
-                
-            } else {
-                // 🔥 4. SI NO ESTÁ LOGUEADO
-                console.log('👤 Ocultando UI - no logueado');
-                
-                document.getElementById('signInBtn')?.classList.remove('hidden');
-                document.getElementById('signOutBtn')?.classList.add('hidden');
-                document.getElementById('userInfo')?.classList.add('hidden');
-                document.getElementById('appButtons')?.classList.add('hidden');
-                document.getElementById('navigationPanel')?.classList.add('hidden');
-                document.getElementById('noDataMessage')?.classList.remove('hidden');
+                userRole.textContent = isAdmin ? 'Admin' : 'Irakaslea';
+                userRole.className = isAdmin ? 
+                    'text-xs bg-red-500 px-2 py-1 rounded' : 
+                    'text-xs bg-green-500 px-2 py-1 rounded';
             }
-            
-            console.log('✅ setUILoginState completado');
         }
+        
+        // 🔥 CRÍTICO: Mostrar botones de app
+        const appButtons = document.getElementById('appButtons');
+        if (appButtons) {
+            appButtons.classList.remove('hidden');
+            appButtons.style.display = 'flex';
+            console.log('✅ appButtons mostrado');
+        }
+        
+        // Mostrar panel de navegación
+        safeRemoveClass('navigationPanel', 'hidden');
+        
+        // Ocultar mensaje "no data"
+        safeAddClass('noDataMessage', 'hidden');
+        
+        // Mostrar botones admin si corresponde
+        const isAdmin = ADMIN_EMAILS.includes(user.email);
+        safeToggleClass('downloadBackupBtn', 'hidden', !isAdmin);
+        safeToggleClass('uploadJsonBtn', 'hidden', !isAdmin);
+        
+    } else {
+        // 🔥 4. SI NO ESTÁ LOGUEADO
+        console.log('👤 Ocultando UI - no logueado');
+        
+        safeRemoveClass('signInBtn', 'hidden');
+        safeAddClass('signOutBtn', 'hidden');
+        safeAddClass('userInfo', 'hidden');
+        safeAddClass('appButtons', 'hidden');
+        safeAddClass('navigationPanel', 'hidden');
+        safeRemoveClass('noDataMessage', 'hidden');
+    }
+    
+    console.log('✅ setUILoginState completado');
+}
         
         // DATUAK KARGATU
         async function loadCurriculumData() {
@@ -1372,12 +1421,11 @@ window.setupEventListeners = function() {
                     window.saveCurriculumData();
                     
                     // Actualizar UI
-                    setTimeout(() => {
-                        document.getElementById('eremuakModal')?.remove();
-                        mostrarEditorEremuak();
-                        llenarSelectEremuakConEditor();
-                    }, 500);
-                }
+    setTimeout(() => {
+        safeRemoveElement('eremuakModal');
+        mostrarEditorEremuak();
+    }, 500);
+}
             }
             
             function eliminarEremua(eremua) {
@@ -1403,12 +1451,12 @@ window.setupEventListeners = function() {
                     window.showToast(`🗑️ Eremua ezabatua: ${eremua}`, 'success');
                     window.saveCurriculumData();
                     
-                    setTimeout(() => {
-                        document.getElementById('eremuakModal')?.remove();
-                        mostrarEditorEremuak();
-                        llenarSelectEremuakConEditor();
-                    }, 500);
-                }
+    setTimeout(() => {
+        safeRemoveElement('eremuakModal');
+        mostrarEditorEremuak();
+        llenarSelectEremuakConEditor();
+    }, 500);
+}
             }
             
             function gehituEremuaBerria() {
@@ -1434,11 +1482,11 @@ window.setupEventListeners = function() {
                 input.value = '';
                 
                 // Cerrar y reabrir modal para mostrar actualizado
-                setTimeout(() => {
-                    document.getElementById('eremuakModal')?.remove();
-                    mostrarEditorEremuak();
-                }, 300);
-            }
+    setTimeout(() => {
+        safeRemoveElement('eremuakModal');
+        mostrarEditorEremuak();
+    }, 300);
+}
 
 
         // 🔥 MIGRAR ESTRUCTURA VIEJA A NUEVA
@@ -1810,14 +1858,17 @@ function calcularEstadisticasMatrices() {
     };
 }
     
-    // 🔥 6. FUNCIÓN PARA ACTUALIZAR ESTADÍSTICAS
-        function actualizarEstadisticasMatrices() {
-            if (!window.curriculumData.matrices) return;
-            
-            const m = window.curriculumData.matrices;
-            
-            // Contar asignaturas totales
-            let asignaturaCount = 0;
+    // 🔥 REEMPLAZA la función completa actualizarEstadisticasMatrices() con:
+
+function actualizarEstadisticasMatrices() {
+    setTimeout(() => {
+        if (!window.curriculumData || !window.curriculumData.matrices) return;
+        
+        const m = window.curriculumData.matrices;
+        
+        // Contar asignaturas totales
+        let asignaturaCount = 0;
+        if (window.curriculumData) {
             Object.values(window.curriculumData).forEach(grado => {
                 if (typeof grado === 'object' && !Array.isArray(grado)) {
                     Object.values(grado).forEach(curso => {
@@ -1825,31 +1876,32 @@ function calcularEstadisticasMatrices() {
                     });
                 }
             });
-            
-            // Actualizar DOM
-            document.getElementById('countComp')?.textContent = m.matriz_competencias_ra.competencias.length;
-            document.getElementById('countRA')?.textContent = m.matriz_competencias_ra.resultados_aprendizaje.length;
-            document.getElementById('countRel1')?.textContent = m.matriz_competencias_ra.relaciones.length;
-            document.getElementById('countAsig')?.textContent = asignaturaCount;
-            document.getElementById('countRel2')?.textContent = m.matriz_ra_asignaturas.relaciones.length;
-            document.getElementById('countCompEgreso')?.textContent = m.matriz_competencias_ra.competencias.filter(c => c.tipo === 'egreso').length;
-            document.getElementById('countRel3')?.textContent = m.matriz_competencias_asignaturas.relaciones.length;
-            document.getElementById('countCont')?.textContent = m.matriz_contenidos_ra.contenidos.length;
-            document.getElementById('countRel4')?.textContent = m.matriz_contenidos_ra.relaciones.length;
-            
-            // Calcular cobertura RA
-            const totalRA = m.matriz_competencias_ra.resultados_aprendizaje.length;
-            const raConCobertura = new Set(m.matriz_ra_asignaturas.relaciones.map(r => r.ra_id)).size;
-            document.getElementById('coberturaRA')?.textContent = 
-                totalRA > 0 ? `${Math.round((raConCobertura / totalRA) * 100)}%` : '0%';
         }
+        
+        // 🔥 USAR safeSetText para todas las asignaciones
+        safeSetText('countComp', m.matriz_competencias_ra.competencias.length);
+        safeSetText('countRA', m.matriz_competencias_ra.resultados_aprendizaje.length);
+        safeSetText('countRel1', m.matriz_competencias_ra.relaciones.length);
+        safeSetText('countAsig', asignaturaCount);
+        safeSetText('countCompEgreso', m.matriz_competencias_ra.competencias.filter(c => c.tipo === 'egreso').length);
+        safeSetText('countRel3', m.matriz_competencias_asignaturas.relaciones.length);
+        safeSetText('countCont', m.matriz_contenidos_ra.contenidos.length);
+        safeSetText('countRel4', m.matriz_contenidos_ra.relaciones.length);
+        
+        // Calcular cobertura RA
+        const totalRA = m.matriz_competencias_ra.resultados_aprendizaje.length;
+        const raConCobertura = new Set(m.matriz_ra_asignaturas.relaciones.map(r => r.ra_id)).size;
+        const coberturaTexto = totalRA > 0 ? `${Math.round((raConCobertura / totalRA) * 100)}%` : '0%';
+        safeSetText('coberturaRA', coberturaTexto);
+    }, 100);
+}
     
     // 🔥 7. FUNCIÓN PARA ABRIR EDITOR DETALLADO
     window.abrirEditorMatrizDetallado = function(tipo) {
         console.log(`📝 Abriendo editor: ${tipo}`);
         
         // Cerrar modal principal
-        document.getElementById('matricesModal')?.remove();
+        safeRemoveElement('editorMatrizDetallado');
         
         // Mostrar mensaje simple (para empezar)
         window.showToast(`🔄 Preparando editor de Matriz ${tipo}...`, 'normal');
@@ -1993,7 +2045,7 @@ function calcularEstadisticasMatrices() {
 
         // 🔥 7. FUNCIONES AUXILIARES
         function cerrarMatricesModal() {
-            document.getElementById('matricesModal')?.remove();
+            safeRemoveElement('matricesModal');
         }
         
 
@@ -2040,7 +2092,7 @@ function calcularEstadisticasMatrices() {
         };
         
         function cerrarEditorMatriz() {
-            document.getElementById('editorMatrizModal')?.remove();
+            safeRemoveElement('editorMatrizModal');
         }
 
         // 🔥 9. SISTEMA DE ARRASTRE (DRAG & DROP)
@@ -2139,7 +2191,7 @@ function calcularEstadisticasMatrices() {
             }
             
             // Cerrar modal
-            document.getElementById('matricesModal')?.remove();
+            safeRemoveElement('matricesModal');
             
             if (pagina === '#') {
                 // Matriz en desarrollo - mostrar editor básico
@@ -2221,7 +2273,7 @@ function calcularEstadisticasMatrices() {
         // 🔥 FUNCIÓN PARA GUARDAR CONFIGURACIÓN
         window.guardarConfiguracionMatriz = function(tipo) {
             window.showToast(`✅ Configuración de ${tipo} guardada`, 'success');
-            document.getElementById('editorMatrizBasico')?.remove();
+            safeRemoveElement('editorMatrizBasico');
             
             // Aquí iría la lógica para guardar en curriculumData.matrices
         };
@@ -3167,6 +3219,7 @@ function calcularEstadisticasMatrices() {
             }
                     })();
  
+
 
 
 
