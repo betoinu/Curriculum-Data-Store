@@ -254,6 +254,19 @@ supabase.auth.onAuthStateChange((event, session) => {
         // 🔥 GEHITU HAU zure JavaScript kodea hasieran (Supabase konfigurazioaren ONDOREN)
 window.setupEventListeners = function() {
     console.log('🔌 setupEventListeners ejecutando...');
+
+    // 🔥 VERIFICAR FUNCIONES REQUERIDAS
+        const funcionesRequeridas = [
+            'addUnit', 'onDegreeChange', 'downloadJsonData', 'uploadJsonFile',
+            'updateSubjectName', 'updateSubjectData', 'updateSubjectCredits', 
+            'updateSubjectRAs', 'normalizeData', 'initializeUI', 'saveCurriculumData'
+        ];
+        
+        funcionesRequeridas.forEach(func => {
+            if (typeof window[func] !== 'function') {
+                console.warn(`⚠️ Función no definida: ${func}`);
+            }
+        });
     
     // EGIAZTATU ELEMENTUAK EXISTITZEN DIREN
     const elements = {
@@ -266,14 +279,31 @@ window.setupEventListeners = function() {
         subjectNameEdit: document.getElementById('subjectNameEdit'),
         subjectArea: document.getElementById('subjectArea'),
         subjectCreditsEdit: document.getElementById('subjectCreditsEdit'),
-        subjectRAs: document.getElementById('subjectRAs')
-    };
+        subjectRAs: document.getElementById('subjectRAs'),
+        
+        // 🔥 AÑADIR ESTOS ELEMENTOS IMPORTANTES:
+        signInBtn: document.getElementById('signInBtn'),
+        signOutBtn: document.getElementById('signOutBtn'),
+        unitName: document.getElementById('unitName'),
+        unitContent: document.getElementById('unitContent'),
+        matricesBtn: document.getElementById('matricesBtn'), // Si existe
+        eremuakBtn: document.getElementById('eremuakBtn'),   // Si existe
+        forceReloadBtn: document.getElementById('forceReloadBtn') // Si existe
+    };   
     
     console.log('🔍 Elementos encontrados:', Object.keys(elements).filter(k => elements[k]));
     
     // LISTENER SIMPLEAK
     if (elements.saveBtn) {
-        elements.saveBtn.addEventListener('click', saveCurriculumData);
+        elements.saveBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (typeof saveCurriculumData === 'function') {
+                saveCurriculumData();
+            } else {
+                console.error('❌ saveCurriculumData no está definida');
+                if (window.showToast) window.showToast('❌ Error: función no disponible', 'error');
+            }
+        });
     }
     
     if (elements.addUnitBtn) {
@@ -292,7 +322,7 @@ window.setupEventListeners = function() {
         elements.uploadJsonBtn.addEventListener('click', uploadJsonFile);
     }
 
-        if (elements.subjectNameEdit) {
+    if (elements.subjectNameEdit) {
         elements.subjectNameEdit.addEventListener('change', function() {
             if (window.updateSubjectName) {
                 window.updateSubjectName(this.value);
@@ -333,23 +363,69 @@ window.setupEventListeners = function() {
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    window.curriculumData = JSON.parse(e.target.result);
-                    if (window.normalizeData) window.normalizeData(window.curriculumData);
-                    if (window.initializeUI) window.initializeUI();
-                    if (window.showToast) window.showToast('✅ JSON kargatuta!', 'success');
-                    setTimeout(() => {
-                        if (window.saveCurriculumData) window.saveCurriculumData();
-                    }, 1000);
-                } catch (error) {
-                    if (window.showToast) window.showToast('❌ JSON errorea', 'error');
-                }
-            };
-            reader.readAsText(file);
-        });
+                    const parsedData = JSON.parse(e.target.result);
+                    window.curriculumData = window.normalizeData ? 
+                        window.normalizeData(parsedData) : parsedData;
+ // 🔥 INICIALIZAR MATRICES SI ES NECESARIO
+        if (window.inicializarMatricesSegura) {
+            window.inicializarMatricesSegura();
+        } else if (window.inicializarSistemaMatrices && !window.curriculumData.matrices) {
+            window.inicializarSistemaMatrices();
+        }
+        
+        if (window.initializeUI) window.initializeUI();
+        if (window.showToast) window.showToast('✅ JSON kargatuta!', 'success');
+        
+        // 🔥 GUARDAR SOLO SI HAY USUARIO AUTENTICADO
+        setTimeout(() => {
+            if (window.saveCurriculumData && window.supabase) {
+                window.supabase.auth.getUser().then(({ data: { user } }) => {
+                    if (user) {
+                        window.saveCurriculumData();
+                    }
+                });
+            }
+        }, 1500);
+        
+    } catch (error) {
+        console.error('❌ Error cargando JSON:', error);
+        if (window.showToast) window.showToast('❌ JSON errorea: ' + error.message, 'error');
     }
+};
     
-    console.log('✅ Event listeners configurados');
-};     
+        
+        // 🔥 NORMALIZAR PRIMERO
+        window.curriculumData = window.normalizeData ? 
+            window.normalizeData(parsed) : parsed;
+        
+        // 🔥 INICIALIZAR MATRICES SI EXISTEN
+        if (window.inicializarSistemaMatrices && window.curriculumData && !window.curriculumData.matrices) {
+            window.inicializarSistemaMatrices();
+        }
+        
+        // 🔥 INICIALIZAR UI
+        if (window.initializeUI) {
+            window.initializeUI();
+        }
+        
+        if (window.showToast) window.showToast('✅ JSON kargatuta!', 'success');
+        
+        // 🔥 GUARDAR AUTOMÁTICAMENTE (con timeout para evitar sobrecarga)
+        setTimeout(() => {
+            if (window.saveCurriculumData && window.supabase) {
+                supabase.auth.getUser().then(({data: { user }}) => {
+                    if (user) {
+                        window.saveCurriculumData();
+                    }
+                });
+            }
+        }, 1500);
+        
+    } catch (error) {
+        console.error('❌ Error cargando JSON:', error);
+        if (window.showToast) window.showToast('❌ JSON errorea: ' + error.message, 'error');
+    }
+};  
                
         function isAdmin(user) {
             return user && ADMIN_EMAILS.includes(user.email);
@@ -1040,10 +1116,34 @@ function setUILoginState(isLoggedIn, user = null) {
                 window.showToast('🗑️ Kompetentzia ezabatua', 'success');
             }
         };
-
+            
+        window.inicializarMatricesSegura = function() {
+            if (!window.curriculumData) {
+                console.warn('⚠️ No hay curriculumData para inicializar matrices');
+                return false;
+            }
+            
+            // 🔥 INICIALIZAR SOLO SI NO EXISTE
+            if (!window.curriculumData.matrices) {
+                if (window.inicializarSistemaMatrices) {
+                    window.inicializarSistemaMatrices();
+                    console.log('✅ Matrices inicializadas desde cero');
+                    return true;
+                }
+            } else {
+                console.log('⏭️ Matrices ya existen, saltando inicialización');
+                return false;
+            }
+            
+            return false;
+        };
+            
         // 🔥 NORMALIZAR Y MIGRAR ESTRUCTURA JSON
         window.normalizeData = function(data) {
             console.log('🔄 Normalizando estructura de datos...');
+            
+            // 🔥 CREAR COPIA para no modificar el original
+            const normalized = JSON.parse(JSON.stringify(data));
             
             // 1. Verificar si es estructura vieja
             const esEstructuraVieja = !data.kompetentziak_ingreso && !data.kompetentziak_egreso;
@@ -1103,104 +1203,77 @@ function setUILoginState(isLoggedIn, user = null) {
             }
             
             console.log('✅ Normalización completada');
-            return data;
+            return normalized;
         };
 
             // 🔥 FUNCIÓN MEJORADA DE VERIFICACIÓN
             function verificarEstructuraDatos() {
-                if (!window.curriculumData) {
-                    console.log('⏳ Ez dago daturik egiaztatzeko');
-                    return;
-                }
-                
-                console.log('🔍 DATUEN EGITURA EGIAZTATZEN...');
-                
-                const resultados = {
-                    grados: [],
-                    competencias: { ingreso: false, egreso: false },
-                    errores: [],
-                    avisos: []
-                };
-                
-                // 1. Identificar grados vs competencias
-                Object.keys(window.curriculumData).forEach(key => {
-                    if (key === 'kompetentziak_ingreso') {
-                        resultados.competencias.ingreso = true;
-                        console.log(`✅ Kompetentziak ingreso: ${window.curriculumData[key].length} elementu`);
-                    } 
-                    else if (key === 'kompetentziak_egreso') {
-                        resultados.competencias.egreso = true;
-                        console.log(`✅ Kompetentziak egreso: ${window.curriculumData[key].length} elementu`);
-                    }
-                    else if (key === '_metadata') {
-                        // Ignorar metadatos
-                    }
-                    else {
-                        resultados.grados.push(key);
-                        console.log(`🎓 Grado: ${key}`);
-                    }
-                });
-                
-                // 2. Verificar estructura mínima
-                if (resultados.grados.length === 0) {
-                    resultados.errores.push('❌ Ez dago gradu definitua');
-                }
-                
-                if (!resultados.competencias.ingreso) {
-                    resultados.avisos.push('⚠️ Kompetentziak ingreso ez dago definituta (berria sortuko da automatikoki)');
-                }
-                
-                if (!resultados.competencias.egreso) {
-                    resultados.avisos.push('⚠️ Kompetentziak egreso ez dago definituta (berria sortuko da automatikoki)');
-                }
-                
-                // 3. Mostrar resumen
-                console.log('📊 EGITURA-LABURPENA:');
-                console.log(`• Graduak: ${resultados.grados.length} (${resultados.grados.join(', ')})`);
-                console.log(`• Kompetentziak ingreso: ${resultados.competencias.ingreso ? '✅ BAI' : '❌ EZ'}`);
-                console.log(`• Kompetentziak egreso: ${resultados.competencias.egreso ? '✅ BAI' : '❌ EZ'}`);
-                
-                if (resultados.errores.length > 0) {
-                    console.error('🚨 ERROREAK:', resultados.errores);
-                    window.showToast('⚠️ Datuak egitura akatsek', 'error');
-                }
-                
-                if (resultados.avisos.length > 0) {
-                    console.warn('ℹ️ AVISUAK:', resultados.avisos);
-                    
-                    // Si falta estructura de competencias, crearla automáticamente
-                    if (!resultados.competencias.ingreso || !resultados.competencias.egreso) {
-                        console.log('🔄 Kompetentziak egitura automatikoki sortzen...');
-                        
-                        if (!window.curriculumData.kompetentziak_ingreso) {
-                            window.curriculumData.kompetentziak_ingreso = [];
-                        }
-                        
-                        if (!window.curriculumData.kompetentziak_egreso) {
-                            window.curriculumData.kompetentziak_egreso = [];
-                        }
-                        
-                        // Guardar automáticamente si hay sesión
-                        setTimeout(() => {
-                            if (window.supabase && window.supabase.auth) {
-                                supabase.auth.getUser().then(({data}) => {
-                                    if (data.user) {
-                                        window.saveCurriculumData().then(() => {
-                                            console.log('✅ Kompetentziak egitura automatikoki gordeta');
-                                        });
-                                    }
-                                });
-                            }
-                        }, 2000);
-                    }
-                }
-                
-                if (resultados.errores.length === 0 && resultados.avisos.length === 0) {
-                    console.log('✅ Egitura PERFEKTUA!');
-                }
-                
-                return resultados;
-            }
+    if (!window.curriculumData) {
+        console.log('⏳ Ez dago daturik egiaztatzeko');
+        return null;
+    }
+    
+    console.log('🔍 DATUEN EGITURA EGIAZTATZEN...');
+    
+    // 🔥 USAR CURRICULUMUTILS
+    const estructura = window.CurriculumUtils.verificarEstructura();
+    
+    const resultados = {
+        grados: estructura.grados,
+        competencias: { 
+            ingreso: estructura.tieneCompetenciasIngreso, 
+            egreso: estructura.tieneCompetenciasEgreso 
+        },
+        matrices: estructura.tieneMatrices,
+        errores: [],
+        avisos: []
+    };
+    
+    // Verificar estructura mínima
+    if (estructura.totalGrados === 0) {
+        resultados.errores.push('❌ Ez dago gradu definitua');
+    }
+    
+    if (!estructura.tieneCompetenciasIngreso) {
+        resultados.avisos.push('⚠️ Kompetentziak ingreso ez dago definituta');
+    }
+    
+    if (!estructura.tieneCompetenciasEgreso) {
+        resultados.avisos.push('⚠️ Kompetentziak egreso ez dago definituta');
+    }
+    
+    if (!estructura.tieneMatrices) {
+        resultados.avisos.push('⚠️ Matrices ANECA ez dago definituta');
+    }
+    
+    // Mostrar resumen
+    console.log('📊 EGITURA-LABURPENA:');
+    console.log(`• Graduak: ${estructura.totalGrados} (${estructura.grados.join(', ')})`);
+    console.log(`• Kompetentziak ingreso: ${estructura.tieneCompetenciasIngreso ? '✅ BAI' : '❌ EZ'}`);
+    console.log(`• Kompetentziak egreso: ${estructura.tieneCompetenciasEgreso ? '✅ BAI' : '❌ EZ'}`);
+    console.log(`• Matrices ANECA: ${estructura.tieneMatrices ? '✅ BAI' : '❌ EZ'}`);
+    console.log(`• Asignaturas totales: ${estructura.totalAsignaturas}`);
+    console.log(`• Unidades totales: ${estructura.totalUnidades}`);
+    console.log(`• RAs totales: ${estructura.totalRAs}`);
+    console.log(`• Eremuak: ${estructura.eremuak.length}`);
+    
+    if (resultados.errores.length > 0) {
+        console.error('🚨 ERROREAK:', resultados.errores);
+        if (window.showToast) {
+            window.showToast('⚠️ Datuak egitura akatsek', 'error');
+        }
+    }
+    
+    if (resultados.avisos.length > 0) {
+        console.warn('ℹ️ AVISUAK:', resultados.avisos);
+    }
+    
+    if (resultados.errores.length === 0 && resultados.avisos.length === 0) {
+        console.log('✅ Egitura PERFEKTUA!');
+    }
+    
+    return resultados;
+}
             // 🔥 EXTRAER EREMUAK EXISTENTES DE TODAS LAS ASIGNATURAS
             function extraerEremuakDelCurriculum() {
                 if (!window.curriculumData) {
@@ -1815,56 +1888,36 @@ function calcularEstadisticasMatrices() {
         };
     }
     
-    let grados = 0;
-    let asignaturas = 0;
-    let unidades = 0;
-    let ra_total = 0;
+    // 🔥 USAR CURRICULUMUTILS PARA TODOS LOS CÁLCULOS
+    const utils = window.CurriculumUtils;
     
-    // Contar grados y asignaturas
-    Object.keys(window.curriculumData).forEach(key => {
-        if (key === 'kompetentziak_ingreso' || key === 'kompetentziak_egreso' || key === '_metadata') {
-            return;
-        }
-        
-        const grado = window.curriculumData[key];
-        if (grado && typeof grado === 'object') {
-            grados++;
-            
-            Object.values(grado).forEach(curso => {
-                if (Array.isArray(curso)) {
-                    asignaturas += curso.length;
-                    
-                    curso.forEach(asig => {
-                        // Contar unidades
-                        if (asig.unitateak && Array.isArray(asig.unitateak)) {
-                            unidades += asig.unitateak.length;
-                        }
-                        
-                        // Contar RAs
-                        if (asig.currentOfficialRAs && Array.isArray(asig.currentOfficialRAs)) {
-                            ra_total += asig.currentOfficialRAs.length;
-                        }
-                    });
-                }
-            });
-        }
-    });
+    // Obtener grados
+    const grados = utils.getDegrees();
     
-    // Extraer eremuak
-    const eremuak = extraerEremuakDelCurriculum ? extraerEremuakDelCurriculum() : [];
+    // Contar asignaturas
+    const asignaturas = utils.countTotalAsignaturas();
+    
+    // Obtener eremuak
+    const eremuak = utils.extraerEremuakDelCurriculum();
+    
+    // Contar unidades
+    const unidades = utils.countTotalUnidades();
+    
+    // Contar RAs
+    const ra_total = utils.countTotalRAs();
     
     // Contar competencias
-    const competencias_ingreso = window.curriculumData.kompetentziak_ingreso?.length || 0;
-    const competencias_egreso = window.curriculumData.kompetentziak_egreso?.length || 0;
+    const competencias_ingreso = utils.countCompetencias('ingreso');
+    const competencias_egreso = utils.countCompetencias('egreso');
     
     return {
-        grados,
-        asignaturas,
+        grados: grados.length,
+        asignaturas: asignaturas,
         eremuak: eremuak.length,
-        unidades,
-        competencias_ingreso,
-        competencias_egreso,
-        ra_total
+        unidades: unidades,
+        competencias_ingreso: competencias_ingreso,
+        competencias_egreso: competencias_egreso,
+        ra_total: ra_total
     };
 }
     
@@ -2571,99 +2624,75 @@ function actualizarEstadisticasMatrices() {
         // --- UI Rendering eta Ekintza Funtzioak ---
         
         window.initializeUI = function() {
-            document.getElementById('loadingOverlay').classList.add('hidden');
-            document.getElementById('saveBtn').disabled = false;
-            document.getElementById('downloadBackupBtn').disabled = false;
-        
-            const degreeSelect = document.getElementById('degreeSelect');
-            degreeSelect.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
-            
-            // 🔥 FILTRAR: Solo mostrar GRADOS, NO competencias/metadata
-            Object.keys(window.curriculumData).forEach(degree => {
-            // 🔥 EXCLUIR estas keys (NO son grados):
-            if (degree === 'kompetentziak_ingreso' || 
-                degree === 'kompetentziak_egreso' || 
-                degree === '_metadata' ||
-                degree.startsWith('kompetentziak')) {
-                return;
-            }
-            
-            // ✅ Solo añadir si es un grado real
-            const cursos = window.curriculumData[degree];
-            if (cursos && typeof cursos === 'object') {
-                // 🔥 FILTRO CORREGIDO - Más flexible
-                let esGrado = false;
-                
-                // Opción 1: Tiene claves numéricas ('1', '2', '3', '4')
-                const clavesNumericas = Object.keys(cursos).filter(k => /^\d+$/.test(k));
-                if (clavesNumericas.length > 0) {
-                    esGrado = true;
-                    console.log(`✅ Grado ${degree}: tiene claves numéricas`, clavesNumericas);
-                }
-                
-                // Opción 2: Tiene claves con "Maila" o "curso" (compatibilidad)
-                if (!esGrado) {
-                    esGrado = Object.keys(cursos).some(key => 
-                        key.includes('Maila') || 
-                        key.includes('curso') || 
-                        key.includes('Curso')
-                    );
-                    if (esGrado) console.log(`✅ Grado ${degree}: tiene "Maila" o "curso"`);
-                }
-                
-                // Opción 3: Tiene arrays como valores (último recurso)
-                if (!esGrado) {
-                    esGrado = Object.values(cursos).some(val => Array.isArray(val));
-                    if (esGrado) console.log(`✅ Grado ${degree}: tiene arrays`);
-                }
-                
-                if (esGrado) {
-                    const option = document.createElement('option');
-                    option.value = degree;
-                    option.textContent = degree;
-                    degreeSelect.appendChild(option);
-                    console.log(`➕ Añadido al select: ${degree}`);
-                }
-            }
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('saveBtn').disabled = false;
+    document.getElementById('downloadBackupBtn').disabled = false;
+
+    const degreeSelect = document.getElementById('degreeSelect');
+    if (!degreeSelect) {
+        console.error('❌ degreeSelect no encontrado');
+        return;
+    }
+    
+    degreeSelect.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
+    
+    // 🔥 USAR CURRICULUMUTILS
+    const grados = window.CurriculumUtils?.getDegrees() || [];
+    
+    if (grados.length === 0) {
+        console.warn('⚠️ No se encontraron grados');
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '-- Ez dago gradu definitua --';
+        degreeSelect.appendChild(option);
+    } else {
+        grados.forEach(degree => {
+            const option = document.createElement('option');
+            option.value = degree;
+            option.textContent = degree;
+            degreeSelect.appendChild(option);
+            console.log(`➕ Grado añadido al select: ${degree}`);
         });
-            
-            // 🔥 LLENAR SELECT DE EREMUAK (si existe la función)
-            if (typeof llenarSelectEremuakConEditor === 'function') {
-                setTimeout(llenarSelectEremuakConEditor, 500);
+    }
+    
+    // 🔥 LLENAR SELECT DE EREMUAK (si existe la función)
+    if (typeof llenarSelectEremuakConEditor === 'function') {
+        setTimeout(llenarSelectEremuakConEditor, 500);
+    }
+    
+    // Restaurar selección previa si existe
+    if (window.selectedDegree) {
+        degreeSelect.value = window.selectedDegree;
+        window.renderYears();
+        if (window.selectedYear) {
+            window.renderSubjects();
+            if (window.selectedSubjectIndex !== null) {
+                window.loadSubjectEditor(window.selectedSubjectIndex);
             }
-            
-            if (window.selectedDegree) {
-                degreeSelect.value = window.selectedDegree;
-                window.renderYears();
-                if (window.selectedYear) {
-                    window.renderSubjects();
-                    if (window.selectedSubjectIndex !== null) {
-                        window.loadSubjectEditor(window.selectedSubjectIndex);
-                    }
-                }
-            }
-            document.getElementById('navigationPanel').classList.remove('hidden');
-        };
+        }
+    }
+    
+    // Mostrar panel de navegación
+    const navPanel = document.getElementById('navigationPanel');
+    if (navPanel) {
+        navPanel.classList.remove('hidden');
+    }
+    
+    console.log('✅ UI inicializada con', grados.length, 'grados');
+};
 
         // --- UI Funtzio Laguntzaileak (window objektuan gordeta) ---
         window.onDegreeChange = function() {
             const degreeSelect = document.getElementById('degreeSelect');
             const selectedValue = degreeSelect.value;
             
-            // 🔥 Si selecciona competencias, manejarlo diferente
+            // 🔥 DETECTAR SI ES COMPETENCIA USANDO UTILS
             if (selectedValue === 'kompetentziak_ingreso' || selectedValue === 'kompetentziak_egreso') {
-                console.log('🎯 Kompetentziak aukeratuta:', selectedValue);
-                
-                // Mostrar editor de competencias
                 const tipo = selectedValue === 'kompetentziak_ingreso' ? 'ingreso' : 'egreso';
                 
                 if (typeof window.showCompetenciasGlobales === 'function') {
                     window.showCompetenciasGlobales(tipo);
-                } else {
-                    console.error('❌ showCompetenciasGlobales ez dago definitua');
-                    window.showToast('❌ Funzioa ez dago erabilgarri', 'error');
                 }
-                
                 return;
             }
             
