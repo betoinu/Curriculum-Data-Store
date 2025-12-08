@@ -208,70 +208,199 @@
     </style>
     <script>
     // 🔥 BLOQUEADOR DEFINITIVO DE TAC/ADS
-    (function() {
-        console.log('🛡️ Activando bloqueador de scripts maliciosos...');
+    // 🔥 BLOQUEADOR DEFINITIVO DE TAC/ADS - BERSIO HOBETUA
+(function() {
+    console.log('🛡️ Activando BLOQUEADOR MEJORADO para TAC/ADS...');
+    
+    // 🔴 LEHENENGO: Material Icons font erroreak blokeatu
+    const originalError = console.error;
+    console.error = function(...args) {
+        if (args[0] && typeof args[0] === 'string' && 
+            args[0].includes('fonts.gstatic.com') && 
+            args[0].includes('materialicons')) {
+            console.warn('🚫 Material Icons font error bloqueado (TAC/ADS)');
+            return; // Ez erakutsi errorea
+        }
+        originalError.apply(console, args);
+    };
+    
+    // 🔴 CSP VIOLAZIOAK ISILDU
+    document.addEventListener('securitypolicyviolation', function(e) {
+        if (e.blockedURI && e.blockedURI.includes('fonts.gstatic.com')) {
+            console.warn('🔇 CSP font violación silenciada (TAC/ADS)');
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return false;
+        }
+    });
+    
+    // 1. TAC SCRIPT GUZTIAK EZABATU
+    const removeTACScripts = () => {
+        let removedCount = 0;
         
-        // 1. Eliminar scripts TAC inmediatamente
-        const removeTACScripts = () => {
-            document.querySelectorAll('script').forEach(script => {
-                const src = script.src || '';
-                if (src.includes('content-v2') || src.includes('tac') || src.includes('ad')) {
-                    console.log('🗑️ Eliminando script malicioso:', src);
-                    script.remove();
-                }
-            });
-        };
-        
-        // 2. Bloquear creación dinámica de scripts en el head
-        const originalAppendChild = document.head.appendChild;
-        document.head.appendChild = function(element) {
-            if (element.tagName === 'SCRIPT' && element.src) {
-                if (element.src.includes('content-v2') || element.src.includes('tac') || element.src.includes('/ads/')) {
-                    console.log('🚫 Previniendo creación de script malicioso en head:', element.src);
-                    // Devuelve el elemento pero no lo añade
-                    return element;
-                }
+        // Script tag-ak
+        document.querySelectorAll('script').forEach(script => {
+            const src = script.src || '';
+            const content = script.textContent || '';
+            
+            if (src.includes('content-v2') || src.includes('tac') || 
+                content.includes('TAC') || content.includes('tac-Floater')) {
+                console.log(`🗑️ Eliminando script TAC: ${src.substring(0, 50)}`);
+                script.remove();
+                removedCount++;
             }
-            return originalAppendChild.call(this, element);
-        };
+        });
         
-        // 3. Bloquear fetch/XHR
-        const originalFetch = window.fetch;
-        window.fetch = function(...args) {
-            const url = args[0];
-            if (typeof url === 'string' && 
-                (url.includes('content-v2') || url.includes('tac.') || url.includes('/ads/'))) {
-                console.log('🚫 Bloqueando fetch malicioso:', url);
-                return Promise.reject(new Error('Recurso bloqueado por seguridad'));
+        // Object tag-ak (tac-Floater-icon)
+        document.querySelectorAll('object, embed, iframe').forEach(el => {
+            if (el.className && el.className.includes('tac')) {
+                console.log(`🗑️ Eliminando objeto TAC: ${el.className}`);
+                el.remove();
+                removedCount++;
             }
-            return originalFetch.apply(this, args);
-        };
+        });
         
-        // 4. Ejecutar inmediatamente y periódicamente
-        removeTACScripts();
-        setInterval(removeTACScripts, 2000);
+        if (removedCount > 0) {
+            console.log(`✅ ${removedCount} elemento TAC eliminados`);
+        }
+    };
+    
+    // 2. HEAD-AREN appendChild GAINIDATZI
+    const originalHeadAppend = document.head.appendChild;
+    document.head.appendChild = function(element) {
+        if (element.tagName === 'SCRIPT' || element.tagName === 'LINK' || element.tagName === 'STYLE') {
+            const src = element.src || element.href || '';
+            const content = element.textContent || '';
+            
+            if (src.includes('content-v2') || src.includes('tac') || 
+                content.includes('TAC') || content.includes('Material Icons')) {
+                console.log('🚫 Previniendo elemento TAC en head:', element.tagName);
+                return element; // Ez gehitu
+            }
+        }
+        return originalHeadAppend.call(this, element);
+    };
+    
+    // 3. BODY-AREN appendChild GAINIDATZI
+    const originalBodyAppend = document.body.appendChild;
+    document.body.appendChild = function(element) {
+        if (element.tagName === 'OBJECT' || element.tagName === 'EMBED') {
+            if (element.className && element.className.includes('tac')) {
+                console.log('🚫 Previniendo objeto TAC en body:', element.className);
+                return element; // Ez gehitu
+            }
+        }
+        return originalBodyAppend.call(this, element);
+    };
+    
+    // 4. CSS MATERIAL ICONS KENTZEKO
+    const removeMaterialIconsCSS = () => {
+        // Link tag-ak
+        document.querySelectorAll('link[rel="stylesheet"]').forEach(link => {
+            if (link.href.includes('fonts.googleapis.com') || 
+                link.href.includes('material-icons')) {
+                console.log('🗑️ Eliminando Material Icons CSS:', link.href);
+                link.remove();
+            }
+        });
         
-        // 5. Observar DOM para nuevos scripts (MutationObserver)
-        const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                mutation.addedNodes.forEach((node) => {
-                    if (node.tagName === 'SCRIPT' && node.src) {
-                        if (node.src.includes('content-v2') || node.src.includes('tac') || node.src.includes('ad')) {
-                            console.log('👀 Detectado script malicioso:', node.src);
-                            node.remove();
-                        }
+        // Style tag-ak
+        document.querySelectorAll('style').forEach(style => {
+            if (style.textContent.includes('Material Icons') || 
+                style.textContent.includes('@font-face') && 
+                style.textContent.includes('materialicons')) {
+                console.log('🗑️ Eliminando Material Icons @font-face');
+                style.remove();
+            }
+        });
+    };
+    
+    // 5. TAC ELEMENTUAK BILATU ETA EZABATU
+    const removeTACElements = () => {
+        // Klase bidez
+        document.querySelectorAll('[class*="tac"], [id*="tac"]').forEach(el => {
+            console.log(`🗑️ Eliminando elemento TAC: ${el.className || el.id}`);
+            el.remove();
+        });
+        
+        // Tac-Floater bereziki
+        const tacFloater = document.querySelector('.tac-Floater-icon');
+        if (tacFloater) {
+            console.log('🎯 Tac-Floater-icon aurkituta eta ezabatuta');
+            tacFloater.remove();
+        }
+    };
+    
+    // 6. FONT ERROREAK BLOKEATZEKO LISTENERRA
+    window.addEventListener('error', function(e) {
+        if (e.message && e.message.includes('fonts.gstatic.com/s/materialicons')) {
+            console.log('🔇 Font error TAC bloqueado');
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            
+            // Saiatu TAC script-ak kentzen
+            removeTACScripts();
+            removeTACElements();
+            
+            return false;
+        }
+    }, true);
+    
+    // 7. EXEKUTATU DENA
+    console.log('🔍 TAC/ADS limpieza inicial...');
+    removeTACScripts();
+    removeMaterialIconsCSS();
+    removeTACElements();
+    
+    // 8. OBSERBADOREAREN KONFIGURAZIO HOBETUA
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                // Script berriak
+                if (node.tagName === 'SCRIPT') {
+                    const src = node.src || '';
+                    const content = node.textContent || '';
+                    if (src.includes('content-v2') || src.includes('tac') || 
+                        content.includes('TAC')) {
+                        console.log('👀 Script TAC detectado en mutación:', src);
+                        node.remove();
+                        removeTACElements(); // Elementuak ere kendu
                     }
-                });
+                }
+                
+                // Object/iframe berriak
+                if (node.tagName === 'OBJECT' || node.tagName === 'EMBED' || node.tagName === 'IFRAME') {
+                    if (node.className && node.className.includes('tac')) {
+                        console.log('👀 Objeto TAC detectado en mutación:', node.className);
+                        node.remove();
+                    }
+                }
+                
+                // Klase bidez
+                if (node.nodeType === 1 && node.className && 
+                    (node.className.includes('tac') || node.id && node.id.includes('tac'))) {
+                    console.log('👀 Elemento TAC por clase/id:', node.className || node.id);
+                    node.remove();
+                }
             });
         });
-        
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true
-        });
-        
-        console.log('✅ Bloqueador activado');
-    })();
+    });
+    
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'id']
+    });
+    
+    // 9. PERIODIKOKI EXEKUTATU
+    setInterval(() => {
+        removeTACScripts();
+        removeTACElements();
+    }, 1000);
+    
+    console.log('✅ BLOQUEADOR MEJORADO activado para TAC/ADS');
+})();
     </script>
     <script>
         // 🔥 DESREGISTRAR SERVICE WORKERS AL CARGAR
@@ -1552,6 +1681,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     </script>
 </body>
 </html>
+
 
 
 
