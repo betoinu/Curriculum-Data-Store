@@ -924,39 +924,51 @@ window.setupEventListeners = function() {
             }
         };
 
-        // 🔥 GEHITU HAU - Detectatu logout URL-an
+        // ✅ KONPONDUTA - KOPIATU HAU HTML FITXATEGIAN
         function handleLogoutFromUrl() {
             const urlParams = new URLSearchParams(window.location.search);
             const hasLogoutParam = urlParams.has('logout');
             
-            // 1. Garbitu URL-a
+            // ⛔ GARRANTZITSUA: Ez egin ezer logout parametrorik ez badago
+            if (!hasLogoutParam) {
+                return false;
+            }
+            
+            console.log('🔍 Logout parametroa detektatuta URL-an');
+            
+            // 1. Garbitu URL-a (ezabatu query parameters)
             const cleanUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanUrl);
-
+            
+            // 2. UI eguneratu (logged out egoerara)
             if (typeof window.setUILoginState === 'function') {
                 window.setUILoginState(false);
             } else {
-                console.warn('⚠️ setUILoginState not available');
                 // Fallback sinplea
                 document.getElementById('signInBtn')?.classList.remove('hidden');
                 document.getElementById('signOutBtn')?.classList.add('hidden');
+                document.getElementById('userInfo')?.classList.add('hidden');
+                document.getElementById('appButtons')?.classList.add('hidden');
                 document.getElementById('loadingOverlay')?.classList.add('hidden');
+                document.getElementById('noDataMessage')?.classList.remove('hidden');
             }
             
             // 3. Supabase sign-out (segurtasunerako)
             setTimeout(() => {
-                window.supabase?.auth?.signOut().catch(() => {});
+                window.supabase?.auth?.signOut().catch(() => {
+                    console.log('ℹ️ Supabase logout (already logged out)');
+                });
             }, 100);
             
-            // 4. Toast mezu bat (aukerakoa)
+            // 4. Toast mezu bat (aukerakoa - bakarrik logout denean!)
             if (typeof window.showToast === 'function') {
                 setTimeout(() => {
-                    window.showToast('✅ Saioa ondo itxita', 'success');
+                    window.showToast('✅ Saioa ondo itxita. Berriro hasi saioa ahal izateko.', 'success');
                 }, 500);
             }
             
             return true;
-        }               
+        }       
         
         async function viewEditHistory() {
             const user = await checkAuth();
@@ -1651,6 +1663,7 @@ window.setupEventListeners = function() {
     </script>
 </body>
 </html>
+
 
 
 
