@@ -264,58 +264,108 @@
         <p class="text-lg text-center">Aukeratu irakasgai bat ezkerreko menuan edukiak editatzeko.</p>
     </div>
     
-    <!-- PANEL 2: Editor de Asignaturas (tu código actual) -->
+    <!-- Panel editor NORMAL (para asignaturas) -->
     <div id="editorPanel" class="hidden bg-white p-6 rounded-lg shadow-md min-h-[500px]">
-        <!-- ... contenido del editorPanel ... -->
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 id="subjectTitle" class="text-2xl font-bold text-gray-800"></h2>
+                <p id="subjectType" class="text-gray-600"></p>
+                <p id="subjectCredits" class="text-gray-600"></p>
+            </div>
+        </div>
+        
+        <!-- Campos de edición -->
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Irakasgaiaren izena</label>
+                <input id="subjectNameEdit" type="text" class="w-full border border-gray-300 rounded px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Arloa</label>
+                <select id="subjectArea" class="w-full border border-gray-300 rounded px-3 py-2">
+                    <option value="">-- Aukeratu Arloa --</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Kredituak</label>
+                <input id="subjectCreditsEdit" type="number" class="w-full border border-gray-300 rounded px-3 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ikaskuntza Emaitzak (RA)</label>
+                <textarea id="subjectRAs" rows="3" class="w-full border border-gray-300 rounded px-3 py-2"></textarea>
+            </div>
+        </div>
+        
+        <!-- Unidades -->
+        <div class="mb-6">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Unitate Didaktikoak</h3>
+            
+            <!-- Formulario para añadir unidad -->
+            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                <h4 class="font-bold text-gray-700 mb-3">Gehitu unitate berria</h4>
+                <div class="grid md:grid-cols-2 gap-4 mb-3">
+                    <div>
+                        <input id="unitName" type="text" placeholder="Unitatearen izena" class="w-full border border-gray-300 rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <textarea id="unitContent" placeholder="Unitatearen edukia..." rows="2" class="w-full border border-gray-300 rounded px-3 py-2"></textarea>
+                    </div>
+                </div>
+                <button id="addUnitBtn" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
+                    <i class="fas fa-plus mr-2"></i>Gehitu unitatea
+                </button>
+            </div>
+            
+            <!-- Lista de unidades -->
+            <div id="noUnitsMessage" class="text-center py-8 text-gray-500">
+                <i class="fas fa-inbox text-4xl mb-3"></i>
+                <p>Ez dago unitaterik definitua.</p>
+                <p class="text-sm mt-1">Gehitu lehen unitatea goiko formularioarekin.</p>
+            </div>
+            
+            <div id="unitsContainer" class="space-y-4">
+                <!-- Las unidades aparecerán aquí -->
+            </div>
+        </div>
     </div>
     
-    <!-- 🔥 PANEL 3: Editor de Competencias Vinculadas (ÚNICO Y CORREGIDO) -->
+    <!-- Panel ESPECIAL para competencias -->
     <div id="competenciasPanel" class="hidden bg-white p-6 rounded-lg shadow-md min-h-[500px]">
-        <!-- Encabezado con información contextual -->
         <div class="border-b pb-4 mb-6">
             <span id="competenciasBadge" class="inline-block text-xs px-2 py-1 rounded-full mb-2"></span>
             <h2 id="competenciasTitle" class="text-2xl font-bold text-gray-800"></h2>
             <p id="competenciasDescription" class="text-gray-600 mt-1"></p>
-            <div class="mt-4 flex items-center">
-                <span id="competenciasCount" class="text-sm text-gray-500 mr-4"></span>
-                <button id="volverAGradosBtnComp" onclick="volverASeleccionGrado()" 
-                        class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                    <i class="fas fa-arrow-left mr-1"></i>Itzuli graduaren aukerara
+            <div class="flex justify-between items-center mt-2">
+                <span id="competenciasCount" class="text-sm text-gray-500"></span>
+                <button id="volverAGradosBtn" class="text-sm text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-arrow-left mr-1"></i>Itzuli graduei
                 </button>
             </div>
         </div>
         
-        <!-- Contenedor de competencias (se llenará dinámicamente) -->
-        <div id="competenciasContainer" class="space-y-4 min-h-[300px]">
-            <div class="text-center py-12 text-gray-400">
-                <i class="fas fa-book-open text-3xl mb-4"></i>
-                <p>Aukeratu gradu bat eta arloa konpetentziak editatzeko</p>
-            </div>
+        <!-- Contenedor para las competencias -->
+        <div id="competenciasContainer" class="space-y-4">
+            <!-- Las competencias aparecerán aquí -->
         </div>
         
         <!-- Botones de acción -->
-        <div class="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <button onclick="volverASeleccionGrado()" 
-                    class="w-full sm:w-auto px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50">
-                <i class="fas fa-arrow-left mr-2"></i>Atzera gradu aukerara
-            </button>
-            <div class="flex gap-2 w-full sm:w-auto">
-                <button onclick="añadirCompetenciaVinculada()" 
-                        class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+        <div class="mt-6 border-t pt-4">
+            <div class="flex justify-between">
+                <button id="añadirCompetenciaBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     <i class="fas fa-plus mr-2"></i>Gehitu konpetentzia
                 </button>
-                <button onclick="guardarCompetenciasVinculadas()" 
-                        class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-                    <i class="fas fa-save mr-2"></i>Gorde
-                </button>
-                <button onclick="exportarCompetenciasVinculadas()" 
-                        class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                    <i class="fas fa-download mr-2"></i>Esportatu
-                </button>
+                <div class="space-x-2">
+                    <button id="exportarCompetenciasBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+                        <i class="fas fa-download mr-2"></i>Esportatu
+                    </button>
+                    <button id="guardarCompetenciasBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        <i class="fas fa-save mr-2"></i>Gorde
+                    </button>
             </div>
         </div>
     </div>
-    
+  </div>
+</div>  
 </section>
 </main>
 
@@ -339,6 +389,7 @@
     <input type="file" id="jsonFileInput" accept=".json" class="hidden">
 </body>
 </html>
+
 
 
 
