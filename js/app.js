@@ -3585,7 +3585,6 @@ window.onDegreeChange = function() {
     } else {
         window.resetEditor();
     }
-};
                 
 // 🔥 EDITOR ESPECIALIZADO PARA COMPETENCIAS
 window.mostrarEditorCompetencias = function(tipo) {
@@ -5089,29 +5088,3 @@ function obtenerGradosDelCurriculum() {
                 }
             }
                     })();
- 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
