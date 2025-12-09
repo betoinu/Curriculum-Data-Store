@@ -3249,17 +3249,21 @@ window.initializeUI = function() {
             }
             
             const gradoData = window.curriculumData[key];
+                        
+            // EXCLUIR competencias explícitamente
+            if (key === 'kompetentziak_ingreso' || key === 'kompetentziak_egreso') {
+                console.log(`⚠️ "${key}" es competencia, NO grado - excluyendo`);
+                return;
+            }
             
-            // Verificar si es un grado (tiene cursos como arrays)
-            if (gradoData && typeof gradoData === 'object') {
-                const tieneCursos = Object.values(gradoData).some(val => Array.isArray(val));
-                const tieneClavesCurso = Object.keys(gradoData).some(k => 
-                    /^\d+$/.test(k) || k.includes('Maila') || k.includes('curso')
-                );
-                
-                if (tieneCursos || tieneClavesCurso) {
-                    console.log(`✅ "${key}" es un grado válido`);
-                    gradosEncontrados.push(key);
+            const tieneCursos = Object.values(gradoData).some(val => Array.isArray(val));
+            const tieneClavesCurso = Object.keys(gradoData).some(k => 
+                /^\d+$/.test(k) || k.includes('Maila') || k.includes('curso')
+            );
+            
+            if (tieneCursos || tieneClavesCurso) {
+                console.log(`✅ "${key}" es un grado válido`);
+                gradosEncontrados.push(key);
                     
                     const option = document.createElement('option');
                     option.value = key;
@@ -3294,9 +3298,9 @@ window.initializeUI = function() {
             console.log('✅ Añadido: Sarrerako konpetentziak');
         }
 
-        if (window.curriculumData.kompetentziak_egreso !== undefined) {
+        if (window.curriculumData.konpetentziak_egreso !== undefined) {
             const optionEgreso = document.createElement('option');
-            optionEgreso.value = 'kompetentziak_egreso';
+            optionEgreso.value = 'konpetentziak_egreso';
             optionEgreso.textContent = '🎓 Irteerako konpetentziak';
             optionEgreso.style.color = '#10B981';
             optionEgreso.style.fontWeight = '600';
@@ -3344,7 +3348,7 @@ window.onDegreeChange = function() {
     });
     
     // 🔥 CASO 1: COMPETENCIAS DE INGRESO
-    if (selectedValue === 'kompetentziak_ingreso') {
+    if (selectedValue === 'konpetentziak_ingreso') {
         console.log('🎯 PROCESANDO: Competencias de INGRESO');
         
         // 1. Establecer tipo
@@ -3386,7 +3390,7 @@ window.onDegreeChange = function() {
         }
         
         // 4. Cargar y mostrar competencias
-        const competencias = window.curriculumData?.kompetentziak_ingreso || [];
+        const competencias = window.curriculumData?.konpetentziak_ingreso || [];
         console.log(`📋 Competencias de ingreso encontradas: ${competencias.length}`);
         
         if (competenciasCount) {
@@ -3430,7 +3434,7 @@ window.onDegreeChange = function() {
     }
     
     // 🔥 CASO 2: COMPETENCIAS DE EGRESO
-    if (selectedValue === 'kompetentziak_egreso') {
+    if (selectedValue === 'konpetentziak_egreso') {
         console.log('🎓 PROCESANDO: Competencias de EGRESO');
         
         // 1. Establecer tipo
@@ -3472,7 +3476,7 @@ window.onDegreeChange = function() {
         }
         
         // 4. Cargar y mostrar competencias
-        const competencias = window.curriculumData?.kompetentziak_egreso || [];
+        const competencias = window.curriculumData?.konpetentziak_egreso || [];
         console.log(`📋 Competencias de egreso encontradas: ${competencias.length}`);
         
         if (competenciasCount) {
@@ -3850,8 +3854,8 @@ window.renderYears = function() {
     }
     
     // 🔥 VALIDACIÓN 2: Es competencia → SALIR
-    if (window.selectedDegree === 'kompetentziak_ingreso' || 
-        window.selectedDegree === 'kompetentziak_egreso') {
+    if (window.selectedDegree === 'konpetentziak_ingreso' || 
+        window.selectedDegree === 'konpetentziak_egreso') {
         console.log('🎯 Es competencia → NO mostrar años');
         container.innerHTML = '<div class="text-blue-500 p-2">🎯 konpetentziak (ez ditu urteak)</div>';
         console.groupEnd();
@@ -5182,4 +5186,5 @@ function obtenerGradosDelCurriculum() {
                 }
             }
                     })();
+
 
