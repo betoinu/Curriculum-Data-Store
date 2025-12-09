@@ -222,6 +222,9 @@ supabase.auth.onAuthStateChange((event, session) => {
         window.selectedDegree = null;
         window.selectedYear = null;
         window.selectedSubjectIndex = null;
+        window.selectedCompetenciaGrado = null;
+        window.selectedCompetenciaArea = null;
+        window.selectedCompetenciaTipo = null; // 'ingreso' o 'egreso'
 
         // ADMIN EMAILAK
         const ADMIN_EMAILS = ['josuayerbe@idarte.eus'];
@@ -2335,7 +2338,457 @@ function actualizarEstadisticasMatrices() {
             
             document.body.insertAdjacentHTML('beforeend', editorHTML);
         }
+
+// 🔥 FUNCIÓN PARA MOSTRAR SELECTOR DE GRADO PARA COMPETENCIAS
+function mostrarPanelSeleccionGradoCompetencias() {
+    console.log('🎯 Mostrando selector de grado para competencias...');
+    
+    // Obtener lista de grados disponibles
+    const grados = obtenerGradosDelCurriculum();
+    
+    let html = `
+    <div class="space-y-6 p-6">
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+            <h2 class="text-2xl font-bold text-blue-800 mb-3">
+                <i class="fas fa-graduation-cap mr-2"></i>Vincular ${window.selectedCompetenciaTipo === 'ingreso' ? 'Sarrerako' : 'Irteerako'} konpetentziak
+            </h2>
+            <p class="text-blue-700 mb-4">
+                Aukeratu zein gradu eta arlotara lotu nahi dituzun konpetentziak
+            </p>
+        </div>
         
+        <!-- Paso 1: Seleccionar Grado -->
+        <div class="border border-gray-300 rounded-lg p-5">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <span class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center mr-3">1</span>
+                Aukeratu Gradua
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="gradosLista">
+    `;
+    
+    // Mostrar botones para cada grado
+    grados.forEach(grado => {
+        html += `
+            <button onclick="seleccionarGradoParaCompetencia('${grado}')" 
+                    class="p-4 border border-gray-300 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition text-left">
+                <div class="flex items-center">
+                    <i class="fas fa-university text-blue-600 mr-3 text-xl"></i>
+                    <div>
+                        <h4 class="font-bold text-gray-800">${grado}</h4>
+                        <p class="text-sm text-gray-600 mt-1">Klik egin gradu hau aukeratzeko</p>
+                    </div>
+                </div>
+            </button>
+        `;
+    });
+    
+    html += `
+            </div>
+        </div>
+        
+        <!-- Paso 2: Seleccionar Área (solo si hay grado seleccionado) -->
+        <div id="seccionArea" class="border border-gray-300 rounded-lg p-5 hidden">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                <span class="w-8 h-8 bg-green-600 text-white rounded-full flex items-center justify-center mr-3">2</span>
+                Aukeratu Arloa (aukerazkoa)
+            </h3>
+            <p class="text-gray-600 mb-4">
+                Aukeratu arlo zehatz bat konpetentziak lotzeko, edo utzi "Guztiak" aukeratuta gradu osorako
+            </p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="areasLista">
+                <!-- Se llenará dinámicamente -->
+            </div>
+            
+            <div class="mt-6">
+                <button onclick="seleccionarTodasLasAreas()" 
+                        class="w-full p-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition">
+                    <i class="fas fa-globe mr-2"></i>Guztiak - konpetentziak gradu osorako
+                </button>
+            </div>
+        </div>
+        
+        <!-- Botón cancelar -->
+        <div class="mt-6 text-center">
+            <button onclick="window.resetEditor()" 
+                    class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-times mr-2"></i>Utzi
+            </button>
+        </div>
+    </div>
+    `;
+    
+    // Mostrar en el contenedor principal
+    document.getElementById('unitsContainer').innerHTML = html;
+    document.getElementById('noUnitsMessage').classList.add('hidden');
+    
+    // Si ya hay un grado seleccionado, mostrar las áreas automáticamente
+    if (window.selectedCompetenciaGrado) {
+        cargarAreasParaGrado(window.selectedCompetenciaGrado);
+    }
+}
+
+// 🔥 SELECCIONAR GRADO PARA COMPETENCIAS
+window.seleccionarGradoParaCompetencia = function(grado) {
+    console.log(`🎓 Grado seleccionado para competencias: ${grado}`);
+    window.selectedCompetenciaGrado = grado;
+    
+    // Actualizar UI
+    document.querySelectorAll('#gradosLista button').forEach(btn => {
+        btn.classList.remove('bg-blue-100', 'border-blue-500', 'ring-2', 'ring-blue-300');
+        if (btn.textContent.includes(grado)) {
+            btn.classList.add('bg-blue-100', 'border-blue-500', 'ring-2', 'ring-blue-300');
+        }
+    });
+    
+    // Mostrar sección de áreas
+    cargarAreasParaGrado(grado);
+};
+
+// 🔥 CARGAR ÁREAS PARA UN GRADO
+function cargarAreasParaGrado(grado) {
+    // Obtener áreas únicas de ese grado
+    const areas = extraerAreasDeGrado(grado);
+    
+    let html = '';
+    
+    // Botón para cada área
+    areas.forEach(area => {
+        html += `
+            <button onclick="seleccionarAreaParaCompetencia('${area}')" 
+                    class="p-4 border border-gray-300 rounded-lg hover:bg-green-50 hover:border-green-300 transition text-left">
+                <div class="flex items-center">
+                    <div class="w-3 h-3 rounded-full bg-green-500 mr-3"></div>
+                    <div>
+                        <h4 class="font-bold text-gray-800">${area}</h4>
+                        <p class="text-sm text-gray-600 mt-1">Klik egin arlo hau aukeratzeko</p>
+                    </div>
+                </div>
+            </button>
+        `;
+    });
+    
+    // Si no hay áreas, mostrar opción "sin áreas específicas"
+    if (areas.length === 0) {
+        html = `
+            <div class="col-span-3 text-center py-8 text-gray-500">
+                <i class="fas fa-info-circle text-3xl mb-3"></i>
+                <p>Ez dago arlo espezifikorik gradu honetarako.</p>
+                <p class="text-sm mt-1">konpetentziak gradu osorako defini daitezke.</p>
+            </div>
+        `;
+    }
+    
+    document.getElementById('areasLista').innerHTML = html;
+    document.getElementById('seccionArea').classList.remove('hidden');
+    
+    // Scroll a la sección de áreas
+    document.getElementById('seccionArea').scrollIntoView({ behavior: 'smooth' });
+}
+
+// 🔥 EXTRAR ÁREAS DE UN GRADO ESPECÍFICO
+function extraerAreasDeGrado(grado) {
+    if (!window.curriculumData || !window.curriculumData[grado]) {
+        return [];
+    }
+    
+    const areasSet = new Set();
+    
+    // Recorrer todos los cursos del grado
+    Object.values(window.curriculumData[grado]).forEach(curso => {
+        if (Array.isArray(curso)) {
+            curso.forEach(asignatura => {
+                if (asignatura.arloa && asignatura.arloa.trim()) {
+                    areasSet.add(asignatura.arloa.trim());
+                }
+            });
+        }
+    });
+    
+    return Array.from(areasSet).sort();
+}
+
+// 🔥 SELECCIONAR ÁREA PARA COMPETENCIAS
+window.seleccionarAreaParaCompetencia = function(area) {
+    console.log(`🎯 Área seleccionada: ${area}`);
+    window.selectedCompetenciaArea = area;
+    
+    // Actualizar UI
+    document.querySelectorAll('#areasLista button').forEach(btn => {
+        btn.classList.remove('bg-green-100', 'border-green-500', 'ring-2', 'ring-green-300');
+        if (btn.textContent.includes(area)) {
+            btn.classList.add('bg-green-100', 'border-green-500', 'ring-2', 'ring-green-300');
+        }
+    });
+    
+    // Mostrar botón para continuar
+    setTimeout(() => mostrarBotonContinuarCompetencias(), 300);
+};
+
+// 🔥 SELECCIONAR TODAS LAS ÁREAS
+window.seleccionarTodasLasAreas = function() {
+    window.selectedCompetenciaArea = null; // null significa "todas las áreas"
+    console.log('🌍 Se seleccionaron todas las áreas');
+    
+    // Mostrar botón para continuar
+    mostrarBotonContinuarCompetencias();
+};
+
+// 🔥 MOSTRAR BOTÓN PARA CONTINUAR A EDITOR DE COMPETENCIAS
+function mostrarBotonContinuarCompetencias() {
+    // Crear o mostrar botón de continuar
+    let continuarBtn = document.getElementById('continuarCompetenciasBtn');
+    
+    if (!continuarBtn) {
+        continuarBtn = document.createElement('button');
+        continuarBtn.id = 'continuarCompetenciasBtn';
+        continuarBtn.className = 'fixed bottom-10 right-10 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-lg shadow-lg hover:from-purple-700 hover:to-indigo-700 transition flex items-center z-50';
+        continuarBtn.innerHTML = '<i class="fas fa-arrow-right mr-2"></i>Jarraitu konpetentziak editatzera';
+        continuarBtn.onclick = continuarAEditorCompetencias;
+        document.body.appendChild(continuarBtn);
+    } else {
+        continuarBtn.classList.remove('hidden');
+    }
+}
+
+// 🔥 CONTINUAR AL EDITOR DE COMPETENCIAS
+function continuarAEditorCompetencias() {
+    console.log(`🎯 Continuando a editor con configuración:`, {
+        tipo: window.selectedCompetenciaTipo,
+        grado: window.selectedCompetenciaGrado,
+        area: window.selectedCompetenciaArea
+    });
+    
+    // Ocultar botón flotante
+    const btn = document.getElementById('continuarCompetenciasBtn');
+    if (btn) btn.classList.add('hidden');
+    
+    // Mostrar panel de competencias
+    if (typeof window.mostrarPanel === 'function') {
+        window.mostrarPanel('competenciasPanel');
+    }
+    
+    // Actualizar título del panel de competencias
+    const competenciasTitle = document.getElementById('competenciasTitle');
+    if (competenciasTitle) {
+        const areaText = window.selectedCompetenciaArea ? ` (${window.selectedCompetenciaArea})` : '';
+        competenciasTitle.textContent = `${window.selectedCompetenciaTipo === 'ingreso' ? 'Sarrerako' : 'Irteerako'} konpetentziak - ${window.selectedCompetenciaGrado}${areaText}`;
+    }
+    
+    // Inicializar estructura de datos para competencias vinculadas
+    inicializarEstructuraCompetenciasVinculadas();
+    
+    // Renderizar competencias según la configuración
+    renderizarCompetenciasVinculadas();
+}
+
+// 🔥 INICIALIZAR ESTRUCTURA PARA COMPETENCIAS VINCULADAS
+function inicializarEstructuraCompetenciasVinculadas() {
+    if (!window.curriculumData.competencias_vinculadas) {
+        window.curriculumData.competencias_vinculadas = {};
+    }
+    
+    const key = obtenerClaveCompetenciasVinculadas();
+    
+    if (!window.curriculumData.competencias_vinculadas[key]) {
+        window.curriculumData.competencias_vinculadas[key] = {
+            tipo: window.selectedCompetenciaTipo,
+            grado: window.selectedCompetenciaGrado,
+            area: window.selectedCompetenciaArea,
+            competencias: [],
+            metadata: {
+                creado: new Date().toISOString(),
+                actualizado: new Date().toISOString()
+            }
+        };
+    }
+    
+    console.log(`🗂️ Estructura de competencias vinculadas inicializada: ${key}`);
+}
+
+// 🔥 OBTENER CLAVE ÚNICA PARA COMPETENCIAS VINCULADAS
+function obtenerClaveCompetenciasVinculadas() {
+    const area = window.selectedCompetenciaArea || 'todas';
+    return `${window.selectedCompetenciaTipo}_${window.selectedCompetenciaGrado}_${area}`;
+}
+
+// 🔥 RENDERIZAR COMPETENCIAS VINCULADAS
+function renderizarCompetenciasVinculadas() {
+    const key = obtenerClaveCompetenciasVinculadas();
+    const data = window.curriculumData.competencias_vinculadas[key];
+    const competencias = data ? data.competencias : [];
+    
+    const tipo = window.selectedCompetenciaTipo;
+    const color = tipo === 'ingreso' ? 'blue' : 'green';
+    const badgeText = tipo === 'ingreso' ? 'Sarrera' : 'Irteera';
+    const badgeColor = tipo === 'ingreso' ? 'badge-ingreso' : 'badge-egreso';
+    
+    // Actualizar elementos del panel
+    const competenciasBadge = document.getElementById('competenciasBadge');
+    const competenciasTitle = document.getElementById('competenciasTitle');
+    const competenciasDescription = document.getElementById('competenciasDescription');
+    const competenciasCount = document.getElementById('competenciasCount');
+    
+    if (competenciasBadge) {
+        competenciasBadge.textContent = badgeText;
+        competenciasBadge.className = `inline-block text-xs px-2 py-1 rounded-full mb-2 font-semibold ${badgeColor}`;
+    }
+    
+    if (competenciasTitle) {
+        const areaText = window.selectedCompetenciaArea ? ` - ${window.selectedCompetenciaArea}` : '';
+        competenciasTitle.textContent = `${tipo === 'ingreso' ? 'Sarrerako' : 'Irteerako'} konpetentziak - ${window.selectedCompetenciaGrado}${areaText}`;
+    }
+    
+    if (competenciasDescription) {
+        const desc = tipo === 'ingreso' 
+            ? 'Ikasleek sartzerakoan izan behar dituzten gaitasunak' 
+            : 'Ikasleek graduatu aurretik lortu behar dituzten gaitasunak';
+        competenciasDescription.textContent = `${desc} (${window.selectedCompetenciaGrado}${window.selectedCompetenciaArea ? ' - ' + window.selectedCompetenciaArea : ''})`;
+    }
+    
+    if (competenciasCount) {
+        competenciasCount.textContent = `${competencias.length} konpetentzia definituta`;
+    }
+    
+    // Renderizar lista de competencias
+    const competenciasContainer = document.getElementById('competenciasContainer');
+    if (!competenciasContainer) return;
+    
+    if (competencias.length === 0) {
+        competenciasContainer.innerHTML = `
+            <div class="text-center py-12 text-gray-400">
+                <i class="fas fa-inbox text-5xl mb-4"></i>
+                <h3 class="text-xl font-medium text-gray-500 mb-2">Ez dago konpetentziarik</h3>
+                <p class="text-gray-400">Gehitu lehenengo konpetentzia botoia erabiliz</p>
+            </div>
+        `;
+    } else {
+        let html = '<div class="space-y-4">';
+        
+        competencias.forEach((comp, index) => {
+            html += `
+                <div class="border border-gray-200 rounded-lg p-4 hover:bg-${color}-50 transition ${tipo === 'ingreso' ? 'border-l-4 border-blue-500' : 'border-l-4 border-green-500'}">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-grow mr-4">
+                            <div class="mb-2">
+                                <input type="text" 
+                                       value="${comp.kodea || `${tipo === 'ingreso' ? 'SI' : 'SE'}${index + 1}`}"
+                                       class="w-32 border border-gray-300 rounded px-3 py-2 text-sm font-bold bg-${color}-100 focus:bg-white focus:ring-2 focus:ring-${color}-300"
+                                       onchange="actualizarCompetenciaVinculada(${index}, 'kodea', this.value)"
+                                       placeholder="Kodea">
+                            </div>
+                            <textarea class="w-full border border-gray-300 rounded p-3 text-sm focus:outline-none focus:ring-2 focus:ring-${color}-300" 
+                                      rows="3"
+                                      onchange="actualizarCompetenciaVinculada(${index}, 'deskribapena', this.value)"
+                                      placeholder="Deskribatu konpetentzia hau...">${comp.deskribapena || ''}</textarea>
+                            
+                            <!-- Info adicional -->
+                            <div class="mt-3 text-xs text-gray-500">
+                                ${comp.nivel ? `<span class="inline-block px-2 py-1 bg-${color}-100 text-${color}-800 rounded mr-2">${comp.nivel}</span>` : ''}
+                                ${comp.evidencias ? `<span class="mr-3"><i class="fas fa-clipboard-check mr-1"></i>${comp.evidencias}</span>` : ''}
+                            </div>
+                        </div>
+                        <button onclick="eliminarCompetenciaVinculada(${index})" 
+                                class="text-red-400 hover:text-red-600 p-2 ml-4">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        competenciasContainer.innerHTML = html;
+    }
+}
+
+// 🔥 AÑADIR COMPETENCIA VINCULADA
+window.añadirCompetenciaVinculada = function() {
+    const key = obtenerClaveCompetenciasVinculadas();
+    
+    if (!window.curriculumData.competencias_vinculadas[key]) {
+        inicializarEstructuraCompetenciasVinculadas();
+    }
+    
+    const competencias = window.curriculumData.competencias_vinculadas[key].competencias;
+    const numero = competencias.length + 1;
+    const tipo = window.selectedCompetenciaTipo;
+    const prefijo = tipo === 'ingreso' ? 'SI' : 'SE';
+    
+    competencias.push({
+        kodea: `${prefijo}${numero}`,
+        deskribapena: 'Deskribatu konpetentzia hau...',
+        nivel: 'B', // B: Básico, J: Jakintsua, A: Aurreratua
+        data_sartze: new Date().toISOString().slice(0, 10),
+        egilea: window.supabase?.auth?.getUser()?.then(({data}) => data.user?.email) || 'admin',
+        grado: window.selectedCompetenciaGrado,
+        area: window.selectedCompetenciaArea
+    });
+    
+    // Actualizar metadata
+    window.curriculumData.competencias_vinculadas[key].metadata.actualizado = new Date().toISOString();
+    
+    // Volver a renderizar
+    renderizarCompetenciasVinculadas();
+    
+    // Guardar cambios
+    setTimeout(() => {
+        if (window.saveCurriculumData) {
+            window.saveCurriculumData();
+        }
+    }, 500);
+    
+    window.showToast?.('✅ konpetentzia berria gehitu da', 'success');
+};
+
+// 🔥 ACTUALIZAR COMPETENCIA VINCULADA
+window.actualizarCompetenciaVinculada = function(index, campo, valor) {
+    const key = obtenerClaveCompetenciasVinculadas();
+    
+    if (!window.curriculumData.competencias_vinculadas[key] || 
+        !window.curriculumData.competencias_vinculadas[key].competencias[index]) {
+        return;
+    }
+    
+    window.curriculumData.competencias_vinculadas[key].competencias[index][campo] = valor;
+    window.curriculumData.competencias_vinculadas[key].metadata.actualizado = new Date().toISOString();
+    
+    // Guardar automáticamente
+    setTimeout(() => {
+        if (window.saveCurriculumData) {
+            window.saveCurriculumData();
+        }
+    }, 1000);
+};
+
+// 🔥 ELIMINAR COMPETENCIA VINCULADA
+window.eliminarCompetenciaVinculada = function(index) {
+    const key = obtenerClaveCompetenciasVinculadas();
+    
+    if (!window.curriculumData.competencias_vinculadas[key] || 
+        !window.curriculumData.competencias_vinculadas[key].competencias[index]) {
+        return;
+    }
+    
+    if (confirm('Ziur zaude konpetentzia ezabatu nahi duzula?\n\nEkintza hau ezin da desegin.')) {
+        window.curriculumData.competencias_vinculadas[key].competencias.splice(index, 1);
+        window.curriculumData.competencias_vinculadas[key].metadata.actualizado = new Date().toISOString();
+        
+        // Volver a renderizar
+        renderizarCompetenciasVinculadas();
+        
+        // Guardar cambios
+        setTimeout(() => {
+            if (window.saveCurriculumData) {
+                window.saveCurriculumData();
+            }
+        }, 500);
+        
+        window.showToast?.('🗑️ konpetentzia ezabatua', 'success');
+    }
+};
+
         // 🔥 FUNCIÓN PARA GUARDAR CONFIGURACIÓN
         window.guardarConfiguracionMatriz = function(tipo) {
             window.showToast(`✅ Configuración de ${tipo} guardada`, 'success');
@@ -2753,34 +3206,20 @@ window.onDegreeChange = function() {
     
     console.log(`🎓 Seleccionado: "${selectedValue}"`);
     
-    // 🔥 DETECTAR SI ES COMPETENCIA
+    // Si es competencia (ingreso/egreso), guardar el tipo y redirigir
     if (selectedValue === 'konpetentziak_ingreso' || selectedValue === 'konpetentziak_egreso') {
-        console.log(`🎯 Redirigiendo a editor de competencias: ${selectedValue}`);
+        window.selectedCompetenciaTipo = selectedValue === 'konpetentziak_ingreso' ? 'ingreso' : 'egreso';
+        window.selectedCompetenciaGrado = null; // Resetear grado
+        window.selectedCompetenciaArea = null; // Resetear área
         
-        // Determinar tipo
-        const tipo = selectedValue === 'konpetentziak_ingreso' ? 'ingreso' : 'egreso';
+        console.log(`🎯 Redirigiendo a selector de grados para competencias: ${window.selectedCompetenciaTipo}`);
         
-        // 🔥 MOSTRAR PANEL DE COMPETENCIAS
-        if (typeof window.mostrarPanel === 'function') {
-            window.mostrarPanel('competenciasPanel');
-        }
-        
-        // 🔥 LLAMAR A LA FUNCIÓN ESPECIALIZADA
-        if (typeof window.mostrarEditorCompetencias === 'function') {
-            window.mostrarEditorCompetencias(tipo);
-        } else {
-            console.error('❌ mostrarEditorCompetencias no está definida');
-            window.showToast?.('❌ Editor de competencias no disponible', 'error');
-            // Volver al welcome
-            if (typeof window.mostrarPanel === 'function') {
-                window.mostrarPanel('welcomeEditor');
-            }
-        }
-        
-        return; // ¡IMPORTANTE! Salir de la función
+        // Mostrar panel de selección de grado para competencias
+        mostrarPanelSeleccionGradoCompetencias();
+        return;
     }
     
-    // ✅ Si es un grado normal, proceder como siempre
+    // Si es un grado normal, proceder como siempre
     window.selectedDegree = selectedValue;
     window.selectedYear = null;
     window.selectedSubjectIndex = null;
@@ -2789,18 +3228,15 @@ window.onDegreeChange = function() {
     window.renderYears();
     document.getElementById('subjectList').innerHTML = '<li class="p-3 text-gray-500 text-sm italic">Aukeratu maila bat irakasgaiak ikusteko.</li>';
     
-    // 🔥 MOSTRAR EDITOR DE ASIGNATURAS (si hay grado seleccionado)
     if (selectedValue) {
         if (typeof window.mostrarPanel === 'function') {
             window.mostrarPanel('editorPanel');
         }
-        // Mostrar mensaje de bienvenida en el editor
         const subjectTitle = document.getElementById('subjectTitle');
         const subjectType = document.getElementById('subjectType');
         if (subjectTitle) subjectTitle.textContent = 'Irakasgai bat aukeratu';
         if (subjectType) subjectType.textContent = 'Gradua: ' + selectedValue;
     } else {
-        // Si no hay selección, volver al welcome
         window.resetEditor();
     }
 };
@@ -4308,6 +4744,7 @@ function obtenerGradosDelCurriculum() {
             }
                     })();
  
+
 
 
 
