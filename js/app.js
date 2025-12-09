@@ -1190,8 +1190,8 @@ function setUILoginState(isLoggedIn, user = null) {
             return normalized;
         };
 
-            // 🔥 FUNCIÓN MEJORADA DE VERIFICACIÓN
-            function verificarEstructuraDatos() {
+// 🔥 FUNCIÓN MEJORADA DE VERIFICACIÓN
+function verificarEstructuraDatos() {
     if (!window.curriculumData) {
         console.log('⏳ Ez dago daturik egiaztatzeko');
         return null;
@@ -2607,105 +2607,146 @@ function actualizarEstadisticasMatrices() {
         
         // --- UI Rendering eta Ekintza Funtzioak ---
         
-        window.initializeUI = function() {
-    document.getElementById('loadingOverlay').classList.add('hidden');
-    document.getElementById('saveBtn').disabled = false;
-    document.getElementById('downloadBackupBtn').disabled = false;
-
+window.initializeUI = function() {
+    console.log('🎨 Inicializando UI...');
+    
+    // Ocultar loading
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) loading.classList.add('hidden');
+    
+    // Habilitar botones
+    const saveBtn = document.getElementById('saveBtn');
+    const downloadBtn = document.getElementById('downloadBackupBtn');
+    if (saveBtn) saveBtn.disabled = false;
+    if (downloadBtn) downloadBtn.disabled = false;
+    
+    // Llenar selector de grados
     const degreeSelect = document.getElementById('degreeSelect');
-    if (!degreeSelect) {
-        console.error('❌ degreeSelect no encontrado');
-        return;
-    }
-    
-    degreeSelect.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
-    
-    // 🔥 USAR CURRICULUMUTILS
-    const grados = window.CurriculumUtils?.getDegrees() || [];
-    
-    if (grados.length === 0) {
-        console.warn('⚠️ No se encontraron grados');
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = '-- Ez dago gradu definitua --';
-        degreeSelect.appendChild(option);
-    } else {
-        grados.forEach(degree => {
-            const option = document.createElement('option');
-            option.value = degree;
-            option.textContent = degree;
-            degreeSelect.appendChild(option);
-            console.log(`➕ Grado añadido al select: ${degree}`);
+    if (degreeSelect) {
+        degreeSelect.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
+        
+        if (!window.curriculumData) {
+            console.error('❌ No hay curriculumData');
+            return;
+        }
+        
+        console.log('🔍 Buscando grados en curriculumData...');
+        
+        const gradosEncontrados = [];
+        
+        Object.keys(window.curriculumData).forEach(key => {
+            // Excluir keys que NO son grados
+            if (key === 'kompetentziak_ingreso' || 
+                key === 'kompetentziak_egreso' || 
+                key === '_metadata' ||
+                key === 'matrices' ||
+                key.startsWith('kompetentziak')) {
+                return;
+            }
+            
+            const gradoData = window.curriculumData[key];
+            console.log(`• Analizando "${key}":`, {
+                tipo: typeof gradoData,
+                esObjeto: gradoData && typeof gradoData === 'object',
+                claves: gradoData ? Object.keys(gradoData) : []
+            });
+            
+            // Verificar si es un grado (tiene cursos como arrays)
+            if (gradoData && typeof gradoData === 'object') {
+                const tieneCursos = Object.values(gradoData).some(val => Array.isArray(val));
+                const tieneClavesCurso = Object.keys(gradoData).some(k => 
+                    /^\d+$/.test(k) || k.includes('Maila') || k.includes('curso')
+                );
+                
+                if (tieneCursos || tieneClavesCurso) {
+                    console.log(`✅ "${key}" es un grado válido`);
+                    gradosEncontrados.push(key);
+                    
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = key;
+                    degreeSelect.appendChild(option);
+                }
+            }
         });
+        
+        console.log(`📊 Grados encontrados: ${gradosEncontrados.length}`, gradosEncontrados);
+        
+        if (gradosEncontrados.length === 0) {
+            console.warn('⚠️ No se encontraron grados. Mostrando todas las keys...');
+            
+            // Mostrar todas las keys como opción de debug
+            Object.keys(window.curriculumData).forEach(key => {
+                if (key !== 'matrices') {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.textContent = `${key} (debug)`;
+                    option.style.color = 'red';
+                    degreeSelect.appendChild(option);
+                }
+            });
+        }
+        
+        // Restaurar selección si existe
+        if (window.selectedDegree) {
+            degreeSelect.value = window.selectedDegree;
+        }
     }
     
-    // 🔥 LLENAR SELECT DE EREMUAK (si existe la función)
+    // Mostrar navegación
+    const navPanel = document.getElementById('navigationPanel');
+    if (navPanel) navPanel.classList.remove('hidden');
+    
+    // Llenar select de eremuak
     if (typeof llenarSelectEremuakConEditor === 'function') {
         setTimeout(llenarSelectEremuakConEditor, 500);
     }
     
-    // Restaurar selección previa si existe
-    if (window.selectedDegree) {
-        degreeSelect.value = window.selectedDegree;
-        window.renderYears();
-        if (window.selectedYear) {
-            window.renderSubjects();
-            if (window.selectedSubjectIndex !== null) {
-                window.loadSubjectEditor(window.selectedSubjectIndex);
-            }
-        }
-    }
-    
-    // Mostrar panel de navegación
-    const navPanel = document.getElementById('navigationPanel');
-    if (navPanel) {
-        navPanel.classList.remove('hidden');
-    }
-    
-    console.log('✅ UI inicializada con', grados.length, 'grados');
+    console.log('✅ UI inicializada');
 };
 
-        // --- UI Funtzio Laguntzaileak (window objektuan gordeta) ---
-        window.onDegreeChange = function() {
-            const degreeSelect = document.getElementById('degreeSelect');
-            const selectedValue = degreeSelect.value;
+// --- UI Funtzio Laguntzaileak (window objektuan gordeta) ---
+window.onDegreeChange = function() {
+    const degreeSelect = document.getElementById('degreeSelect');
+    const selectedValue = degreeSelect.value;
             
-            // 🔥 DETECTAR SI ES COMPETENCIA USANDO UTILS
-            if (selectedValue === 'kompetentziak_ingreso' || selectedValue === 'kompetentziak_egreso') {
-                const tipo = selectedValue === 'kompetentziak_ingreso' ? 'ingreso' : 'egreso';
+    // 🔥 DETECTAR SI ES COMPETENCIA USANDO UTILS
+    if (selectedValue === 'kompetentziak_ingreso' || selectedValue === 'kompetentziak_egreso') {
+        const tipo = selectedValue === 'kompetentziak_ingreso' ? 'ingreso' : 'egreso';
                 
-                if (typeof window.showCompetenciasGlobales === 'function') {
-                    window.showCompetenciasGlobales(tipo);
-                }
-                return;
-            }
-            
-            // ✅ Si es un grado normal, proceder como siempre
-            window.selectedDegree = selectedValue;
-            window.selectedYear = null;
-            window.selectedSubjectIndex = null;
-            window.renderYears();
-            document.getElementById('subjectList').innerHTML = '<li class="p-3 text-gray-500 text-sm italic">Aukeratu maila bat irakasgaiak ikusteko.</li>';
-            window.resetEditor();
-        };
-        window.renderYears = function() {
-            const container = document.getElementById('sectionButtons');
-            container.innerHTML = '';
-            if (!window.selectedDegree || !window.curriculumData[window.selectedDegree]) return;
-            const years = Object.keys(window.curriculumData[window.selectedDegree]).sort();
-            years.forEach(year => {
-                const btn = document.createElement('button');
-                btn.textContent = `${year}. Maila`;
-                btn.className = `flex-1 py-2 px-3 rounded text-sm font-medium transition border ${window.selectedYear === year ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50'}`;
-                btn.onclick = () => {
-                    window.selectedYear = year;
-                    window.renderYears(); 
-                    window.renderSubjects();
-                    window.resetEditor();
-                };
-                container.appendChild(btn);
-            });
+        if (typeof window.showCompetenciasGlobales === 'function') {
+            window.showCompetenciasGlobales(tipo);
         }
+        return;
+    }
+            
+    // ✅ Si es un grado normal, proceder como siempre
+    window.selectedDegree = selectedValue;
+    window.selectedYear = null;
+    window.selectedSubjectIndex = null;
+    window.renderYears();
+    document.getElementById('subjectList').innerHTML = '<li class="p-3 text-gray-500 text-sm italic">Aukeratu maila bat irakasgaiak ikusteko.</li>';
+    window.resetEditor();
+};
+
+window.renderYears = function() { 
+    const container = document.getElementById('sectionButtons');
+    container.innerHTML = '';
+    if (!window.selectedDegree || !window.curriculumData[window.selectedDegree]) return;
+        const years = Object.keys(window.curriculumData[window.selectedDegree]).sort();
+        years.forEach(year => {
+            const btn = document.createElement('button');
+            btn.textContent = `${year}. Maila`;
+            btn.className = `flex-1 py-2 px-3 rounded text-sm font-medium transition border ${window.selectedYear === year ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50'}`;
+            btn.onclick = () => {
+                window.selectedYear = year;
+                window.renderYears(); 
+                window.renderSubjects();
+                window.resetEditor();
+            };
+            container.appendChild(btn);
+        });
+    }
 
         window.renderSubjects = function() {
             const list = document.getElementById('subjectList');
@@ -3911,6 +3952,7 @@ function obtenerGradosDelCurriculum() {
             }
                     })();
  
+
 
 
 
