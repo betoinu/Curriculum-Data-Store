@@ -3835,23 +3835,117 @@ window.eliminarCompetencia = function(tipo, index) {
 };
 
 window.renderYears = function() { 
+    console.group('🔍 renderYears DIAGNÓSTICO');
+    
     const container = document.getElementById('sectionButtons');
-    container.innerHTML = '';
-    if (!window.selectedDegree || !window.curriculumData[window.selectedDegree]) return;
-        const years = Object.keys(window.curriculumData[window.selectedDegree]).sort();
-        years.forEach(year => {
-            const btn = document.createElement('button');
-            btn.textContent = `${year}. Maila`;
-            btn.className = `flex-1 py-2 px-3 rounded text-sm font-medium transition border ${window.selectedYear === year ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-indigo-50'}`;
-            btn.onclick = () => {
-                window.selectedYear = year;
-                window.renderYears(); 
-                window.renderSubjects();
-                window.resetEditor();
-            };
-            container.appendChild(btn);
-        });
+    console.log('- container existe?:', !!container);
+    console.log('- selectedDegree:', window.selectedDegree);
+    console.log('- curriculumData existe?:', !!window.curriculumData);
+    
+    // 🔥 VALIDACIÓN 1: Contenedor existe
+    if (!container) {
+        console.error('❌ CRÍTICO: sectionButtons no existe en HTML');
+        console.groupEnd();
+        return;
     }
+    
+    // 🔥 VALIDACIÓN 2: Es competencia → SALIR
+    if (window.selectedDegree === 'kompetentziak_ingreso' || 
+        window.selectedDegree === 'kompetentziak_egreso') {
+        console.log('🎯 Es competencia → NO mostrar años');
+        container.innerHTML = '<div class="text-blue-500 p-2">🎯 konpetentziak (ez ditu urteak)</div>';
+        console.groupEnd();
+        return;
+    }
+    
+    // 🔥 VALIDACIÓN 3: No hay grado seleccionado
+    if (!window.selectedDegree) {
+        console.log('ℹ️ No hay grado seleccionado');
+        container.innerHTML = '<div class="text-gray-400 p-2">-- Aukeratu gradua --</div>';
+        console.groupEnd();
+        return;
+    }
+    
+    // 🔥 VALIDACIÓN 4: Grado existe en datos
+    if (!window.curriculumData[window.selectedDegree]) {
+        console.error(`❌ Grado "${window.selectedDegree}" no existe`);
+        console.log('Keys disponibles:', Object.keys(window.curriculumData || {}));
+        
+        container.innerHTML = `
+            <div class="bg-red-50 text-red-700 p-3 rounded">
+                <strong>❌ Error:</strong> "${window.selectedDegree}" ez dago
+            </div>
+        `;
+        console.groupEnd();
+        return;
+    }
+    
+    // 🔥 PROCESAR AÑOS DEL GRADO
+    const gradoData = window.curriculumData[window.selectedDegree];
+    const years = Object.keys(gradoData).sort();
+    
+    console.log('- Grado data tipo:', typeof gradoData);
+    console.log('- Años disponibles:', years);
+    console.log('- Grado data keys:', Object.keys(gradoData));
+    
+    // Limpiar contenedor
+    container.innerHTML = '';
+    
+    if (years.length === 0) {
+        console.warn('⚠️ Grado no tiene años/cursos');
+        container.innerHTML = '<div class="text-yellow-600 p-2">⚠️ Gradu honek ez du kursurik</div>';
+        console.groupEnd();
+        return;
+    }
+    
+    // Crear botones
+    console.log(`🎨 Creando ${years.length} botones de año...`);
+    
+    years.forEach(year => {
+        // Verificar que el año tenga datos válidos
+        const yearData = gradoData[year];
+        const tieneAsignaturas = Array.isArray(yearData) && yearData.length > 0;
+        
+        const btn = document.createElement('button');
+        btn.textContent = `${year}. Maila`;
+        btn.title = tieneAsignaturas 
+            ? `${yearData.length} irakasgai` 
+            : 'Ez dago irakasgairik';
+        
+        btn.className = `flex-1 py-2 px-3 rounded text-sm font-medium transition border ${
+            window.selectedYear === year 
+            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+            : `bg-white text-gray-700 border-gray-300 hover:bg-indigo-50 ${!tieneAsignaturas ? 'opacity-50' : ''}`
+        }`;
+        
+        btn.onclick = () => {
+            console.log(`📅 Año clickeado: ${year}`);
+            window.selectedYear = year;
+            
+            // Feedback visual
+            btn.classList.add('ring-2', 'ring-indigo-300');
+            setTimeout(() => btn.classList.remove('ring-2', 'ring-indigo-300'), 300);
+            
+            // Actualizar UI
+            window.renderYears();
+            window.renderSubjects();
+            window.resetEditor();
+        };
+        
+        // Indicador si no tiene asignaturas
+        if (!tieneAsignaturas) {
+            const badge = document.createElement('span');
+            badge.className = 'ml-2 text-xs text-gray-400';
+            badge.textContent = '(hutsik)';
+            btn.appendChild(badge);
+        }
+        
+        container.appendChild(btn);
+    });
+    
+    console.log(`✅ ${years.length} años renderizados correctamente`);
+    console.groupEnd();
+};
 
         window.renderSubjects = function() {
             const list = document.getElementById('subjectList');
@@ -5088,3 +5182,4 @@ function obtenerGradosDelCurriculum() {
                 }
             }
                     })();
+
