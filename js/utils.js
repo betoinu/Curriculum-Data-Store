@@ -6,11 +6,11 @@ window.CurriculumUtils = {
     
     // 🔥 LISTA DE KEYS QUE NO SON GRADOS
     NON_DEGREE_KEYS: [
-        'konpetentziak_ingreso',
-        'konpetentziak_egreso', 
+        'kompetentziak_ingreso',
+        'kompetentziak_egreso', 
         '_metadata',
         'matrices',
-        'konpetentziak_ingreso_mejorado',
+        'kompetentziak_ingreso_mejorado',
         'competencias_vinculadas'  // 🔥 NUEVO: competencias vinculadas
     ],
     
@@ -20,7 +20,7 @@ window.CurriculumUtils = {
         
         // 1. Excluir keys no-grado
         if (this.NON_DEGREE_KEYS.includes(key)) return false;
-        if (key.startsWith('konpetentziak')) return false;
+        if (key.startsWith('kompetentziak')) return false;
         
         // 2. Verificar si existe en curriculumData
         if (!window.curriculumData || !window.curriculumData[key]) {
@@ -191,7 +191,7 @@ window.CurriculumUtils = {
     getCompetencias: function(tipo) {
         if (!window.curriculumData) return [];
         
-        const key = tipo === 'ingreso' ? 'konpetentziak_ingreso' : 'konpetentziak_egreso';
+        const key = tipo === 'ingreso' ? 'kompetentziak_ingreso' : 'kompetentziak_egreso';
         return Array.isArray(window.curriculumData[key]) ? window.curriculumData[key] : [];
     },
     
@@ -374,8 +374,8 @@ window.CurriculumUtils = {
         }
         
         const grados = this.getDegrees();
-        const tieneCompetenciasIngreso = !!window.curriculumData.konpetentziak_ingreso;
-        const tieneCompetenciasEgreso = !!window.curriculumData.konpetentziak_egreso;
+        const tieneCompetenciasIngreso = !!window.curriculumData.kompetentziak_ingreso;
+        const tieneCompetenciasEgreso = !!window.curriculumData.kompetentziak_egreso;
         const tieneMatrices = !!window.curriculumData.matrices;
         const tieneCompetenciasVinculadas = !!window.curriculumData.competencias_vinculadas;
         
@@ -495,4 +495,3 @@ window.CurriculumUtils = {
         return reporte;
     }
 };
-
