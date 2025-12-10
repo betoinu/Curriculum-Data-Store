@@ -116,6 +116,33 @@ if (errores.length > 0) {
 }
 
 // ============================================
+// SHOWTOAST
+// ============================================
+
+window.showToast = function(message, type = 'normal') {
+    // Implementación actual (línea 2998)
+    const toast = document.getElementById('toast');
+    if (!toast) {
+        console.error('❌ Elemento #toast no encontrado');
+        console[type === 'error' ? 'error' : 'log'](message);
+        return;
+    }
+    toast.textContent = message;
+    toast.className = 'fixed bottom-5 right-5 px-6 py-3 rounded shadow-lg transform transition-transform duration-300';
+    if (type === 'error') { 
+        toast.classList.add('bg-red-600', 'text-white'); 
+    } else if (type === 'success') { 
+        toast.classList.add('bg-green-600', 'text-white'); 
+    } else { 
+        toast.classList.add('bg-gray-800', 'text-white'); 
+    }
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-20');
+        setTimeout(() => { toast.classList.add('translate-y-20'); }, 3000);
+    });
+};
+
+// ============================================
 // SOLO CONTINUAR SI TODO ESTÁ BIEN
 // ============================================
 
@@ -3730,19 +3757,7 @@ window.resetEditor = function() {
             }
         }
         
-        window.showToast = function(message, type = 'normal') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = 'fixed bottom-5 right-5 px-6 py-3 rounded shadow-lg transform transition-transform duration-300';
-            if (type === 'error') { toast.classList.add('bg-red-600', 'text-white'); } 
-            else if (type === 'success') { toast.classList.add('bg-green-600', 'text-white'); } 
-            else { toast.classList.add('bg-gray-800', 'text-white'); }
-            requestAnimationFrame(() => {
-                toast.classList.remove('translate-y-20');
-                setTimeout(() => { toast.classList.add('translate-y-20'); }, 3000);
-            });
-        }
-        
+       
         // Supabase funtzioak eskuragarri
         window.supabaseIkusiDatuak = viewSupabaseData;
         window.supabaseGehituDatuak = saveCurriculumData;
@@ -4889,5 +4904,6 @@ if (originalOnDegreeChange) {
                 }
             }
                     })();
+
 
 
