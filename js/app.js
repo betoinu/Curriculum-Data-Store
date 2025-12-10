@@ -4858,8 +4858,3 @@ if (originalOnDegreeChange) {
                 }
             }
                     })();
-
-
-
-
-
