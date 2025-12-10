@@ -3162,6 +3162,22 @@ window.initializeUI = function() {
                     option.textContent = key;
                     degreeSelect.appendChild(option);
                 }
+                if (gradosEncontrados.length > 0) {
+                    const separator = document.createElement('option');
+                    separator.disabled = true;
+                    separator.textContent = '────────────────────';
+                    separator.style.color = '#9CA3AF';
+                    separator.style.fontSize = '12px';
+                    separator.style.padding = '4px 0';
+                    degreeSelect.appendChild(separator);
+                }
+                
+                // 🔥 EL CÓDIGO DE COMPETENCIAS HA SIDO ELIMINADO AQUÍ
+                
+                // Restaurar selección si existe
+                if (window.selectedDegree) {
+                    degreeSelect.value = window.selectedDegree;
+                }
             }
         });
         
@@ -4838,23 +4854,60 @@ if (originalOnDegreeChange) {
         console.log('✅ BLOQUEADOR TAC AGGRESIVO ACTIVADO');
     })();
 
-        // 🔥 DESREGISTRAR SERVICE WORKERS AL CARGAR
-        (function() {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    console.log('Service workers encontrados:', registrations.length);
-                    registrations.forEach(function(registration) {
-                        console.log('Desregistrando:', registration.scope);
-                        registration.unregister();
-                    });
-                });
-                
-                if (window.caches) {
-                    caches.keys().then(function(cacheNames) {
-                        cacheNames.forEach(function(cacheName) {
-                            caches.delete(cacheName);
-                        });
-                    });
-                }
+// 🔥 DESREGISTRAR SERVICE WORKERS - VERSIÓN MEJORADA
+(function() {
+    'use strict';
+    
+    if (!('serviceWorker' in navigator)) {
+        return; // Navegador no soporta Service Workers
+    }
+    
+    console.log('🛠️ Limpiando Service Workers...');
+    
+    // 1. Desregistrar Service Workers
+    navigator.serviceWorker.getRegistrations()
+        .then(function(registrations) {
+            if (registrations.length === 0) {
+                console.log('✅ No hay Service Workers registrados');
+                return;
             }
-                    })();
+            
+            console.log(`📋 Encontrados ${registrations.length} Service Workers`);
+            
+            const unregisterPromises = registrations.map(function(registration) {
+                console.log(`🗑️ Desregistrando: ${registration.scope}`);
+                return registration.unregister();
+            });
+            
+            return Promise.all(unregisterPromises);
+        })
+        .then(function() {
+            console.log('✅ Todos los Service Workers desregistrados');
+            
+            // 2. Limpiar caches (OPCIONAL - si quieres mantenerlo)
+            if (window.caches && typeof caches.keys === 'function') {
+                return caches.keys().then(function(cacheNames) {
+                    if (cacheNames.length === 0) {
+                        console.log('✅ No hay caches para limpiar');
+                        return;
+                    }
+                    
+                    console.log(`🗑️ Limpiando ${cacheNames.length} caches...`);
+                    
+                    const deletePromises = cacheNames.map(function(cacheName) {
+                        return caches.delete(cacheName);
+                    });
+                    
+                    return Promise.all(deletePromises);
+                });
+            }
+        })
+        .then(function() {
+            console.log('✅ Limpieza completada exitosamente');
+        })
+        .catch(function(error) {
+            console.warn('⚠️ Error durante la limpieza:', error.message);
+            // No bloqueamos la aplicación por este error
+        });
+})();
+
