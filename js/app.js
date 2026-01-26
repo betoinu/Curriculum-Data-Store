@@ -1,24 +1,23 @@
-// app.js - VERSI®ÆN FINAL CON PLANNING MANAGER
-console.log('?? app.js: Cargando coordinador...');
+// app.js - VERSI√ìN FINAL SEGURA (CON LOGIN + PLANNING MANAGER)
+console.log('üöÄ app.js: Cargando coordinador...');
 
 const AppCoordinator = {
     modules: {},
     events: {},
     supabase: null,
     matricesInteractivas: null,
-    planningManager: null, // <--- NUEVO
+    planningManager: null, 
 
-    // ========== M®¶TODOS ==========
+    // ========== 1. GESTI√ìN DE M√ìDULOS ==========
     
     registerModule(name, module) {
-        console.log(`?? M®Ædulo registrado: ${name}`);
+        console.log(`üì¶ M√≥dulo registrado: ${name}`);
         this.modules[name] = module;
         
         if (name === 'matrices-interactivas') {
             this.matricesInteractivas = module;
             window.matricesInteractivas = module;
         }
-        // <--- NUEVO: Registro espec®™fico para Planning
         if (name === 'planning-manager') {
             this.planningManager = module;
             window.planningManager = module;
@@ -34,7 +33,7 @@ const AppCoordinator = {
     },
     
     async loadModule(name) {
-        console.log(`?? Cargando m®Ædulo: ${name}`);
+        console.log(`üîÑ Cargando m√≥dulo: ${name}`);
         
         try {
             switch(name) {
@@ -67,7 +66,6 @@ const AppCoordinator = {
                     }
                     break;
 
-                // <--- NUEVO: Caso para cargar el Planning Manager
                 case 'planning-manager':
                     const planningModule = await import('./planning-manager.js');
                     if (planningModule.default) {
@@ -78,84 +76,167 @@ const AppCoordinator = {
                     break;
                     
                 default:
-                    console.warn(`?? M®Ædulo desconocido: ${name}`);
+                    console.warn(`‚ö†Ô∏è M√≥dulo desconocido: ${name}`);
             }
         } catch (error) {
-            console.error(`? Error cargando m®Ædulo ${name}:`, error);
+            console.error(`‚ùå Error cargando m√≥dulo ${name}:`, error);
             throw error;
         }
     },
     
-    async initialize() {
-        console.log('?? Inicializando aplicaci®Æn...');
-        
+    // ========== 2. LOGICA DE INICIO Y LOGIN ==========
+
+    // Funtzio honek bakarrik Supabase eta Sesioa begiratzen ditu
+    async start() {
+        console.log('üîí Sistema de seguridad iniciando...');
         try {
-            // 1. Inicializar Supabase
-            console.log('1. Inicializando Supabase...');
+            // 1. Inicializar Supabase (Necesario para comprobar login)
             const { inicializarSupabase, getSupabaseInstance } = await import('./config.js');
             await inicializarSupabase();
             
             this.supabase = getSupabaseInstance();
             if (!this.supabase) throw new Error("No se pudo obtener instancia de Supabase");
-            console.log('? Supabase inicializado');
+            console.log('‚úÖ Supabase conectado');
+
+            // 2. Comprobar Sesi√≥n Existente
+            const { data: { session } } = await this.supabase.auth.getSession();
+
+            if (session) {
+                console.log(`üëã Sesi√≥n recuperada: ${session.user.email}`);
+                await this.launchApplication(session.user);
+            } else {
+                console.log('‚õî No hay sesi√≥n. Esperando login...');
+                this.setupLoginForm();
+            }
+
+        } catch (error) {
+            console.error('‚ùå Error cr√≠tico en arranque:', error);
+            this.showError(error);
+        }
+    },
+
+    // Configurar el formulario de Login (Solo si no hay sesi√≥n)
+    setupLoginForm() {
+        const loginForm = document.getElementById('login-form');
+        const loginOverlay = document.getElementById('login-overlay');
+        const errorMsg = document.getElementById('login-error');
+
+        // Asegurar que el login es visible
+        if(loginOverlay) loginOverlay.classList.remove('hidden');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                errorMsg.classList.add('hidden');
+                
+                try {
+                    const { data, error } = await this.supabase.auth.signInWithPassword({
+                        email, password
+                    });
+
+                    if (error) throw error;
+
+                    // Si login OK -> Lanzar App
+                    console.log('‚úÖ Login correcto');
+                    await this.launchApplication(data.user);
+
+                } catch (err) {
+                    console.error('Login error:', err);
+                    errorMsg.textContent = "Errorea: " + err.message;
+                    errorMsg.classList.remove('hidden');
+                }
+            });
+        }
+    },
+
+    // Esta funci√≥n carga REALMENTE la app (Solo tras login)
+    async launchApplication(user) {
+		console.log('üöÄ Lanzando aplicaci√≥n principal...');
+        
+        // 1. Ocultar Login / Mostrar App
+        const loginOverlay = document.getElementById('login-overlay');
+        const appContainer = document.getElementById('app-container');
+        
+        if(loginOverlay) loginOverlay.classList.add('hidden');
+        if(appContainer) appContainer.classList.remove('hidden');
+
+        // --- BERRIZ GEHITUA: LOGOUT LOGIKA ---
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            // Garbitu aurreko entzuleak (badaezpada) eta berria sortu
+            const newBtn = logoutBtn.cloneNode(true); 
+            logoutBtn.parentNode.replaceChild(newBtn, logoutBtn);
             
-            // 2. Cargar m®Ædulos
-            console.log('2. Cargando m®Ædulos...');
+            newBtn.addEventListener('click', async () => {
+                console.log("üëã Saioa ixten...");
+                const { error } = await this.supabase.auth.signOut();
+                if (error) {
+                    alert("Errorea saioa ixtean: " + error.message);
+                } else {
+                    // Orria birkargatu garbitzeko
+                    window.location.reload(); 
+                }
+            });
+        }
+
+        try {
+            // 2. Cargar m√≥dulos (Ahora que tenemos permiso)
+            console.log('2. Cargando m√≥dulos...');
             await this.loadModule('grados-manager');
             await this.loadModule('ui');
             await this.loadModule('matrices-interactivas');
-            await this.loadModule('planning-manager'); // <--- NUEVO: Carga del fichero
+            await this.loadModule('planning-manager');
             
-            // 3. Inicializar GradosManager (Core)
+            // 3. Inicializar GradosManager (Esto es lo que ped√≠a los datos y daba 401)
             console.log('3. Inicializando GradosManager...');
             const gradosManager = this.getModule('grados-manager');
             if (gradosManager && gradosManager.initialize) {
                 await gradosManager.initialize();
-                console.log('? GradosManager inicializado');
+                console.log('‚úÖ GradosManager inicializado con datos');
             }
             
-            // 4. Configurar Dependencias (Inyecci®Æn)
+            // 4. Configurar Dependencias
             console.log('4. Configurando dependencias...');
             
             // A) Matrices Interactivas
             const matricesModule = this.getModule('matrices-interactivas');
             if (matricesModule && matricesModule.setGradosManager && gradosManager) {
                 matricesModule.setGradosManager(gradosManager);
-                console.log('?? matricesInteractivas <-> gradosManager');
             }
 
-            // B) Planning Manager <--- NUEVO: Vinculaci®Æn
+            // B) Planning Manager
             const planningModule = this.getModule('planning-manager');
             if (planningModule && planningModule.setGradosManager && gradosManager) {
                 planningModule.setGradosManager(gradosManager);
-                console.log('?? planningManager <-> gradosManager');
             }
             
-            // 5. Exposici®Æn Global de Seguridad
+            // 5. Exposici√≥n Global
             if (!window.matricesInteractivas && this.matricesInteractivas) window.matricesInteractivas = this.matricesInteractivas;
-            if (!window.planningManager && this.planningManager) window.planningManager = this.planningManager; // <--- NUEVO
+            if (!window.planningManager && this.planningManager) window.planningManager = this.planningManager;
             
-            console.log('?? Aplicaci®Æn lista');
+            console.log('üéâ Aplicaci√≥n lista y cargada.');
             this.verifyGlobalObjects();
-            
+
         } catch (error) {
-            console.error('?? Error inicializando aplicaci®Æn:', error);
-            this.showError(error); // Usar el m®¶todo interno
-            throw error;
+            console.error('‚ùå Error inicializando m√≥dulos:', error);
+            this.showError(error);
         }
     },
     
     verifyGlobalObjects() {
-        console.log('?? Verificando objetos globales:');
+        console.log('üîç Verificando objetos globales:');
         const globals = [
             'gradosManager', 'ui', 'matricesInteractivas', 
-            'planningManager', // <--- NUEVO
+            'planningManager', 
             'supabase', 'AppCoordinator'
         ];
         
         globals.forEach(name => {
             const exists = typeof window[name] !== 'undefined';
-            console.log(`   ${exists ? '?' : '?'} ${name}`);
+            console.log(`   ${exists ? '‚úÖ' : '‚ùå'} ${name}`);
         });
     },
 
@@ -166,7 +247,7 @@ const AppCoordinator = {
             background: #ef4444; color: white; padding: 15px 25px; border-radius: 8px;
             z-index: 9999; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); font-family: sans-serif; font-weight: bold;
         `;
-        errorDiv.innerHTML = `?? Error: ${error.message} <button style="margin-left:15px; background:none; border:none; color:white; cursor:pointer;" onclick="this.parentElement.remove()">?</button>`;
+        errorDiv.innerHTML = `‚ö†Ô∏è Error: ${error.message} <button style="margin-left:15px; background:none; border:none; color:white; cursor:pointer;" onclick="this.parentElement.remove()">‚úï</button>`;
         document.body.appendChild(errorDiv);
     }
 };
@@ -174,9 +255,10 @@ const AppCoordinator = {
 window.AppCoordinator = AppCoordinator;
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('? DOM listo, esperando 500ms...');
+    console.log('üèÅ DOM listo, iniciando coordinador...');
+    // Llamamos a start() que gestionar√° el login, no a initialize() directo
     setTimeout(() => {
-        AppCoordinator.initialize().catch(console.error);
+        AppCoordinator.start().catch(console.error);
     }, 500);
 });
 
