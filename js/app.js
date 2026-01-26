@@ -117,21 +117,29 @@ const AppCoordinator = {
 
     // Configurar el formulario de Login (Solo si no hay sesión)
     setupLoginForm() {
+		const loginOverlay = document.getElementById('login-overlay');
+        const appContainer = document.getElementById('app-container');
         const loginForm = document.getElementById('login-form');
-        const loginOverlay = document.getElementById('login-overlay');
         const errorMsg = document.getElementById('login-error');
+        const googleBtn = document.getElementById('google-login-btn'); // <--- Hau da berria
 
-        // Asegurar que el login es visible
-        if(loginOverlay) loginOverlay.classList.remove('hidden');
+        // Ziurtatu Login ikusten dela eta App ezkututa dagoela
+        if (loginOverlay) loginOverlay.classList.remove('hidden');
+        if (appContainer) appContainer.classList.add('hidden');
 
+        // A) EMAIL ETA PASAHITZA LOGIKA
         if (loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
+            // Klonatu entzule zaharrak ezabatzeko
+            const newForm = loginForm.cloneNode(true);
+            loginForm.parentNode.replaceChild(newForm, loginForm);
+
+            newForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const email = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
-
-                errorMsg.classList.add('hidden');
                 
+                if (errorMsg) errorMsg.classList.add('hidden');
+
                 try {
                     const { data, error } = await this.supabase.auth.signInWithPassword({
                         email, password
@@ -139,18 +147,46 @@ const AppCoordinator = {
 
                     if (error) throw error;
 
-                    // Si login OK -> Lanzar App
-                    console.log('✅ Login correcto');
+                    console.log('🎉 Login zuzena (Email)!');
                     await this.launchApplication(data.user);
 
                 } catch (err) {
-                    console.error('Login error:', err);
-                    errorMsg.textContent = "Errorea: " + err.message;
-                    errorMsg.classList.remove('hidden');
+                    console.error('Login errorea:', err);
+                    if (errorMsg) {
+                        errorMsg.textContent = "Errorea: Emaila edo pasahitza okerrak.";
+                        errorMsg.classList.remove('hidden');
+                    }
+                }
+            });
+        }
+
+        // B) GOOGLE LOGIKA (Berria)
+        if (googleBtn) {
+            // Klonatu honek ere entzule zaharrak garbitzeko
+            const newGoogleBtn = googleBtn.cloneNode(true);
+            googleBtn.parentNode.replaceChild(newGoogleBtn, googleBtn);
+
+            newGoogleBtn.addEventListener('click', async () => {
+                console.log("🌐 Google bidez konektatzen...");
+                try {
+                    const { error } = await this.supabase.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: {
+                            redirectTo: window.location.href // Itzuli orri berera
+                        }
+                    });
+                    
+                    if (error) throw error;
+                    // Hemen ez dugu ezer gehiago egiten, Googlek orria birkargatuko duelako
+
+                } catch (err) {
+                    console.error("Google Login Errorea:", err);
+                    alert("Errorea: " + err.message);
                 }
             });
         }
     },
+
 
     // Esta función carga REALMENTE la app (Solo tras login)
     async launchApplication(user) {
@@ -263,3 +299,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 export default AppCoordinator;
+
