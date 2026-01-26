@@ -161,30 +161,83 @@ const AppCoordinator = {
         }
 
         // B) GOOGLE LOGIKA (Berria)
-        if (googleBtn) {
-            // Klonatu honek ere entzule zaharrak garbitzeko
-            const newGoogleBtn = googleBtn.cloneNode(true);
-            googleBtn.parentNode.replaceChild(newGoogleBtn, googleBtn);
-
-            newGoogleBtn.addEventListener('click', async () => {
-                console.log("🌐 Google bidez konektatzen...");
-                try {
-                    const { error } = await this.supabase.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: {
-                            redirectTo: window.location.href // Itzuli orri berera
-                        }
-                    });
-                    
-                    if (error) throw error;
-                    // Hemen ez dugu ezer gehiago egiten, Googlek orria birkargatuko duelako
-
-                } catch (err) {
-                    console.error("Google Login Errorea:", err);
-                    alert("Errorea: " + err.message);
-                }
-            });
-        }
+		if (googleBtn) {
+			console.log("🔧 Konfigurando botón de Google...");
+			
+			// 1. Garbitu event listener zaharrak
+			const newBtn = googleBtn.cloneNode(true);
+			googleBtn.parentNode.replaceChild(newBtn, googleBtn);
+			
+			// 2. Lortu botoi berria
+			const freshBtn = document.getElementById('google-login-btn');
+			if (!freshBtn) {
+				console.error("❌ No se pudo obtener el nuevo botón");
+				return;
+			}
+			
+			// 3. CSS arazoak konpondu
+			freshBtn.style.pointerEvents = 'auto';
+			freshBtn.style.cursor = 'pointer';
+			freshBtn.disabled = false;
+			freshBtn.style.opacity = '1';
+			
+			// 4. Event listener berria gehitu
+			freshBtn.addEventListener('click', async (e) => {
+				e.preventDefault();
+				e.stopImmediatePropagation();
+				
+				console.log("🌐 Iniciando login con Google...");
+				
+				// Loading egoera
+				const originalText = freshBtn.textContent;
+				freshBtn.disabled = true;
+				freshBtn.textContent = "Conectando con Google...";
+				freshBtn.style.opacity = "0.7";
+				
+				try {
+					// Asegurar que tenemos la instancia de Supabase
+					if (!this.supabase) {
+						throw new Error("No hay instancia de Supabase");
+					}
+					
+					const { error } = await this.supabase.auth.signInWithOAuth({
+						provider: 'google',
+						options: {
+							redirectTo: window.location.href,
+							queryParams: {
+								prompt: 'select_account',
+								access_type: 'offline'
+							}
+						}
+					});
+					
+					if (error) {
+						throw error;
+					}
+					
+					// Google hará el redirect automáticamente
+					console.log("✅ Redirigiendo a Google...");
+					
+				} catch (err) {
+					console.error("❌ Error en login con Google:", err);
+					
+					// Restaurar botón
+					freshBtn.disabled = false;
+					freshBtn.textContent = originalText;
+					freshBtn.style.opacity = "1";
+					
+					// Mostrar error
+					if (errorMsg) {
+						errorMsg.textContent = "Error con Google: " + err.message;
+						errorMsg.classList.remove('hidden');
+					} else {
+						alert("Error: " + err.message);
+					}
+				}
+			});
+			
+			console.log("✅ Botón de Google configurado correctamente");
+		}
     },
 
 
@@ -299,4 +352,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 export default AppCoordinator;
+
 
