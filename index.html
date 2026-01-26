@@ -27,6 +27,57 @@
 </head>
 <body class="bg-gray-100 h-screen flex overflow-hidden font-sans">
 
+	<div id="login-overlay" class="fixed inset-0 bg-slate-900 bg-opacity-95 z-[9999] flex items-center justify-center backdrop-blur-sm">
+		<div class="bg-white p-8 rounded-2xl shadow-2xl w-96 border border-gray-200">
+			<div class="text-center mb-8">
+				<i class="fas fa-university text-5xl text-indigo-600 mb-4"></i>
+				<h2 class="text-2xl font-bold text-gray-800">Sartu Sisteman</h2>
+				<p class="text-sm text-gray-500 mt-2">Curriculum Kudeatzailea</p>
+			</div>
+			
+			<form id="login-form" class="space-y-5">
+				<div>
+					<label class="block text-xs font-bold text-gray-600 uppercase mb-1">Email</label>
+					<div class="relative">
+						<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+							<i class="fas fa-envelope"></i>
+						</span>
+						<input type="email" id="email" required 
+							class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+							placeholder="zure@emaila.eus">
+					</div>
+				</div>
+				
+				<div>
+					<label class="block text-xs font-bold text-gray-600 uppercase mb-1">Pasahitza</label>
+					<div class="relative">
+						<span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+							<i class="fas fa-lock"></i>
+						</span>
+						<input type="password" id="password" required 
+							class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+							placeholder="••••••••">
+					</div>
+				</div>
+
+				<div id="login-error" class="text-red-500 text-xs bg-red-50 p-2 rounded hidden flex items-center gap-2">
+					<i class="fas fa-exclamation-circle"></i> <span>Datu okerrak</span>
+				</div>
+
+				<button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg shadow-lg hover:shadow-xl transition transform active:scale-95">
+					Sartu
+				</button>
+			</form>
+		</div>
+	</div>
+
+	<div id="app-container" class="hidden flex h-screen w-full relative">
+		
+		<button id="logout-btn" class="absolute top-4 right-4 bg-red-500/90 hover:bg-red-600 text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 transition z-50 text-xs font-bold backdrop-blur-sm border border-red-400">
+			<span>Saioa itxi</span>
+			<i class="fas fa-sign-out-alt"></i>
+		</button>
+
     <aside class="w-80 bg-slate-900 text-white flex flex-col shadow-2xl z-20">
         <div class="p-5 border-b border-slate-700 bg-slate-800">
             <div class="flex items-center justify-between mb-2">
@@ -632,3 +683,4 @@
 </body>
 
 </html>
+
