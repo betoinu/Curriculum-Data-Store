@@ -1,0 +1,12 @@
+/* 
+  Content-Security-Policy: default-src 'self';
+                           script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://rthjrzmkozvungmiiikt.supabase.co 'unsafe-inline' 'unsafe-eval';
+                           style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline';
+                           font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:;
+                           img-src 'self' data: https:;
+                           connect-src 'self' https://rthjrzmkozvungmiiikt.supabase.co wss://rthjrzmkozvungmiiikt.supabase.co https://*.supabase.co wss://*.supabase.co;
+                           frame-src 'self' https://rthjrzmkozvungmiiikt.supabase.co https://*.supabase.co;
+                           media-src 'self';
+                           object-src 'none';
+                           base-uri 'self';
+                           form-action 'self' https://rthjrzmkozvungmiiikt.supabase.co;

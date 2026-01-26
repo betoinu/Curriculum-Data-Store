@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="eu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="Content-Security-Policy" 
+		content="
+		default-src 'self'; 
+		script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.supabase.co; 
+		style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; 
+		font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; 
+		img-src 'self' data: https:; 
+		connect-src 'self' https://*.supabase.co wss://*.supabase.co; 
+		frame-src 'self' https://*.supabase.co;
+		">
+    <title>Curriculum Kudeatzailea - BD Gradua</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Scrollbar pertsonalizatua */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        .area-border-left { border-left-width: 5px; }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex overflow-hidden font-sans">
+
+    <aside class="w-80 bg-slate-900 text-white flex flex-col shadow-2xl z-20">
+        <div class="p-5 border-b border-slate-700 bg-slate-800">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">Gradua</span>
+                <button onclick="createNewDegree()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded transition">
+                    <i class="fas fa-plus mr-1"></i> Berria
+                </button>
+            </div>
+            <div class="relative">
+                <select id="degreeSelect" onchange="window.gradosManager.loadDegreeData(this.value)" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white focus:ring-2 focus:ring-indigo-500 outline-none appearance-none">
+                    <option value="">Aukeratu Gradua...</option>
+                </select>
+                <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                    <i class="fas fa-chevron-down text-slate-400"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-y-auto flex-1 custom-scrollbar">
+            <div class="border-b border-slate-700">
+                <button onclick="toggleSidebarSection('areasSection')" class="w-full p-4 flex justify-between items-center hover:bg-slate-800 transition">
+                    <span class="font-semibold text-sm"><i class="fas fa-palette mr-2 text-indigo-400"></i> Ezagutza Eremuak </span>
+                    <i class="fas fa-chevron-down text-xs text-slate-500"></i>
+                </button>
+                <div id="areasSection" class="hidden bg-slate-900 p-4 space-y-2">
+                    <p class="text-xs text-slate-400 mb-2">Editatu arloak eta koloreak:</p>
+                    <div id="areasListContainer" class="space-y-2"></div>
+                    <button onclick="addSubjectArea()" class="w-full mt-2 text-xs border border-dashed border-slate-600 p-2 text-slate-400 hover:text-white hover:border-white rounded">
+                        + Gehitu Arloa
+                    </button>
+                </div>
+            </div>
+			
+			<div class="border-b border-slate-700">
+				<button onclick="toggleSidebarSection('compSection')" class="w-full p-4 flex justify-between items-center hover:bg-slate-800 transition group">
+					<span class="font-semibold text-sm group-hover:text-white text-slate-300">
+						<i class="fas fa-bullseye mr-2 text-indigo-400"></i> Konpetentziak
+					</span>
+					<i class="fas fa-chevron-down text-xs text-slate-500"></i>
+				</button>
+
+				<div id="compSection" class="hidden bg-slate-900/50 p-4 border-l-4 border-slate-800 inset-shadow">
+					
+					<button onclick="window.openCompetenciesDashboard()" class="w-full mb-4 flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded shadow transition">
+						<i class="fas fa-network-wired"></i> Kudeatu Mapa
+					</button>
+
+					<div class="mb-4">
+						<h6 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Sarrera Profila (SK)</h6>
+						<ul id="sarreraCompList" class="text-xs space-y-1 text-slate-400 pl-2 border-l border-slate-700">
+							<li class="italic opacity-50">Kargatzen...</li>
+						</ul>
+					</div>
+
+					<div>
+						<h6 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Irteera Profila (IK)</h6>
+						<ul id="irteeraCompList" class="text-xs space-y-1 text-slate-400 pl-2 border-l border-slate-700">
+							<li class="italic opacity-50">Kargatzen...</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+
+
+			<div class="border-b border-slate-700">
+				<button onclick="toggleSidebarSection('matricesSection')" 
+						class="w-full p-4 flex justify-between items-center hover:bg-slate-800 transition">
+					<span class="font-semibold text-sm text-slate-200">
+						<i class="fas fa-brain mr-2 text-purple-400"></i> Matrize Motore Adimentsua
+					</span>
+					<i class="fas fa-chevron-down text-xs text-slate-500 transition-transform duration-300"></i>
+				</button>
+				
+				<div id="matricesSection" class="hidden bg-slate-900 p-4 space-y-2">
+					<p class="text-xs text-slate-400 mb-2 font-mono uppercase">Matrize Motorra:</p>
+					
+					<button onclick="window.matrixEngine.renderView('competencyMap')" 
+							class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+						<div class="w-5 h-5 rounded bg-green-900/50 flex items-center justify-center group-hover:bg-green-600 transition">
+							<i class="fas fa-th text-green-400 group-hover:text-white text-[10px]"></i>
+						</div>
+						<span>Konpetentzia Mapa</span>
+					</button>
+					
+					<button onclick="window.matrixEngine.renderView('verticalProgression')" 
+							class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+						<div class="w-5 h-5 rounded bg-blue-900/50 flex items-center justify-center group-hover:bg-blue-600 transition">
+							<i class="fas fa-layer-group text-blue-400 group-hover:text-white text-[10px]"></i>
+						</div>
+						<span>Progresio Bertikala</span>
+					</button>
+					
+					<button onclick="window.matrixEngine.renderView('areaStack')" 
+							class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group mb-2">
+						<div class="w-5 h-5 rounded bg-blue-900/50 flex items-center justify-center group-hover:bg-blue-600 transition">
+							<i class="fas fa-layer-group text-blue-400 group-hover:text-white text-[10px]"></i>
+						</div>
+						<span>Eremuen Progresioa</span>
+					</button>
+					
+					<button onclick="window.matrixEngine.renderView('contentFlow')" 
+							class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+						<div class="w-5 h-5 rounded bg-emerald-900/50 flex items-center justify-center group-hover:bg-emerald-600 transition">
+							<i class="fas fa-cubes text-emerald-400 group-hover:text-white text-[10px]"></i>
+						</div>
+						<span>Edukien Dentsitate Matrizea</span>
+					</button>
+
+					<button onclick="window.matrixEngine.renderView('ActivitiesMap')" 
+							class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+						<div class="w-5 h-5 rounded bg-orange-900/50 flex items-center justify-center group-hover:bg-orange-600 transition">
+							<i class="fas fa-globe-europe text-orange-400 group-hover:text-white text-[10px]"></i>
+						</div>
+						<span>Kanpo Jardueren Ekosistema</span>
+					</button>
+
+					<button onclick="window.matrixEngine.renderView('prerequisitesFlow')" 
+							class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+						<div class="w-5 h-5 rounded bg-purple-900/50 flex items-center justify-center group-hover:bg-orange-600 transition">
+							<i class="fas fa-project-diagram text-purple-500 group-hover:text-white text-[10px]"></i>
+						</div>
+						<span>Aurre-Ezagutza Fluxua</span>
+					</button>
+					
+				</div>
+			</div>	
+		
+
+			<div class="border-b border-slate-700">
+				<button onclick="ui.toggleSidebarSection('odsSection')" class="w-full p-4 flex justify-between items-center hover:bg-slate-800 transition">
+					<span class="font-semibold text-sm text-slate-200"><i class="fas fa-globe-europe mr-2 text-blue-400"></i> ODS / GHJ</span>
+					<i class="fas fa-chevron-down text-xs text-slate-500 transition-transform duration-300"></i>
+				</button>
+				<div id="odsSection" class="hidden bg-slate-900 p-4">
+					<button onclick="window.gradosManager.openOdsCatalogEditor()" class="w-full text-xs bg-slate-800 border border-slate-600 p-3 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center justify-center gap-2">
+						<i class="fas fa-cog"></i> Kudeatu Graduko ODSak
+					</button>
+				</div>
+			</div>
+
+			<div class="border-b border-slate-700">
+				<button onclick="ui.toggleSidebarSection('iduSection')" class="w-full p-4 flex justify-between items-center hover:bg-slate-800 transition">
+					<span class="font-semibold text-sm text-slate-200"><i class="fas fa-lightbulb mr-2 text-yellow-400"></i> IDU Jarraibideak</span>
+					<i class="fas fa-chevron-down text-xs text-slate-500 transition-transform duration-300"></i>
+				</button>
+				<div id="iduSection" class="hidden bg-slate-900 p-4">
+					<button onclick="window.gradosManager.openIduCatalogEditor()" class="w-full text-xs bg-slate-800 border border-slate-600 p-3 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center justify-center gap-2">
+						<i class="fas fa-filter"></i> Kudeatu IDU Katalogoa
+					</button>
+				</div>
+			</div>
+
+			<div class="border-b border-slate-700">
+				<button onclick="ui.toggleSidebarSection('extSection')" class="w-full p-4 flex justify-between items-center hover:bg-slate-800 transition">
+					<span class="font-semibold text-sm text-slate-200"><i class="fas fa-handshake mr-2 text-orange-400"></i> Kanpo Proiektuak</span>
+					<i class="fas fa-chevron-down text-xs text-slate-500 transition-transform duration-300"></i>
+				</button>
+				<div id="extSection" class="hidden bg-slate-900 p-4">
+					<button onclick="window.gradosManager.openProjectsCatalogEditor()" class="w-full text-xs bg-slate-800 border border-slate-600 p-3 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center justify-center gap-2">
+						<i class="fas fa-edit"></i> Editatu Proiektuen Zerrenda
+					</button>
+				</div>
+			</div>
+
+            <div class="mt-4">
+                <h3 class="px-5 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Ikasturteak</h3>
+                <nav id="yearNavigation" class="space-y-1 px-2"></nav>
+            </div>
+        </div>
+
+        <div class="p-4 bg-slate-950 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+            <span>Admin erabiltzailea</span>
+            <i class="fas fa-cog hover:text-white cursor-pointer"></i>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col h-screen overflow-hidden">
+
+        <main id="mainContent" class="flex-1 overflow-y-auto bg-gray-50 p-8 relative">
+            
+            <div id="yearView" class="hidden">
+                <header class="flex justify-between items-end mb-8 border-b border-gray-200 pb-4">
+                    <div>
+                        <h1 id="yearTitle" class="text-3xl font-black text-gray-800">1. Maila</h1>
+                        <p class="text-gray-500 mt-1">Hautatu irakasgai bat bere xehetasunak ikusteko eta editatzeko.</p>
+                    </div>
+                </header>
+                <div id="subjectsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+            </div>
+
+            <div id="subjectDetailView" class="hidden animate-fade-in-up">
+                
+                <div class="flex flex-col gap-6 mb-8">
+                    <button onclick="backToYearView()" class="self-start text-gray-500 hover:text-indigo-600 font-medium flex items-center transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i> Atzera zerrendara
+                    </button>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 relative overflow-hidden">
+                        <div id="subjectColorBar" class="absolute top-0 left-0 right-0 h-1 bg-gray-300"></div>
+                        
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="flex gap-2 mb-2">
+                                    <span id="detailSubjectCode" class="bg-gray-100 text-gray-600 text-xs font-mono font-bold px-2 py-1 rounded">COD</span>
+                                    <span id="detailSubjectArea" class="text-white text-xs font-bold px-2 py-1 rounded bg-gray-500">Arloa</span>
+                                </div>
+                                <h2 id="detailSubjectTitle" class="text-3xl font-bold text-gray-800 mb-2">Irakasgaiaren Izena</h2>
+                                
+                                <div class="flex flex-wrap gap-3 mt-4">
+                                    <button onclick="window.gradosManager.openEditSubjectModal()" class="btn-action bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg shadow-sm font-medium transition flex items-center">
+                                        <i class="fas fa-pencil-alt mr-2 text-indigo-500"></i> Editatu Datuak
+                                    </button>
+									<button onclick="matricesInteractivas.mostrarMatrizAlineacion()" 
+											class="btn-action bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg shadow-sm font-medium transition flex items-center">
+										<i class="fas fa-th mr-2"></i> Lerrokatze Matrizea
+									</button>
+								<button onclick="window.planningManager.open()" class="...">
+									<i class="fas fa-calendar-alt"></i> Gantt Plangintza
+								</button>
+                                </div>
+                            </div>
+                            
+                            <div class="text-right hidden md:block">
+                                <div class="text-sm text-gray-500">Kredituak</div>
+                                <div id="detailCredits" class="text-2xl font-bold text-gray-800">6 ECTS</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+					<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">Testuingurua</h3>
+                        
+						<div class="mb-4">
+							<h4 class="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center">
+								Aurre-ezagutzak
+								<button onclick="window.gradosManager.openPreReqEditor()" 
+										class="ml-2 text-indigo-400 hover:text-indigo-600 transition"
+										title="Editatu Aurre-ezagutzak">
+									<i class="fas fa-pencil-alt"></i>
+								</button>
+							</h4>
+							<div id="detailPreReq" class="space-y-2 text-sm text-gray-600"></div>
+						</div>
+
+						<div class="mb-4">
+							<h4 class="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center">
+								Jarduera Esanguratsua
+								<button onclick="window.gradosManager.openSignActEditor()" 
+										class="ml-2 text-indigo-400 hover:text-indigo-600 transition" 
+										title="Editatu Jarduerak">
+									<i class="fas fa-pencil-alt"></i>
+								</button>
+							</h4>
+							<div id="detailSignAct" class="space-y-2 text-sm text-gray-600"></div>
+						</div>
+
+                        <div class="mb-4">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center">
+                                Kanpo Proiektuak
+                                <button onclick="window.gradosManager.openProjectsSelector()" class="ml-2 text-indigo-400 hover:text-indigo-600 transition" title="Aukeratu Proiektuak">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </h4>
+                            <div id="detailExtProy" class="space-y-2"></div>
+                        </div>
+
+                        <div class="mb-4">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center">
+                                IDU Jarraibideak
+                                <button onclick="window.gradosManager.openIduSelector()" class="ml-2 text-indigo-400 hover:text-indigo-600 transition" title="Aukeratu IDU">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </h4>
+                            <div id="detailIdujar" class="space-y-2"></div>
+                        </div>
+
+                        <div class="mb-2">
+                            <h4 class="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center">
+                                Garapen Jasangarriko Helburuak (ODS)
+                                <button onclick="window.gradosManager.openOdsSelector()" class="ml-2 text-indigo-400 hover:text-indigo-600 transition" title="Aukeratu ODS">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </h4>
+                            <div id="detailOdsList" class="flex flex-wrap gap-2 min-h-[30px]"></div>
+                        </div>
+                    </div>
+
+					<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+						<h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
+							
+							<span>Ikaskuntza Emaitzak (RA)</span>
+							
+							<div class="flex items-center gap-3">
+								<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+									Tekniko eta Zeharkakoak
+								</span>
+
+								<button onclick="window.gradosManager.openRaEditor()" 
+										class="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-full hover:bg-indigo-50"
+										title="Editatu RAk">
+									<i class="fas fa-pencil-alt text-lg"></i>
+								</button>
+							</div>
+							
+						</h3>
+						
+						<div id="detailRasList" class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-2"></div>
+					</div>
+
+					<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
+						<div class="flex justify-between items-center mb-4 border-b pb-2">
+							<div class="flex items-center gap-3">
+								<div class="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
+									<i class="fas fa-layer-group text-indigo-600 text-sm"></i>
+								</div>
+								<div>
+									<h3 class="text-lg font-bold text-gray-800">Unitate Didaktikoak</h3>
+									<p class="text-xs text-gray-400 mt-0.5">Ikastaroaren unitateen zerrenda eta haien deskriptoreak</p>
+								</div>
+							</div>
+							<button onclick="window.gradosManager?.openUnitEditor()" 
+									class="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 p-2 rounded-lg transition group"
+									title="Editatu unitateak">
+								<i class="fas fa-pencil-alt group-hover:scale-110 transition-transform"></i>
+							</button>
+						</div>
+						<div class="overflow-x-auto">
+							<table class="w-full text-sm text-left text-gray-500">
+								<thead class="text-xs text-gray-700 uppercase bg-gray-50">
+									<tr>
+										<th class="px-4 py-3"></th>
+										<th class="px-4 py-3">Kodea</th>
+										<th class="px-4 py-3">Unitatearen Izena eta Deskriptoreak</th>
+										<th class="px-4 py-3 text-right">Orduak</th>
+									</tr>
+								</thead>
+								<tbody id="detailUnitsTable"></tbody>
+							</table>
+						</div>
+					</div>
+
+                </div> </div> <div id="emptyState" class="flex flex-col items-center justify-center h-full text-gray-400">
+                <i class="fas fa-university text-6xl mb-4 text-gray-200"></i>
+                <p class="text-lg">Hautatu Gradu bat eta Ikasturte bat ezkerreko menuan hasteko.</p>
+            </div>
+
+			<div id="subjectPlanningView" class="hidden animate-fade-in-up h-full flex flex-col bg-gray-50">
+			
+			<div class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
+				
+				<div class="flex items-center gap-4">
+					<button onclick="closePlanning()" class="text-gray-500 hover:text-indigo-600 transition-colors">
+						<i class="fas fa-arrow-left text-xl"></i>
+					</button>
+					<div>
+						<h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+							<i class="fas fa-layer-group text-indigo-500"></i>
+							Gantt Plangintza
+						</h2>
+						<p class="text-xs text-gray-500">Jarduerak, Ebaluazioa eta Kronograma</p>
+					</div>
+				</div>
+
+				<div class="flex gap-2">
+					<input type="file" id="importPlanningInput" accept=".json" class="hidden" 
+						   onchange="window.gradosManager.importPlanning(this)">
+
+					<button onclick="document.getElementById('importPlanningInput').click()" 
+							class="bg-white text-gray-600 border border-gray-300 px-3 py-2 rounded-lg hover:bg-gray-50 text-xs font-bold transition flex items-center gap-2"
+							title="Kargatu aurretik gordetako plangintza">
+						<i class="fas fa-upload"></i> Importatu
+					</button>
+
+					<button onclick="window.gradosManager.exportPlanning()" 
+							class="bg-white text-gray-600 border border-gray-300 px-3 py-2 rounded-lg hover:bg-gray-50 text-xs font-bold transition flex items-center gap-2"
+							title="Deskargatu JSON segurtasun kopia">
+						<i class="fas fa-download"></i> Esportatu
+					</button>
+
+					<button onclick="window.gradosManager.saveData()" 
+							class="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 shadow-md transition font-bold text-xs flex items-center gap-2">
+						<i class="fas fa-save"></i> Gorde
+					</button>
+				</div>
+			</div>
+
+			<div class="flex-1 overflow-hidden flex">
+				<div class="flex-1 overflow-y-auto p-6 space-y-8" id="planningContainer">
+					</div>
+			</div>
+		</div>
+		
+        </main>
+        
+        <footer class="bg-gray-800 text-white text-center p-4 mt-auto">
+            <div class="container mx-auto">
+                <p class="text-sm">
+                    <i class="fas fa-database mr-1"></i>
+                    Curriculum Kudeaketa Sistema v2.0 | Supabase | BD Gradua
+                </p>
+                <p class="text-xs text-gray-400 mt-1">
+                    Datuak dinamikoki kargatzen dira JSON estrukturaren arabera
+                </p>
+            </div>
+        </footer>
+    </div>
+
+	<div id="editSubjectModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center backdrop-blur-sm">
+		<div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
+			<div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-xl">
+				<h3 class="text-xl font-bold text-gray-800">Irakasgaia Editatu</h3>
+				<button onclick="document.getElementById('editSubjectModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+					<i class="fas fa-times text-xl"></i>
+				</button>
+			</div>
+			
+			<div class="p-8 space-y-6">
+				<div class="grid grid-cols-2 gap-4">
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1">Kodea</label>
+						<input type="text" id="subject_edit_code" class="w-full border rounded p-2 focus:ring-2 focus:ring-indigo-500">
+					</div>
+					<div>
+						<label class="block text-sm font-medium text-gray-700 mb-1"> Ezagutza Eremuak </label>
+						<select id="subject_edit_area" class="w-full border rounded p-2 bg-white focus:ring-2 focus:ring-indigo-500">
+						</select>
+						<p class="text-xs text-gray-500 mt-1">* Arloak graduko ezarpenetan editatzen dira</p>
+					</div>
+				</div>
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">Izena</label>
+					<input type="text" id="subject_edit_name" class="w-full border rounded p-2 focus:ring-2 focus:ring-indigo-500">
+				</div>
+
+				<div>
+					<label class="block text-sm font-medium text-gray-700 mb-1">Irakasgai Mota</label>
+					<select id="subject_edit_type" class="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition">
+						<option value="">Kargatzen...</option> 
+					</select>
+				</div>
+				
+				<div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+					<button onclick="document.getElementById('editSubjectModal').classList.add('hidden')" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">Utzi</button>
+					<button onclick="window.gradosManager.saveSubjectBasicData()" class="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg shadow">Gorde Aldaketak</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div id="listEditorModal" class="hidden fixed inset-0 z-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+		<div class="fixed inset-0 bg-gray-900 bg-opacity-60 backdrop-blur-sm transition-opacity"></div>
+
+		<div class="fixed inset-0 z-10 overflow-y-auto">
+			<div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+				
+				<div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg border border-gray-200">
+					
+					<div class="bg-indigo-600 px-4 py-4 sm:px-6 flex justify-between items-center">
+						<h3 class="text-lg font-bold leading-6 text-white flex items-center gap-2" id="listEditorTitle">
+							<i class="fas fa-edit opacity-75"></i> <span>Kudeatu</span>
+						</h3>
+						<button type="button" onclick="document.getElementById('listEditorModal').classList.add('hidden')" 
+								class="text-indigo-200 hover:text-white transition focus:outline-none">
+							<i class="fas fa-times text-xl"></i>
+						</button>
+					</div>
+
+					<div class="px-4 py-5 sm:p-6 bg-gray-50">
+						
+						<div class="flex gap-2 mb-4 p-1 bg-white rounded-lg shadow-sm border border-gray-200">
+							<input type="text" id="newItemInput" 
+								   placeholder="Idatzi elementu berria hemen..." 
+								   class="flex-1 block w-full rounded-md border-0 py-2 px-3 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+								   onkeypress="if(event.key === 'Enter') document.getElementById('btnAddNewItem').click()">
+							
+							<button type="button" id="btnAddNewItem" 
+									class="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+								<i class="fas fa-plus mr-1"></i> Gehitu
+							</button>
+						</div>
+
+						<div class="relative">
+							<div class="absolute inset-0 flex items-center" aria-hidden="true">
+								<div class="w-full border-t border-gray-300"></div>
+							</div>
+							<div class="relative flex justify-center">
+								<span class="bg-gray-50 px-2 text-xs text-gray-500 uppercase tracking-widest">Zerrenda</span>
+							</div>
+						</div>
+
+						<div id="listEditorContainer" class="mt-4 space-y-2 max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar pb-2">
+							</div>
+					</div>
+
+					<div class="bg-gray-100 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 border-t border-gray-200 gap-2">
+						<button type="button" onclick="window.gradosManager.saveListEditor()" 
+								class="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-500 sm:ml-3 sm:w-auto transition transform active:scale-95">
+							<i class="fas fa-save mr-2 mt-0.5"></i> Gorde Aldaketak
+						</button>
+						<button type="button" onclick="document.getElementById('listEditorModal').classList.add('hidden')" 
+								class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto transition">
+							Utzi
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="unitEditorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center backdrop-blur-sm">
+		<div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden m-4 flex flex-col max-h-[90vh]">
+			<div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+				<div>
+					<h3 class="font-bold text-gray-800">Unitate Didaktikoak Kudeatu</h3>
+					<p class="text-sm text-gray-600">Sartu unitateen izenak, kodea, orduak eta deskriptoreak</p>
+				</div>
+				<button onclick="closeModal('unitEditorModal')" class="text-gray-400 hover:text-gray-600">
+					<i class="fas fa-times"></i>
+				</button>
+			</div>
+			<div class="p-0 flex-1 overflow-y-auto">
+				<table class="w-full text-sm text-left text-gray-500">
+					<thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+						<tr>
+							<th class="px-4 py-3 w-20">Kodea</th>
+							<th class="px-4 py-3">Izena</th>
+							<th class="px-4 py-3 w-24">Orduak</th>
+							<th class="px-4 py-3 w-48">Deskriptoreak</th>
+							<th class="px-4 py-3 w-10"></th>
+						</tr>
+					</thead>
+					<tbody id="unitEditorBody"></tbody>
+				</table>
+				<div class="p-4 bg-gray-50 text-center">
+					<button onclick="window.gradosManager.addUnitRow()" 
+							class="text-indigo-600 font-bold text-sm hover:underline flex items-center justify-center gap-2 mx-auto">
+						<i class="fas fa-plus"></i>
+						Gehitu Unitate Berria
+					</button>
+				</div>
+			</div>
+			<div class="p-4 border-t border-gray-100 flex justify-between items-center bg-white">
+				<div class="text-sm text-gray-500">
+					<span id="unitCounter">0 unitate</span>
+					<span class="mx-2">•</span>
+					<span id="descriptorCounter">0 deskriptore</span>
+				</div>
+				<div class="flex gap-2">
+					<button onclick="closeModal('unitEditorModal')" 
+							class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded text-sm">
+						Utzi
+					</button>
+					<button onclick="window.gradosManager.saveUnitEditor()" 
+							class="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded text-sm shadow">
+						Gorde Unitateak
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="raModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+		<div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
+			<div class="bg-slate-800 px-6 py-4 flex justify-between items-center text-white">
+				<h3 class="font-bold flex items-center gap-2">Ikaskuntza Emaitzak Editatu</h3>
+				<button onclick="closeModal('raModal')" class="text-white/70 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+			</div>
+			
+			<div id="detailRasListEdit" class="p-6 overflow-y-auto bg-gray-100 flex-1"></div>
+
+			<div class="p-4 border-t bg-white flex justify-end gap-3">
+				<button onclick="closeModal('raModal')" class="px-6 py-2 text-gray-500 hover:bg-gray-50 rounded-lg transition">Utzi</button>
+				<button onclick="window.gradosManager.saveRaChanges()" class="px-8 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md transition font-bold">Gorde Aldaketak</button>
+			</div>
+		</div>
+	</div>
+    <script type="module">
+        import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+    </script>
+    <script type="module" src="./js/config.js"></script>
+    <script type="module" src="./js/utils.js"></script>
+	<script type="module" src="./js/app.js"></script>
+    <script type="module" src="./js/curriculum.js"></script>
+    <script type="module" src="./js/grados-manager.js"></script>
+	<script type="module" src="./js/planning-manager.js"></script>
+	<script type="module" src="./js/matrix-engine.js"></script>
+    <script type="module" src="./js/ui.js"></script>
+    <script type="module" src="./js/matrices-interactivas.js"></script>
+
+    <div id="toast" class="fixed bottom-5 right-5 bg-white border-l-4 border-indigo-500 shadow-2xl rounded-r-lg p-4 flex items-center gap-3 transform translate-y-20 transition-transform duration-300 z-[110]">
+        <div id="toastIcon" class="text-indigo-500 text-xl">
+            <i class="fas fa-info-circle"></i>
+        </div>
+        <div>
+            <h4 id="toastTitle" class="font-bold text-gray-800 text-sm">Jakinarazpena</h4>
+            <p id="toastMessage" class="text-sm text-gray-600">Mezuaren testua hemen...</p>
+        </div>
+    </div>
+
+</body>
+</html>

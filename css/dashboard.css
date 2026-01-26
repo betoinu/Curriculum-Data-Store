@@ -1,0 +1,826 @@
+[file name]: css/dashboard.css
+[file content begin]
+/* =========================================== */
+/* 🎨 ESTILOS PARA DASHBOARD Y MATRICES INTERACTIVAS */
+/* =========================================== */
+
+/* --------------------------------------------------- */
+/* 1. ANIMACIONES Y TRANSICIONES */
+/* --------------------------------------------------- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+}
+
+@keyframes highlight {
+    0% {
+        background-color: rgba(59, 130, 246, 0.3);
+        transform: scale(1);
+    }
+    50% {
+        background-color: rgba(59, 130, 246, 0.1);
+        transform: scale(1.02);
+    }
+    100% {
+        background-color: transparent;
+        transform: scale(1);
+    }
+}
+
+/* --------------------------------------------------- */
+/* 2. CLASES DE UTILIDAD */
+/* --------------------------------------------------- */
+.fade-in {
+    animation: fadeInUp 0.5s ease-out forwards;
+}
+
+.slide-in {
+    animation: slideInRight 0.4s ease-out forwards;
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+.highlight-new {
+    animation: highlight 2s ease;
+}
+
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+
+/* --------------------------------------------------- */
+/* 3. TARJETAS DE GRADO */
+/* --------------------------------------------------- */
+.degree-card {
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.degree-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3B82F6, #8B5CF6, #EC4899);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    z-index: 1;
+}
+
+.degree-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.7s ease;
+}
+
+.degree-card:hover::before {
+    transform: scaleX(1);
+}
+
+.degree-card:hover::after {
+    left: 100%;
+}
+
+.degree-card:hover {
+    border-color: #E5E7EB;
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.degree-card:active {
+    transform: translateY(-4px) scale(1.01);
+    transition-duration: 0.1s;
+}
+
+.degree-card .degree-icon {
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.degree-card:hover .degree-icon {
+    transform: scale(1.1) rotate(5deg);
+    color: #8B5CF6;
+}
+
+/* --------------------------------------------------- */
+/* 4. GRID PARA MATRICES INTERACTIVAS */
+/* --------------------------------------------------- */
+.matriz-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 20px;
+    min-height: 250px;
+    background: linear-gradient(145deg, #f9fafb, #f3f4f6);
+    border-radius: 12px;
+    border: 3px dashed #d1d5db;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.matriz-grid::before {
+    content: 'Arrastra eta askatu elementuak hemen';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.matriz-grid:not(:empty)::before {
+    display: none;
+}
+
+.matriz-grid.drag-over {
+    border-color: #3B82F6;
+    border-style: solid;
+    background: linear-gradient(145deg, #eff6ff, #dbeafe);
+    box-shadow: inset 0 0 20px rgba(59, 130, 246, 0.1);
+}
+
+.matriz-grid.drag-over::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px solid #3B82F6;
+    border-radius: 10px;
+    animation: pulse 1.5s infinite;
+}
+
+/* --------------------------------------------------- */
+/* 5. ELEMENTOS DE MATRIZ ARRASTRABLES */
+/* --------------------------------------------------- */
+.matriz-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    cursor: grab;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.matriz-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #3b82f6);
+    border-radius: 10px 10px 0 0;
+}
+
+.matriz-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.matriz-card:active {
+    cursor: grabbing;
+    transform: scale(0.98) rotate(1deg);
+}
+
+.matriz-card.dragging {
+    opacity: 0.8;
+    transform: scale(0.95) rotate(2deg);
+    border: 2px dashed #3b82f6;
+    box-shadow: 0 20px 40px rgba(59, 130, 246, 0.3);
+    z-index: 1000;
+}
+
+.matriz-card .drag-handle {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: #9ca3af;
+    font-size: 16px;
+    cursor: grab;
+    transition: color 0.2s ease;
+    padding: 4px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.matriz-card:hover .drag-handle {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.matriz-card .delete-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+}
+
+.matriz-card:hover .delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* --------------------------------------------------- */
+/* 6. TIPOS DE MATRICES (COLORES) */
+/* --------------------------------------------------- */
+.matriz-card.tipo-competencia::before {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.matriz-card.tipo-ra::before {
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+.matriz-card.tipo-asignatura::before {
+    background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+}
+
+.matriz-card.tipo-contenido::before {
+    background: linear-gradient(90deg, #ec4899, #db2777);
+}
+
+/* --------------------------------------------------- */
+/* 7. BADGES Y ETIQUETAS */
+/* --------------------------------------------------- */
+.badge-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.badge-admin {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.badge-teacher {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.badge-new {
+    background: linear-gradient(135deg, #ec4899, #db2777);
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+/* --------------------------------------------------- */
+/* 8. BOTONES DEL DASHBOARD */
+/* --------------------------------------------------- */
+.dashboard-btn {
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 2px solid transparent;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.dashboard-btn:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.dashboard-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.dashboard-btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+}
+
+.dashboard-btn-primary:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    border-color: #3b82f6;
+    box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
+}
+
+.dashboard-btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.dashboard-btn-success:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    border-color: #10b981;
+}
+
+.dashboard-btn-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.dashboard-btn-danger:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    border-color: #ef4444;
+}
+
+/* --------------------------------------------------- */
+/* 9. MODALES DEL DASHBOARD */
+/* --------------------------------------------------- */
+.dashboard-modal {
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.dashboard-modal-content {
+    background: linear-gradient(145deg, #ffffff, #f8fafc);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+    animation: modalAppear 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.dashboard-modal-header {
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: white;
+    padding: 24px;
+}
+
+.dashboard-modal-body {
+    padding: 32px;
+}
+
+/* --------------------------------------------------- */
+/* 10. GRID DE ASIGNATURAS RECIENTES */
+/* --------------------------------------------------- */
+.recent-subjects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.subject-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.subject-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 6px;
+    height: 100%;
+    background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+    transition: width 0.3s ease;
+}
+
+.subject-card:hover::before {
+    width: 8px;
+}
+
+.subject-card:hover {
+    border-color: #e5e7eb;
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* --------------------------------------------------- */
+/* 11. ESTADÍSTICAS Y MÉTRICAS */
+/* --------------------------------------------------- */
+.stats-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    border: 2px solid #e5e7eb;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stats-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15);
+}
+
+.stats-card .stats-number {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1;
+}
+
+.stats-card .stats-label {
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 8px;
+}
+
+/* --------------------------------------------------- */
+/* 12. RESPONSIVE DESIGN */
+/* --------------------------------------------------- */
+@media (max-width: 768px) {
+    .matriz-grid {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 12px;
+    }
+    
+    .degree-card {
+        padding: 16px;
+    }
+    
+    .recent-subjects-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-btn {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+    
+    .dashboard-modal-content {
+        margin: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-card {
+        padding: 16px;
+    }
+    
+    .stats-card .stats-number {
+        font-size: 2rem;
+    }
+    
+    .matriz-card {
+        padding: 16px;
+    }
+}
+
+/* --------------------------------------------------- */
+/* 13. ESTADOS DE CARGA */
+/* --------------------------------------------------- */
+.dashboard-loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* --------------------------------------------------- */
+/* 14. SCROLL PERSONALIZADO PARA DASHBOARD */
+/* --------------------------------------------------- */
+.dashboard-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #c1c1c1, #a1a1a1);
+    border-radius: 10px;
+    border: 2px solid #f1f1f1;
+}
+
+.dashboard-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #a1a1a1, #818181);
+}
+
+/* --------------------------------------------------- */
+/* 15. EFECTOS ESPECIALES */
+/* --------------------------------------------------- */
+.glow-effect {
+    position: relative;
+}
+
+.glow-effect::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.glow-effect:hover::after {
+    opacity: 0.6;
+    animation: rotate 3s linear infinite;
+}
+
+@keyframes rotate {
+    0% {
+        filter: hue-rotate(0deg);
+    }
+    100% {
+        filter: hue-rotate(360deg);
+    }
+}
+
+/* --------------------------------------------------- */
+/* 16. TIPOGRAFÍA ESPECIAL */
+/* --------------------------------------------------- */
+.dashboard-title {
+    font-weight: 800;
+    background: linear-gradient(135deg, #1e40af, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    display: inline-block;
+}
+
+.dashboard-title::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.5s ease;
+}
+
+.dashboard-title:hover::after {
+    transform: scaleX(1);
+}
+
+/* --------------------------------------------------- */
+/* 17. SEPARADORES DECORATIVOS */
+/* --------------------------------------------------- */
+.dashboard-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #d1d5db, transparent);
+    margin: 2rem 0;
+    position: relative;
+}
+
+.dashboard-divider::before {
+    content: '◆';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    color: #9ca3af;
+    padding: 0 1rem;
+    font-size: 12px;
+}
+
+/* --------------------------------------------------- */
+/* 18. NOTIFICACIONES Y ALERTAS */
+/* --------------------------------------------------- */
+.dashboard-alert {
+    padding: 16px;
+    border-radius: 12px;
+    border-left: 6px solid;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    animation: slideInRight 0.5s ease;
+}
+
+.dashboard-alert.info {
+    border-left-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.dashboard-alert.success {
+    border-left-color: #10b981;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+}
+
+.dashboard-alert.warning {
+    border-left-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+}
+
+.dashboard-alert.error {
+    border-left-color: #ef4444;
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+}
+
+/* --------------------------------------------------- */
+/* 19. TOOLTIPS MEJORADOS */
+/* --------------------------------------------------- */
+.dashboard-tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.dashboard-tooltip .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background: linear-gradient(135deg, #1f2937, #374151);
+    color: white;
+    text-align: center;
+    border-radius: 8px;
+    padding: 10px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.dashboard-tooltip .tooltip-text::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: #1f2937 transparent transparent transparent;
+}
+
+.dashboard-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(-50%) translateY(-5px);
+}
+/* En tu CSS, añadir: */
+#sectionButtons .btn-grado {
+    @apply px-4 py-2 rounded-lg font-medium transition-all;
+}
+
+#sectionButtons .btn-grado.active {
+    @apply bg-indigo-600 text-white shadow-md;
+}
+
+#sectionButtons .btn-grado:not(.active) {
+    @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+}
+
+#noDataMessage {
+    transition: all 0.3s ease;
+}
+
+/* Añade en tu CSS si no usas Tailwind personalizado */
+.unit-descriptors-input::placeholder {
+    color: rgba(107, 114, 128, 0.5);
+}
+
+.unit-descriptors-input:focus {
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+/* Estilo para scrollbar personalizado */
+.unit-descriptors-input::-webkit-scrollbar {
+    width: 6px;
+}
+
+.unit-descriptors-input::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.unit-descriptors-input::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.unit-descriptors-input::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
