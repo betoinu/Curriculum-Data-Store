@@ -1,4 +1,4 @@
-// js/grados-manager.js - VERSIÃ“N ESTABILIZADA
+// js/grados-manager.js - VERSIÃƒâ€œN ESTABILIZADA
 import { getSupabaseInstance } from './config.js';
 
 class GradosManager {
@@ -12,7 +12,7 @@ class GradosManager {
         this.dataColumnName = 'datos';
         this.editingAreaOldName = null; 
         
-        // --- PROPIEDAD PARA LOS CAT¨¢LOGOS ---
+        // --- PROPIEDAD PARA LOS CATÂ¨Â¢LOGOS ---
         this.adminCatalogs = {
             iduGuidelines: [],
             externalProjects: []
@@ -42,7 +42,7 @@ class GradosManager {
         ];
     }
 
-    // --- MODIFICACI¨®N 1: El m¨¦todo initialize ---
+    // --- MODIFICACIÂ¨Â®N 1: El mÂ¨Â¦todo initialize ---
     async initialize(user) {
         console.log("?? Inicializando GradosManager...");
         this.currentUser = user;
@@ -57,16 +57,16 @@ class GradosManager {
         // Inyectar modales
         this.injectAreaModal(); 
 
-        // PASO CLAVE: Cargar los cat¨¢logos (Proyectos, IDU) ANTES que los datos
+        // PASO CLAVE: Cargar los catÂ¨Â¢logos (Proyectos, IDU) ANTES que los datos
         await this.loadCatalogs();
 
         // Cargar los datos del grado
         await this.loadData();
     }
 
-    // --- MODIFICACI¨®N 2: Nueva funci¨®n para cargar cat¨¢logos ---
+    // --- MODIFICACIÂ¨Â®N 2: Nueva funciÂ¨Â®n para cargar catÂ¨Â¢logos ---
 	async loadCatalogs() {
-			console.log("?? Cargando cat¨¢logos oficiales desde Supabase...");
+			console.log("?? Cargando catÂ¨Â¢logos oficiales desde Supabase...");
 			
 			try {
 				// 1. Cargar ODS
@@ -96,10 +96,10 @@ class GradosManager {
 				if (projError) console.warn("Error cargando proyectos:", projError);
 				else this.adminCatalogs.externalProjects = projData || [];
 
-				console.log("? Cat¨¢logos actualizados:", this.adminCatalogs);
+				console.log("? CatÂ¨Â¢logos actualizados:", this.adminCatalogs);
 
 			} catch (err) {
-				console.error("? Error cr¨ªtico cargando cat¨¢logos:", err);
+				console.error("? Error crÂ¨Âªtico cargando catÂ¨Â¢logos:", err);
 			}
 		}
 
@@ -157,7 +157,7 @@ class GradosManager {
 				if (!this.cachedData) {
 					this.cachedData = {
 						graduak: [],
-						proyectosExternos: []  // ¡û ARRAY VAC¨ªO para proyectos
+						proyectosExternos: []  // Â¡Ã» ARRAY VACÂ¨ÂªO para proyectos
 					};
 				}
 				
@@ -181,30 +181,45 @@ class GradosManager {
 			}
 		}
 
-    async saveData() {
-        try {
-            const supabase = getSupabaseInstance();
-            if (!this.cachedData) return;
+async saveData() {
+    try {
+        const supabase = getSupabaseInstance();
+        if (!this.cachedData || !this.currentSubject) return;
 
-            console.log("ðŸ’¾ Guardando cambios...");
-            const updateData = {};
-            // Usamos 'datos' como columna estÃ¡ndar JSONB
-            updateData['datos'] = this.cachedData;
+        console.log("ðŸ’¾ Gordetzen: ", this.currentSubject.subjectTitle);
 
-            let result;
-            if (this.currentRowId) {
-                result = await supabase.from('curriculum_data').update(updateData).eq('id', this.currentRowId);
-            } else {
-                result = await supabase.from('curriculum_data').insert([updateData]).select();
-            }
+        // GAKOA: Irakasgaiaren ID estatikoa erabiltzen dugu (ASG-114)
+        // Honek ziurtatzen du RLS-ak irakasleari baimena emango diola
+        const targetId = this.currentSubject.idAsig; 
 
-            if (result.data && result.data.length > 0) this.currentRowId = result.data[0].id;
-        } catch (err) {
-            console.error("Error saving:", err);
+        if (!targetId) {
+            console.error("Errorea: Irakasgaiak ez du idAsig-ik.");
+            return;
         }
+
+        // Kontuz: Irakasleek 'curriculum_data' taulako lerro espezifiko bat
+        // editatzen badute, updateData-k JSON hori bakarrik izan behar du.
+        const updateData = { 
+            datos: this.currentSubject // Irakasgaiaren JSON objektua bakarrik bidali
+        };
+
+        const { data, error } = await supabase
+            .from('curriculum_data')
+            .update(updateData)
+            .eq('id', targetId); // GAKOA: ASG-114-aren gainean idatzi
+
+        if (error) {
+            console.error("Errorea gordetzean:", error.message);
+        } else {
+            console.log("âœ… Ondo gorde da!");
+        }
+
+    } catch (err) {
+        console.error("Error saving:", err);
     }
+}
 	
-	// --- CARGA DE GRADO ESPECÃFICO ---
+	// --- CARGA DE GRADO ESPECÃƒÂFICO ---
 async loadDegreeData(id) {
         // 1. Bilatu gradua katxean
         const degree = this.cachedData.graduak.find(g => g.codigo === id || g.id === id);
@@ -275,7 +290,7 @@ async loadDegreeData(id) {
         }
     }
 	
-	// En GradosManager class, despu¨¦s del constructor
+	// En GradosManager class, despuÂ¨Â¦s del constructor
 	getZhFromCatalog(zhCode) {
 		if (!this.currentDegree?.zhCatalog) return null;
 		return this.currentDegree.zhCatalog.find(zh => zh.code === zhCode);
@@ -283,11 +298,11 @@ async loadDegreeData(id) {
 	
 
 getFullZhDescription(zhItem) {
-    // 1. Prioridad: Descripci¨®n espec¨ªfica de la asignatura
+    // 1. Prioridad: DescripciÂ¨Â®n especÂ¨Âªfica de la asignatura
     const localDesc = zhItem.zhDesc || zhItem.raDesc || zhItem.desc;
     if (localDesc) return localDesc;
     
-    // 2. Fallback: Buscar en el cat¨¢logo global por c¨®digo
+    // 2. Fallback: Buscar en el catÂ¨Â¢logo global por cÂ¨Â®digo
     const codeToSearch = zhItem.zhCode || zhItem.code || zhItem.raCode;
     const catalogZh = this.currentDegree?.zhCatalog?.find(z => (z.zhCode || z.code) === codeToSearch);
     
@@ -295,11 +310,11 @@ getFullZhDescription(zhItem) {
 }
 
 
-// ? VERSI¨®N CORRECTA PARA CLASE (Sin ': function')
+// ? VERSIÂ¨Â®N CORRECTA PARA CLASE (Sin ': function')
     loadUniqueSubjectTypes() {
         console.log("?? Obteniendo tipos de la memoria local...");
 
-        // 1. Buscamos d¨®nde est¨¢n guardadas las asignaturas cargadas
+        // 1. Buscamos dÂ¨Â®nde estÂ¨Â¢n guardadas las asignaturas cargadas
         let subjectsList = [];
         if (this.currentDegree && this.currentDegree.subjects) {
             subjectsList = this.currentDegree.subjects;
@@ -307,12 +322,12 @@ getFullZhDescription(zhItem) {
             subjectsList = this.subjects;
         }
 
-        // 2. Si no hay datos, devolvemos lista b¨¢sica
+        // 2. Si no hay datos, devolvemos lista bÂ¨Â¢sica
         if (!subjectsList || subjectsList.length === 0) {
             return ["Oinarrizkoa", "Derrigorrezkoa", "Hautazkoa"];
         }
 
-        // 3. Sacamos los valores ¨²nicos
+        // 3. Sacamos los valores Â¨Â²nicos
         const uniqueTypes = [...new Set(
             subjectsList
                 .map(item => item.tipo || item.subjectType)
@@ -331,7 +346,7 @@ getFullZhDescription(zhItem) {
             window.ui.renderYearView(this.currentDegree, yearNum);
         }
 
-        // 2. ACTUALIZAR LOS BOTONES DEL MEN¨² LATERAL
+        // 2. ACTUALIZAR LOS BOTONES DEL MENÂ¨Â² LATERAL
         const navContainer = document.getElementById('yearNavigation');
         if (navContainer) {
             // Busamos los botones por la etiqueta 'data-year' que ya has puesto
@@ -362,17 +377,17 @@ getFullZhDescription(zhItem) {
         }
     }
 
-	// --- SELECCI¨®N DE ASIGNATURA ---
+	// --- SELECCIÂ¨Â®N DE ASIGNATURA ---
 	selectSubject(subject) {
 		if (!subject) return;
 
 		console.log("?? Seleccionando asignatura:", subject.subjectTitle || subject.name);
 
-		// 1. Guardar la referencia en el manager para que otros m¨®dulos (como el de matrices) la usen
+		// 1. Guardar la referencia en el manager para que otros mÂ¨Â®dulos (como el de matrices) la usen
 		this.currentSubject = subject;
 
-		// 2. Llamar a la funci¨®n de renderizado de UI que ya tienes definida
-		// Le pasamos la asignatura y el grado actual para que calcule los colores de ¨¢rea
+		// 2. Llamar a la funciÂ¨Â®n de renderizado de UI que ya tienes definida
+		// Le pasamos la asignatura y el grado actual para que calcule los colores de Â¨Â¢rea
 		if (window.ui && window.ui.renderSubjectDetail) {
 			window.ui.renderSubjectDetail(subject, this.currentDegree);
 		} else {
@@ -380,7 +395,7 @@ getFullZhDescription(zhItem) {
 		}
 	}
 
-    // --- CREACIÃ“N DE ASIGNATURA (NUEVA FUNCIÃ“N) ---
+    // --- CREACIÃƒâ€œN DE ASIGNATURA (NUEVA FUNCIÃƒâ€œN) ---
 	crearNuevaAsignatura(yearNum) {
 		if (!this.currentDegree) {
 			alert("Mesedez, hautatu gradu bat lehenago.");
@@ -413,15 +428,15 @@ getFullZhDescription(zhItem) {
 			ikasEgoerak: { extProy: [], signAct: [] }
 		};
 
-		// 3. Persistencia y Navegaci¨®n
+		// 3. Persistencia y NavegaciÂ¨Â®n
 		this.currentDegree.year[yearNum].push(newSubj);
 		this.saveData();
 		
-		// 4. UI: Refrescar y saltar directamente a la edici¨®n
+		// 4. UI: Refrescar y saltar directamente a la ediciÂ¨Â®n
 		this.selectYear(yearNum); 
 		this.selectSubject(newSubj); 
 		
-		// Peque?o retardo para asegurar que el DOM del detalle est¨¢ listo
+		// Peque?o retardo para asegurar que el DOM del detalle estÂ¨Â¢ listo
 		setTimeout(() => {
 			if (this.openEditSubjectModal) {
 				this.openEditSubjectModal();
@@ -435,20 +450,20 @@ getFullZhDescription(zhItem) {
 			if (!this.currentSubject) return;
 			const subj = this.currentSubject;
 			
-			// 1. Cargar datos b¨¢sicos
+			// 1. Cargar datos bÂ¨Â¢sicos
 			const codeInput = document.getElementById('subject_edit_code'); 
 			const nameInput = document.getElementById('subject_edit_name');
 			const areaSelect = document.getElementById('subject_edit_area');
 			const typeSelect = document.getElementById('subject_edit_type');
 			
-	// --- Relleno de Tipos (INSTANT¨¢NEO) ---
+	// --- Relleno de Tipos (INSTANTÂ¨Â¢NEO) ---
 			if (typeSelect) {
 				typeSelect.innerHTML = '';
 				
-				// Llamada directa a la funci¨®n corregida de arriba
+				// Llamada directa a la funciÂ¨Â®n corregida de arriba
 				const dbTypes = this.loadUniqueSubjectTypes();
 				
-				// Opci¨®n por defecto
+				// OpciÂ¨Â®n por defecto
 				const defaultOpt = document.createElement('option');
 				defaultOpt.value = "";
 				defaultOpt.textContent = "-- Hautatu --";
@@ -472,7 +487,7 @@ getFullZhDescription(zhItem) {
 			if(nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
 			if(typeSelect) typeSelect.value = subj.tipo || subj.subjectType || subj.type || '';
 			
-			// Cargar ¨¢reas
+			// Cargar Â¨Â¢reas
 			if (areaSelect && this.currentDegree) {
 				areaSelect.innerHTML = '<option value="">-- Hautatu --</option>';
 				(this.currentDegree.subjectAreas || []).forEach(area => {
@@ -600,7 +615,7 @@ saveSubjectBasicData() {
             select.appendChild(op);
         });
         
-        // OpciÃ³n para crear nuevo
+        // OpciÃƒÂ³n para crear nuevo
         const createOp = document.createElement('option');
         createOp.value = "NEW_DEGREE";
         createOp.textContent = "+ Gradu Berria...";
@@ -634,21 +649,21 @@ saveSubjectBasicData() {
         }
     }
 
-// --- GESTIÃ“N DE LISTAS (RA, IDU, PROYECTOS) ---
+// --- GESTIÃƒâ€œN DE LISTAS (RA, IDU, PROYECTOS) ---
     
-// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO (Para el Sidebar)
-    // Permite editar C¨®digo, Nombre y Color
+// ?? FUNCION 1: GESTIÂ¨Â®N DEL CATÂ¨Â¢LOGO (Para el Sidebar)
+    // Permite editar CÂ¨Â®digo, Nombre y Color
     openOdsCatalogEditor() {
         const modal = document.getElementById('listEditorModal');
         const container = document.getElementById('listEditorContainer');
         const titleEl = document.getElementById('listEditorTitle');
         const inputTop = document.getElementById('newItemInput')?.parentElement;
         
-        // Configuraci¨®n visual
+        // ConfiguraciÂ¨Â®n visual
         if(inputTop) inputTop.classList.add('hidden'); // Ocultar input simple
         if(titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-blue-500"></i> Editatu ODS Katalogoa (Master)`;
         
-        // Renderizar Tabla de Edici¨®n
+        // Renderizar Tabla de EdiciÂ¨Â®n
         const renderTable = () => {
             container.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
@@ -662,7 +677,7 @@ saveSubjectBasicData() {
 
             const body = document.getElementById('odsTableBody');
             
-            // Usamos el cat¨¢logo cargado en memoria
+            // Usamos el catÂ¨Â¢logo cargado en memoria
             this.adminCatalogs.ods.forEach((ods, index) => {
                 const row = document.createElement('div');
                 row.className = "flex items-center gap-2 p-2 bg-white border rounded shadow-sm";
@@ -684,7 +699,7 @@ saveSubjectBasicData() {
                     </button>
                 `;
 
-                // Eventos de edici¨®n en tiempo real (actualiza array local)
+                // Eventos de ediciÂ¨Â®n en tiempo real (actualiza array local)
                 const updateLocal = () => {
                     this.adminCatalogs.ods[index].color = row.querySelector('.field-color').value;
                     this.adminCatalogs.ods[index].code = row.querySelector('.field-code').value;
@@ -703,7 +718,7 @@ saveSubjectBasicData() {
                 body.appendChild(row);
             });
 
-            // Bot¨®n a?adir nuevo
+            // BotÂ¨Â®n a?adir nuevo
             document.getElementById('btnAddOdsMaster').onclick = () => {
                 this.adminCatalogs.ods.push({ code: 'ODS-XX', name: 'Nuevo Objetivo', color: '#888888' });
                 renderTable();
@@ -713,20 +728,20 @@ saveSubjectBasicData() {
         renderTable();
 
         // GUARDADO ESPECIAL A SUPABASE (Tabla catalog_ods)
-        const saveBtn = this._setupSaveButtonRaw(modal); // Helper para limpiar el bot¨®n
+        const saveBtn = this._setupSaveButtonRaw(modal); // Helper para limpiar el botÂ¨Â®n
         saveBtn.onclick = async () => {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
             try {
                 // 1. Upsert a Supabase (Guardar cambios)
                 const { error } = await this.supabase
                     .from('catalog_ods')
-                    .upsert(this.adminCatalogs.ods, { onConflict: 'code' }); // Asume 'code' o 'id' como ¨²nico
+                    .upsert(this.adminCatalogs.ods, { onConflict: 'code' }); // Asume 'code' o 'id' como Â¨Â²nico
 
                 if (error) throw error;
                 
-                // 2. Si borraste alguno, habr¨ªa que gestionar el delete en BD, 
+                // 2. Si borraste alguno, habrÂ¨Âªa que gestionar el delete en BD, 
                 // pero por simplicidad el upsert actualiza los existentes. 
-                // (Para borrado real se necesitar¨ªa sync m¨¢s complejo o borrar por ID).
+                // (Para borrado real se necesitarÂ¨Âªa sync mÂ¨Â¢s complejo o borrar por ID).
                 
                 alert("Katalogoa eguneratuta!");
                 modal.classList.add('hidden');
@@ -741,7 +756,7 @@ saveSubjectBasicData() {
         modal.classList.remove('hidden');
     }
 
-    // Helper simple para limpiar bot¨®n guardar
+    // Helper simple para limpiar botÂ¨Â®n guardar
     _setupSaveButtonRaw(modal) {
         const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
         const newBtn = oldBtn.cloneNode(true);
@@ -749,7 +764,7 @@ saveSubjectBasicData() {
         return newBtn;
     }
 
-// ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
+// ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cuÂ¨Â¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
     openOdsSelector() {
         if (!this.currentSubject) return;
@@ -762,7 +777,7 @@ saveSubjectBasicData() {
         if(inputTop) inputTop.classList.add('hidden');
         if(titleEl) titleEl.innerHTML = `<i class="fas fa-check-double mr-2 text-green-500"></i> Aukeratu ODSak (${this.currentSubject.subjectCode || 'Asignatura'})`;
 
-        // Renderizado Grid (El que ya ten¨ªas, funciona bien para esto)
+        // Renderizado Grid (El que ya tenÂ¨Âªas, funciona bien para esto)
         container.innerHTML = `<div class="grid grid-cols-2 gap-2" id="odsGrid"></div>`;
         const grid = document.getElementById('odsGrid');
         
@@ -807,18 +822,18 @@ saveSubjectBasicData() {
         modal.classList.remove('hidden');
     }
 	
-	// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO IDU (Para el Sidebar - Master)
+	// ?? FUNCION 1: GESTIÂ¨Â®N DEL CATÂ¨Â¢LOGO IDU (Para el Sidebar - Master)
     openIduCatalogEditor() {
         const modal = document.getElementById('listEditorModal');
         const container = document.getElementById('listEditorContainer');
         const titleEl = document.getElementById('listEditorTitle');
         const inputTop = document.getElementById('newItemInput')?.parentElement;
         
-        // Configuraci¨®n visual
+        // ConfiguraciÂ¨Â®n visual
         if(inputTop) inputTop.classList.add('hidden');
         if(titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-yellow-500"></i> Editatu IDU Katalogoa (Master)`;
         
-        // Renderizar Tabla de Edici¨®n
+        // Renderizar Tabla de EdiciÂ¨Â®n
         const renderTable = () => {
             container.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
@@ -832,7 +847,7 @@ saveSubjectBasicData() {
 
             const body = document.getElementById('iduTableBody');
             
-            // Usamos el cat¨¢logo cargado en memoria
+            // Usamos el catÂ¨Â¢logo cargado en memoria
             this.adminCatalogs.iduGuidelines.forEach((item, index) => {
                 const row = document.createElement('div');
                 row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group";
@@ -860,7 +875,7 @@ saveSubjectBasicData() {
                 // Setear valor del select
                 row.querySelector('.field-range').value = item.range;
 
-                // Eventos de edici¨®n en tiempo real
+                // Eventos de ediciÂ¨Â®n en tiempo real
                 const updateLocal = () => {
                     this.adminCatalogs.iduGuidelines[index].code = row.querySelector('.field-code').value;
                     this.adminCatalogs.iduGuidelines[index].range = row.querySelector('.field-range').value;
@@ -879,7 +894,7 @@ saveSubjectBasicData() {
                 body.appendChild(row);
             });
 
-            // Bot¨®n a?adir nuevo
+            // BotÂ¨Â®n a?adir nuevo
             document.getElementById('btnAddIduMaster').onclick = () => {
                 this.adminCatalogs.iduGuidelines.unshift({ 
                     code: 'IDU-XX', 
@@ -1018,7 +1033,7 @@ saveSubjectBasicData() {
 		if (inputTop) inputTop.classList.add('hidden');
 		if (titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-orange-500"></i> Proiektu Katalogoa`;
 		
-		// Funci¨®n para obtener tipos ¨²nicos
+		// FunciÂ¨Â®n para obtener tipos Â¨Â²nicos
 		const getUniqueTypes = () => {
 			const tipos = this.adminCatalogs.externalProjects
 				.map(p => p.type)
@@ -1027,7 +1042,7 @@ saveSubjectBasicData() {
 			return [...new Set(tipos)].sort((a, b) => a.localeCompare(b));
 		};
 
-		// ?? NUEVO: Funci¨®n para obtener agentes ¨²nicos
+		// ?? NUEVO: FunciÂ¨Â®n para obtener agentes Â¨Â²nicos
 		const getUniqueAgents = () => {
 			const agentes = this.adminCatalogs.externalProjects
 				.map(p => p.agent)
@@ -1036,7 +1051,7 @@ saveSubjectBasicData() {
 			return [...new Set(agentes)].sort((a, b) => a.localeCompare(b));
 		};
 
-		// Funci¨®n para obtener color asignado a un tipo
+		// FunciÂ¨Â®n para obtener color asignado a un tipo
 		const getColorForType = (type) => {
 			if (!type) return '#94a3b8';
 			
@@ -1060,7 +1075,7 @@ saveSubjectBasicData() {
 
 			const body = document.getElementById('projTableBody');
 			const tiposUnicos = getUniqueTypes();
-			const agentesUnicos = getUniqueAgents(); // ?? Obtener agentes ¨²nicos
+			const agentesUnicos = getUniqueAgents(); // ?? Obtener agentes Â¨Â²nicos
 			
 			// Mapeo de tipos a colores
 			const typeColorMap = {};
@@ -1068,7 +1083,7 @@ saveSubjectBasicData() {
 				typeColorMap[tipo] = getColorForType(tipo);
 			});
 
-			// Funci¨®n para sincronizar colores por tipo
+			// FunciÂ¨Â®n para sincronizar colores por tipo
 			const syncColorsByType = (targetType, newColor) => {
 				if (!targetType) return;
 				
@@ -1166,7 +1181,7 @@ saveSubjectBasicData() {
 					</button>
 				`;
 
-				// Event listener para cambios en el tipo (selecci¨®n desde datalist)
+				// Event listener para cambios en el tipo (selecciÂ¨Â®n desde datalist)
 				const typeInput = row.querySelector('.field-type');
 				if (typeInput) {
 					typeInput.addEventListener('input', (e) => {
@@ -1200,18 +1215,18 @@ saveSubjectBasicData() {
 					});
 				}
 
-				// Funci¨®n para actualizar datos locales
+				// FunciÂ¨Â®n para actualizar datos locales
 				const updateLocal = (e) => {
 					const fieldClass = e.target.classList;
 					const currentIndex = parseInt(row.dataset.index);
 					
-					// Verificar ¨ªndice v¨¢lido
+					// Verificar Â¨Âªndice vÂ¨Â¢lido
 					if (isNaN(currentIndex) || currentIndex < 0 || 
 						currentIndex >= this.adminCatalogs.externalProjects.length) {
 						return;
 					}
 					
-					// Actualizar seg¨²n campo modificado
+					// Actualizar segÂ¨Â²n campo modificado
 					if (fieldClass.contains('field-agent')) {
 						this.adminCatalogs.externalProjects[currentIndex].agent = e.target.value;
 					}
@@ -1267,7 +1282,7 @@ saveSubjectBasicData() {
 					input.addEventListener('input', updateLocal);
 				});
 				
-				// Bot¨®n eliminar
+				// BotÂ¨Â®n eliminar
 				row.querySelector('.btn-delete').addEventListener('click', () => {
 					if (confirm("Ezabatu proiektu hau?")) {
 						this.adminCatalogs.externalProjects.splice(index, 1);
@@ -1278,7 +1293,7 @@ saveSubjectBasicData() {
 				body.appendChild(row);
 			});
 
-			// Bot¨®n para a?adir nuevo proyecto
+			// BotÂ¨Â®n para a?adir nuevo proyecto
 			document.getElementById('btnAddProjMaster').addEventListener('click', () => {
 				this.adminCatalogs.externalProjects.unshift({ 
 					agent: '', 
@@ -1289,7 +1304,7 @@ saveSubjectBasicData() {
 				renderTable();
 			});
 
-			// ?? FUNCI¨®N PARA CREAR DATALISTS
+			// ?? FUNCIÂ¨Â®N PARA CREAR DATALISTS
 			const createDataLists = () => {
 				// Eliminar datalists existentes
 				const existingLists = ['typeSuggestions', 'agentSuggestions'];
@@ -1322,7 +1337,7 @@ saveSubjectBasicData() {
 					agentesUnicos.forEach(agent => {
 						const op = document.createElement('option');
 						op.value = agent;
-						// ?? Contar cu¨¢ntos proyectos tiene este agente
+						// ?? Contar cuÂ¨Â¢ntos proyectos tiene este agente
 						const count = this.adminCatalogs.externalProjects.filter(p => p.agent === agent).length;
 						op.dataset.count = count;
 						agentDatalist.appendChild(op);
@@ -1349,7 +1364,7 @@ saveSubjectBasicData() {
 					</div>
 				`;
 				
-				// Insertar despu¨¦s del t¨ªtulo
+				// Insertar despuÂ¨Â¦s del tÂ¨Âªtulo
 				const titleContainer = container.querySelector('.flex.justify-between');
 				if (titleContainer) {
 					titleContainer.insertAdjacentHTML('afterend', counterHTML);
@@ -1359,7 +1374,7 @@ saveSubjectBasicData() {
 
 		renderTable();
 
-		// Configurar bot¨®n guardar
+		// Configurar botÂ¨Â®n guardar
 		const saveBtn = this._setupSaveButtonRaw(modal);
 		saveBtn.onclick = async () => {
 			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
@@ -1369,7 +1384,7 @@ saveSubjectBasicData() {
 					if (p.agent) {
 						// Eliminar espacios extra, capitalizar primera letra, etc.
 						p.agent = p.agent.trim();
-						// Puedes a?adir m¨¢s normalizaci¨®n aqu¨ª si quieres
+						// Puedes a?adir mÂ¨Â¢s normalizaciÂ¨Â®n aquÂ¨Âª si quieres
 					}
 				});
 				
@@ -1397,7 +1412,7 @@ saveSubjectBasicData() {
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
     openProjectsSelector() {
         if (!this.currentSubject) return;
-        // ... (configuraci¨®n modal igual) ...
+        // ... (configuraciÂ¨Â®n modal igual) ...
         const modal = document.getElementById('listEditorModal');
         const container = document.getElementById('listEditorContainer');
         const titleEl = document.getElementById('listEditorTitle');
@@ -1420,7 +1435,7 @@ saveSubjectBasicData() {
             // Lista seleccionada actualmente en la asignatura
             const currentSelected = this.currentSubject.context?.external_projects || this.currentSubject.extProy || [];
             
-            // Filtrar cat¨¢logo global
+            // Filtrar catÂ¨Â¢logo global
             const filtered = this.adminCatalogs.externalProjects.filter(p => {
                 const term = filter.toLowerCase();
                 return (p.name || '').toLowerCase().includes(term) || 
@@ -1434,7 +1449,7 @@ saveSubjectBasicData() {
             }
 
             filtered.forEach(item => {
-                // Comprobamos si est¨¢ seleccionado (por ID si existe, o por nombre/agente)
+                // Comprobamos si estÂ¨Â¢ seleccionado (por ID si existe, o por nombre/agente)
                 const isActive = currentSelected.some(sel => 
                     (sel.id && sel.id === item.id) || 
                     (sel.name === item.name && sel.agent === item.agent)
@@ -1488,7 +1503,7 @@ saveSubjectBasicData() {
         modal.classList.remove('hidden');
     }
 
-	// Helper para configurar el bot¨®n guardar de estos modales
+	// Helper para configurar el botÂ¨Â®n guardar de estos modales
 	_setupSaveButtonForSelector(modal) {
         const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
         const newBtn = oldBtn.cloneNode(true);
@@ -1503,7 +1518,7 @@ saveSubjectBasicData() {
             try {
                 // Si es grado, guarda el grado entero. Si es asignatura, solo asignatura.
                 if (this.isEditingDegree) {
-                    await this.saveData(); // Esto deber¨ªa guardar el grado actual
+                    await this.saveData(); // Esto deberÂ¨Âªa guardar el grado actual
                 } else {
                     await this.saveData(); // O saveSubjectBasicData() si lo tienes separado
                 }
@@ -1536,7 +1551,7 @@ saveSubjectBasicData() {
         if (!isDegree && !this.currentSubject) return;
         if (isDegree && !this.currentDegree) return;
         
-        // 1. Configurar T¨ªtulo
+        // 1. Configurar TÂ¨Âªtulo
         const titleEl = document.getElementById('listEditorTitle');
         if(titleEl) titleEl.innerHTML = `<i class="fas fa-list-ul opacity-75 mr-2"></i> ${title}`;
         
@@ -1544,7 +1559,7 @@ saveSubjectBasicData() {
         const inputNew = document.getElementById('newItemInput');
         if(inputNew) inputNew.value = '';
 
-        // 3. Configurar bot¨®n de "A?adir" del nuevo dise?o
+        // 3. Configurar botÂ¨Â®n de "A?adir" del nuevo dise?o
 		const btnAdd = document.getElementById('btnAddNewItem');
         if(btnAdd) {
             btnAdd.onclick = () => {
@@ -1553,7 +1568,7 @@ saveSubjectBasicData() {
                 
                 const val = inputNew.value.trim();
                 if(val) {
-                    this.addListItem(val); // <--- LLAMA A TU FUNCI¨®N ACTUALIZADA
+                    this.addListItem(val); // <--- LLAMA A TU FUNCIÂ¨Â®N ACTUALIZADA
                     inputNew.value = '';
                     inputNew.focus();
                 }
@@ -1583,7 +1598,7 @@ saveSubjectBasicData() {
                 });
             }
             
-            // Estado vac¨ªo inicial
+            // Estado vacÂ¨Âªo inicial
             if(container.children.length === 0) {
                container.innerHTML = `<div id="emptyStateMsg" class="text-center py-8 text-gray-400 italic text-sm">Ez dago elementurik zerrendan.<br>Erabili goiko panela gehitzeko.</div>`;
             }
@@ -1598,7 +1613,7 @@ saveSubjectBasicData() {
 			const container = document.getElementById('listEditorContainer');
 			if (!container) return;
 
-			// 1. Limpiar mensaje de "vac¨ªo" si existe
+			// 1. Limpiar mensaje de "vacÂ¨Âªo" si existe
 			const emptyMsg = document.getElementById('emptyStateMsg');
 			if (emptyMsg) emptyMsg.remove();
 
@@ -1610,11 +1625,11 @@ saveSubjectBasicData() {
 			// 3. Manejo inteligente de Objetos vs Texto
 			let textValue = value;
 			if (typeof value === 'object' && value !== null) {
-				// Intenta buscar cualquier propiedad que parezca un nombre o descripci¨®n
+				// Intenta buscar cualquier propiedad que parezca un nombre o descripciÂ¨Â®n
 				textValue = value.name || value.zhDesc || value.desc || value.description || value.code || "";
 			}
 
-			// 4. HTML interno (Icono agarre + Input limpio + Bot¨®n borrar)
+			// 4. HTML interno (Icono agarre + Input limpio + BotÂ¨Â®n borrar)
 			div.innerHTML = `
 				<div class="text-gray-300 cursor-grab active:cursor-grabbing">
 					<i class="fas fa-grip-vertical"></i>
@@ -1750,7 +1765,7 @@ openRaEditor() {
         modal.classList.remove('hidden');
     }
 		
-// M¨¦todo auxiliar para crear filas
+// MÂ¨Â¦todo auxiliar para crear filas
 createRaRow(type, index, data = {}) {
     const isZh = type === 'zh';
     const div = document.createElement('div');
@@ -1777,7 +1792,7 @@ createRaRow(type, index, data = {}) {
 
 
     // ----------------------------------------------------------------------
-    // 3. GUARDADO DEL EDITOR (CRUCIAL: IMPORTA CRITERIOS DEL CAT¨¢LOGO)
+    // 3. GUARDADO DEL EDITOR (CRUCIAL: IMPORTA CRITERIOS DEL CATÂ¨Â¢LOGO)
 // En grados-manager.js
 
 guardarRAsDesdeEditor() {
@@ -1836,14 +1851,14 @@ guardarRAsDesdeEditor() {
         console.log("?? RAs eta loturak gordeta.");
     }
 
-// Nuevo m¨¦todo para actualizar todas las vistas
+// Nuevo mÂ¨Â¦todo para actualizar todas las vistas
 	actualizarVistasRA() {
 		const subject = this.currentSubject;
 		
 		// 1. Actualizar panel lateral de RAs
 		this.updateDetailRasList();
 		
-		// 2. Actualizar matriz de alineaci¨®n si est¨¢ visible
+		// 2. Actualizar matriz de alineaciÂ¨Â®n si estÂ¨Â¢ visible
 		if (window.matricesInteractivas && document.getElementById('matricesPanel')) {
 			window.matricesInteractivas.renderMatrizAlineacionRA();
 		}
@@ -1856,7 +1871,7 @@ guardarRAsDesdeEditor() {
 	
 // En grados-manager.js
 
-    async saveListEditor() {  // <--- ?F¨ªjate en el 'async' aqu¨ª!
+    async saveListEditor() {  // <--- ?FÂ¨Âªjate en el 'async' aquÂ¨Âª!
         if (!this.currentEditingField) return;
         
         const fieldName = this.currentEditingField;
@@ -1883,7 +1898,7 @@ guardarRAsDesdeEditor() {
             if (!this.currentSubject) return;
             
             // Si el campo no existe en 'context', lo creamos o actualizamos
-            // Nota: Aqu¨ª asumo que usas 'context' para las listas nuevas (IDU, ODS...)
+            // Nota: AquÂ¨Âª asumo que usas 'context' para las listas nuevas (IDU, ODS...)
             // Si usas propiedades directas, ajusta esto.
             const target = this.currentSubject.context ? this.currentSubject.context : this.currentSubject;
             target[fieldName] = newList;
@@ -1901,7 +1916,7 @@ guardarRAsDesdeEditor() {
             console.log("? Datos guardados correctamente en BD");
         } catch (e) {
             console.error("? Error al guardar en BD:", e);
-            // Aqu¨ª podr¨ªas mostrar un aviso al usuario si falla
+            // AquÂ¨Âª podrÂ¨Âªas mostrar un aviso al usuario si falla
         }
 
         // 3. CERRAR MODAL
@@ -1909,7 +1924,7 @@ guardarRAsDesdeEditor() {
         if(modal) modal.classList.add('hidden');
     }
 	
-// Funci¨®n auxiliar para no repetir HTML
+// FunciÂ¨Â®n auxiliar para no repetir HTML
 	templateRA(codigo, desc, color, etiqueta) {
 		return `
 			<div class="flex gap-3 items-start p-2 border-l-4 border-${color}-400 bg-${color}-50/30 rounded mb-2">
@@ -2084,16 +2099,16 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
         basePrefix = `${grado}${curso}_${periodo}${acronimo}`;
     }
     
-    // Normalizar RAs t¨¦cnicos
+    // Normalizar RAs tÂ¨Â¦cnicos
     tecRAs.forEach((ra, index) => {
         if (ra.code && !ra.code.startsWith(basePrefix)) {
-            // Mantener el n¨²mero secuencial si existe
+            // Mantener el nÂ¨Â²mero secuencial si existe
             const match = ra.code.match(/(RA|ZH)(\d+)$/);
             if (match) {
-                const tipo = "RA"; // Siempre RA para t¨¦cnicos
+                const tipo = "RA"; // Siempre RA para tÂ¨Â¦cnicos
                 const numero = match[2] || String(index + 1).padStart(2, '0');
                 ra.code = `${basePrefix}_${tipo}${numero}`;
-                ra.id = ra.code; // Tambi¨¦n actualizar ID
+                ra.id = ra.code; // TambiÂ¨Â¦n actualizar ID
             } else {
                 ra.code = `${basePrefix}_RA${String(index + 1).padStart(2, '0')}`;
                 ra.id = ra.code;
@@ -2226,32 +2241,32 @@ saveRaChanges() {
 		const localList = this.currentSubject.context.preReq;
 
 		// ---------------------------------------------------------
-		// 3. ? FUNCI¨®N CONFIRMADA PARA LEER ¨¢REAS (igual que openEditSubjectModal)
+		// 3. ? FUNCIÂ¨Â®N CONFIRMADA PARA LEER Â¨Â¢REAS (igual que openEditSubjectModal)
 		// ---------------------------------------------------------
 		const getAreasFromSystem = () => {
 			const areaColorMap = {};
 			
-			console.log("?? Leyendo ¨¢reas del sistema...");
+			console.log("?? Leyendo Â¨Â¢reas del sistema...");
 			
-			// VERIFICADO: Las ¨¢reas est¨¢n en currentDegree.subjectAreas
+			// VERIFICADO: Las Â¨Â¢reas estÂ¨Â¢n en currentDegree.subjectAreas
 			if (this.currentDegree?.subjectAreas) {
 				const areas = this.currentDegree.subjectAreas;
 				
-				console.log(`Encontradas ${areas.length} ¨¢reas en currentDegree.subjectAreas`);
+				console.log(`Encontradas ${areas.length} Â¨Â¢reas en currentDegree.subjectAreas`);
 				
 				areas.forEach(area => {
 					if (area && area.name) {
-						// Usar el color directamente (est¨¢ en formato HSL)
+						// Usar el color directamente (estÂ¨Â¢ en formato HSL)
 						areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
 						console.log(`  ? "${area.name}" -> ${areaColorMap[area.name]}`);
 					}
 				});
 			} else {
-				console.warn("?? No se encontraron ¨¢reas en currentDegree.subjectAreas");
+				console.warn("?? No se encontraron Â¨Â¢reas en currentDegree.subjectAreas");
 				
-				// Fallback: usar ui.getAreaColor si est¨¢ disponible
+				// Fallback: usar ui.getAreaColor si estÂ¨Â¢ disponible
 				if (window.ui && window.ui.getAreaColor) {
-					// Intentar con ¨¢reas conocidas del sidebar
+					// Intentar con Â¨Â¢reas conocidas del sidebar
 					const areaNames = [
 						"DISEINU PROIEKTUAK ETA METODOLOGIAK",
 						"ERAIKUNTZA ETA TEKNOLOGIA",
@@ -2269,32 +2284,32 @@ saveRaChanges() {
 				}
 			}
 			
-			console.log(`? Total ¨¢reas disponibles: ${Object.keys(areaColorMap).length}`);
+			console.log(`? Total Â¨Â¢reas disponibles: ${Object.keys(areaColorMap).length}`);
 			return areaColorMap;
 		};
 
 		const areaColorMap = getAreasFromSystem();
 		const areaCount = Object.keys(areaColorMap).length;
 		
-		// Funci¨®n para convertir HSL a un formato usable
+		// FunciÂ¨Â®n para convertir HSL a un formato usable
 		const parseColor = (hsl) => {
 			if (!hsl) return '#94a3b8';
 			// Si ya es HEX, devolverlo
 			if (hsl.startsWith('#')) return hsl;
-			// Si es HSL, mantenerlo como est¨¢ (CSS lo entiende)
+			// Si es HSL, mantenerlo como estÂ¨Â¢ (CSS lo entiende)
 			if (hsl.startsWith('hsl')) return hsl;
 			// Por defecto
 			return '#94a3b8';
 		};
 
 		// ---------------------------------------------------------
-		// 4. GENERADOR DE C¨®DIGO MEJORADO
+		// 4. GENERADOR DE CÂ¨Â®DIGO MEJORADO
 		// ---------------------------------------------------------
 		const generateAutoCode = (index) => {
 			const subjectName = this.currentSubject.name || this.currentSubject.subjectTitle || "ASIG";
 			const cleanName = subjectName.replace(/^[\d\.\s]+/, '').trim();
 			
-			// Identificar n¨²mero romano o secuencia
+			// Identificar nÂ¨Â²mero romano o secuencia
 			const romanMap = {
 				' VIII': '8', ' VII': '7', ' VI': '6', ' V': '5', 
 				' IV': '4', ' III': '3', ' II': '2', ' I': '1'
@@ -2311,7 +2326,7 @@ saveRaChanges() {
 				}
 			}
 			
-			// Si no encuentra romano, buscar n¨²mero ar¨¢bigo
+			// Si no encuentra romano, buscar nÂ¨Â²mero arÂ¨Â¢bigo
 			if (!numSuffix) {
 				const arabicMatch = cleanName.match(/(\d+)$/);
 				if (arabicMatch) {
@@ -2320,7 +2335,7 @@ saveRaChanges() {
 				}
 			}
 			
-			// Extraer las tres primeras letras (excluyendo n¨²meros y espacios)
+			// Extraer las tres primeras letras (excluyendo nÂ¨Â²meros y espacios)
 			const letters = baseName.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase();
 			const seq = String(index + 1).padStart(2, '0');
 			
@@ -2330,7 +2345,7 @@ saveRaChanges() {
 		};
 
 		// ---------------------------------------------------------
-		// 5. RENDERIZAR EDITOR - VERSI¨®N DEFINITIVA
+		// 5. RENDERIZAR EDITOR - VERSIÂ¨Â®N DEFINITIVA
 		// ---------------------------------------------------------
 		const renderTable = () => {
 			container.innerHTML = `
@@ -2351,7 +2366,7 @@ saveRaChanges() {
 							<div>
 								<p class="text-xs font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
 								<p class="text-[11px] text-yellow-700">
-									Defina ¨¢reas primero en el sidebar o en los datos del grado.
+									Defina Â¨Â¢reas primero en el sidebar o en los datos del grado.
 								</p>
 							</div>
 						</div>
@@ -2387,7 +2402,7 @@ saveRaChanges() {
 				document.body.appendChild(datalist);
 			}
 			
-			// Poblar datalist con ¨¢reas
+			// Poblar datalist con Â¨Â¢reas
 			datalist.innerHTML = '';
 			Object.keys(areaColorMap).sort().forEach(areaName => {
 				const option = document.createElement('option');
@@ -2401,7 +2416,7 @@ saveRaChanges() {
 					item = { code: '', name: item, area: '', color: '#94a3b8' };
 				}
 				
-				// Generar c¨®digo autom¨¢tico
+				// Generar cÂ¨Â®digo automÂ¨Â¢tico
 				const autoCode = generateAutoCode(index);
 				item.code = autoCode;
 				localList[index] = item;
@@ -2463,7 +2478,7 @@ saveRaChanges() {
 					const newName = nameInput.value.trim();
 					const newArea = areaInput.value.trim();
 					
-					// Actualizar color basado en el ¨¢rea seleccionada
+					// Actualizar color basado en el Â¨Â¢rea seleccionada
 					let matchedColor = '#94a3b8';
 					if (newArea && areaColorMap[newArea]) {
 						matchedColor = parseColor(areaColorMap[newArea]);
@@ -2516,7 +2531,7 @@ saveRaChanges() {
 				body.appendChild(row);
 			});
 
-			// A?adir fila vac¨ªa si no hay elementos
+			// A?adir fila vacÂ¨Âªa si no hay elementos
 			if (localList.length === 0) {
 				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
 				renderTable();
@@ -2524,13 +2539,13 @@ saveRaChanges() {
 			}
 		};
 
-		// Bot¨®n para a?adir nueva fila
+		// BotÂ¨Â®n para a?adir nueva fila
 		container.addEventListener('click', (e) => {
 			if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
 				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
 				renderTable();
 				
-				// Enfocar el ¨²ltimo campo de nombre a?adido
+				// Enfocar el Â¨Â²ltimo campo de nombre a?adido
 				setTimeout(() => {
 					const lastRow = document.querySelector('#preReqTableBody .field-name:last-child');
 					if (lastRow) lastRow.focus();
@@ -2542,7 +2557,7 @@ saveRaChanges() {
 		renderTable();
 
 		// ---------------------------------------------------------
-		// 6. CONFIGURAR BOT¨®N GUARDAR
+		// 6. CONFIGURAR BOTÂ¨Â®N GUARDAR
 		// ---------------------------------------------------------
 		const saveBtn = this._setupSaveButtonRaw(modal);
 		saveBtn.onclick = async () => {
@@ -2550,7 +2565,7 @@ saveRaChanges() {
 			saveBtn.disabled = true;
 			
 			try {
-				// Filtrar filas vac¨ªas
+				// Filtrar filas vacÂ¨Âªas
 				const filteredList = localList.filter(item => item.name && item.name.trim());
 				
 				if (filteredList.length === 0) {
@@ -2560,10 +2575,10 @@ saveRaChanges() {
 					return;
 				}
 				
-				// Actualizar la lista con solo elementos v¨¢lidos
+				// Actualizar la lista con solo elementos vÂ¨Â¢lidos
 				this.currentSubject.context.preReq = filteredList;
 				
-				// Guardar tambi¨¦n en formato antiguo para compatibilidad
+				// Guardar tambiÂ¨Â¦n en formato antiguo para compatibilidad
 				this.currentSubject.context.pre_requisites = filteredList.map(item => item.name);
 				this.currentSubject.preReq = filteredList;
 				
@@ -2576,7 +2591,7 @@ saveRaChanges() {
 					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
 				}
 				
-				// Mostrar confirmaci¨®n
+				// Mostrar confirmaciÂ¨Â®n
 				if (this.showNotification) {
 					this.showNotification('Aurre-ezagutzak gorde dira!', 'success');
 				} else {
@@ -2605,7 +2620,7 @@ saveRaChanges() {
 		const titleEl = document.getElementById('listEditorTitle');
 		const inputTop = document.getElementById('newItemInput')?.parentElement;
 		
-		// Ocultar la parte superior antigua y poner t¨ªtulo
+		// Ocultar la parte superior antigua y poner tÂ¨Âªtulo
 		if (inputTop) inputTop.classList.add('hidden');
 		if (titleEl) titleEl.innerHTML = `<i class="fas fa-star mr-2 text-indigo-500"></i> Jarduera Esanguratsuak`;
 
@@ -2617,7 +2632,7 @@ saveRaChanges() {
 		// 3. ?? PREPARAR LA INTELIGENCIA (Datos Globales)
 		const globalProjects = this.adminCatalogs.externalProjects || [];
 		
-		// Mapa r¨¢pido: Tipo -> Color (Ej: "Bisita" -> "#ff0000")
+		// Mapa rÂ¨Â¢pido: Tipo -> Color (Ej: "Bisita" -> "#ff0000")
 		const typeColorMap = {};
 		const agentsSet = new Set();
 		const typesSet = new Set();
@@ -2636,7 +2651,7 @@ saveRaChanges() {
 		const uniqueTypes = [...typesSet].sort();
 		const uniqueAgents = [...agentsSet].sort();
 
-		// Funci¨®n auxiliar para obtener color
+		// FunciÂ¨Â®n auxiliar para obtener color
 		const getColorForType = (type) => typeColorMap[type] || null;
 
 		// 4. Renderizar Editor
@@ -2716,7 +2731,7 @@ saveRaChanges() {
 					</button>
 				`;
 
-				// ?? LOGICA DE ACTUALIZACI¨®N Y COLORES
+				// ?? LOGICA DE ACTUALIZACIÂ¨Â®N Y COLORES
 				const agentInput = row.querySelector('.field-agent');
 				const nameInput = row.querySelector('.field-name');
 				const typeInput = row.querySelector('.field-type');
@@ -2803,12 +2818,12 @@ saveRaChanges() {
 		// Inicializar eventos de botones principales
 		document.getElementById('listEditorModal').classList.remove('hidden');
 		
-		// Bot¨®n a?adir
-		// Usamos delegaci¨®n o re-renderizado
-		renderTable(); // Primera renderizaci¨®n
+		// BotÂ¨Â®n a?adir
+		// Usamos delegaciÂ¨Â®n o re-renderizado
+		renderTable(); // Primera renderizaciÂ¨Â®n
 		
-		// Como el bot¨®n de a?adir est¨¢ dentro del innerHTML del container, 
-		// necesitamos a?adir su listener despu¨¦s de renderizar (o usar onclick en el HTML, pero mejor as¨ª:)
+		// Como el botÂ¨Â®n de a?adir estÂ¨Â¢ dentro del innerHTML del container, 
+		// necesitamos a?adir su listener despuÂ¨Â¦s de renderizar (o usar onclick en el HTML, pero mejor asÂ¨Âª:)
 		// Mejor truco: a?adir el listener al container y detectar click
 		container.addEventListener('click', (e) => {
 			if(e.target.id === 'btnAddSignAct') {
@@ -2817,7 +2832,7 @@ saveRaChanges() {
 			}
 		});
 
-		// 6. Bot¨®n Guardar
+		// 6. BotÂ¨Â®n Guardar
 		const saveBtn = this._setupSaveButtonRaw(modal);
 		saveBtn.onclick = async () => {
 			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
@@ -2837,7 +2852,7 @@ saveRaChanges() {
 	}
 
 
-    async saveListEditor() {  // <--- ?F¨ªjate en el 'async' aqu¨ª!
+    async saveListEditor() {  // <--- ?FÂ¨Âªjate en el 'async' aquÂ¨Âª!
         if (!this.currentEditingField) return;
         
         const fieldName = this.currentEditingField;
@@ -2864,7 +2879,7 @@ saveRaChanges() {
             if (!this.currentSubject) return;
             
             // Si el campo no existe en 'context', lo creamos o actualizamos
-            // Nota: Aqu¨ª asumo que usas 'context' para las listas nuevas (IDU, ODS...)
+            // Nota: AquÂ¨Âª asumo que usas 'context' para las listas nuevas (IDU, ODS...)
             // Si usas propiedades directas, ajusta esto.
             const target = this.currentSubject.context ? this.currentSubject.context : this.currentSubject;
             target[fieldName] = newList;
@@ -2882,7 +2897,7 @@ saveRaChanges() {
             console.log("? Datos guardados correctamente en BD");
         } catch (e) {
             console.error("? Error al guardar en BD:", e);
-            // Aqu¨ª podr¨ªas mostrar un aviso al usuario si falla
+            // AquÂ¨Âª podrÂ¨Âªas mostrar un aviso al usuario si falla
         }
 
         // 3. CERRAR MODAL
@@ -2891,16 +2906,16 @@ saveRaChanges() {
     }
 
 // ==========================================
-// GESTI¨®N DE LA VISTA DE PLANIFICACI¨®N (GANTT)
+// GESTIÂ¨Â®N DE LA VISTA DE PLANIFICACIÂ¨Â®N (GANTT)
 // ==========================================
 
 goToPlanning() {
-    // Delegamos completamente al nuevo m¨®dulo
+    // Delegamos completamente al nuevo mÂ¨Â®dulo
     if (window.planningManager) {
         // Pasamos la asignatura actual al manager
         window.planningManager.open(this.currentSubject);
     } else {
-        console.error("? PlanningManager no est¨¢ cargado en window.");
+        console.error("? PlanningManager no estÂ¨Â¢ cargado en window.");
         alert("Errorea: PlanningManager modulua falta da.");
     }
 }
@@ -2996,7 +3011,7 @@ renderActivityRow(act, udIndex, actIndex, areaColor) {
 }
 
 // ==========================================
-// M¨¦TODOS DE DATOS Y DRAG & DROP
+// MÂ¨Â¦TODOS DE DATOS Y DRAG & DROP
 // ==========================================
 
 addActivity(udIndex) {
@@ -3006,8 +3021,8 @@ addActivity(udIndex) {
     
     this.currentSubject.unitateak[udIndex].activities.push({
         id: Date.now(),
-        name: "",         // T¨ªtulo
-        description: "",  // NUEVO: Descripci¨®n detallada
+        name: "",         // TÂ¨Âªtulo
+        description: "",  // NUEVO: DescripciÂ¨Â®n detallada
         duration: 2, 
         assignedDescriptors: [], 
         resources: "",
@@ -3022,7 +3037,7 @@ updateActivityField(udIndex, actIndex, field, value) {
     
     if (field === 'duration') {
         act[field] = parseFloat(value) || 0;
-        // Si cambiamos la duraci¨®n, hay que recalcular el total de la UD y el Gantt
+        // Si cambiamos la duraciÂ¨Â®n, hay que recalcular el total de la UD y el Gantt
         this.renderPlanning(); 
     } else {
         act[field] = value;
@@ -3039,7 +3054,7 @@ deleteActivity(udIndex, actIndex) {
 // --- DRAG & DROP LOGIC ---
 
 handleDragStart(e, descriptorText, sourceUdIndex) {
-    // Guardamos el texto y el ¨ªndice de origen para validaciones
+    // Guardamos el texto y el Â¨Âªndice de origen para validaciones
     e.dataTransfer.setData("text/plain", descriptorText);
     e.dataTransfer.setData("sourceUdIndex", sourceUdIndex);
     e.dataTransfer.effectAllowed = "copy"; // Icono de copia
@@ -3055,7 +3070,7 @@ handleDrop(e, targetUdIndex, targetActIndex) {
     const descriptorText = e.dataTransfer.getData("text/plain");
     const sourceUdIndex = parseInt(e.dataTransfer.getData("sourceUdIndex"));
 
-    // Validaci¨®n pedag¨®gica: ?Permitimos arrastrar descriptores de OTRA unidad?
+    // ValidaciÂ¨Â®n pedagÂ¨Â®gica: ?Permitimos arrastrar descriptores de OTRA unidad?
     // Generalmente NO, el alineamiento es intra-unidad.
     if (sourceUdIndex !== targetUdIndex) {
         alert("Ezin duzu beste unitate bateko deskriptorerik erabili jarduera honetan.");
@@ -3078,11 +3093,11 @@ removeDescriptorFromActivity(udIndex, actIndex, descIndex) {
 }
 
 // ==========================================
-// 6. EXPORTACI¨®N E IMPORTACI¨®N (Persistencia)
+// 6. EXPORTACIÂ¨Â®N E IMPORTACIÂ¨Â®N (Persistencia)
 // ==========================================
 
 /**
- * Exporta la configuraci¨®n completa de la asignatura (UDs + Actividades) a un JSON
+ * Exporta la configuraciÂ¨Â®n completa de la asignatura (UDs + Actividades) a un JSON
  */
 
 exportPlanning() {
@@ -3108,7 +3123,7 @@ exportPlanning() {
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
     
-    // Notificaci¨®n visual (si tienes un sistema de toast)
+    // NotificaciÂ¨Â®n visual (si tienes un sistema de toast)
     console.log("Plangintza esportatua!");
 }
 
@@ -3124,7 +3139,7 @@ importPlanning(inputElement) {
         try {
             const json = JSON.parse(e.target.result);
             
-            // Validaci¨®n b¨¢sica
+            // ValidaciÂ¨Â®n bÂ¨Â¢sica
             if (!json.units || !Array.isArray(json.units)) {
                 alert("Errorea: Fitxategiaren formatua ez da zuzena (unitateak falta dira).");
                 return;
@@ -3151,7 +3166,7 @@ importPlanning(inputElement) {
 }
 
 /**
- * Exporta la Matriz de Alineaci¨®n a CSV (Excel friendly)
+ * Exporta la Matriz de AlineaciÂ¨Â®n a CSV (Excel friendly)
  * Cruza: Unidades (Columnas) vs Competencias/Descriptores (Filas)
  */
 exportAlignmentMatrix() {
@@ -3168,12 +3183,12 @@ exportAlignmentMatrix() {
     let csvContent = "data:text/csv;charset=utf-8,";
     let header = ["Konpetentzia", "Ikaskuntza Emaitza (RA) / Deskriptorea"];
     
-    // A?adir c¨®digos de UD a la cabecera
+    // A?adir cÂ¨Â®digos de UD a la cabecera
     units.forEach(u => header.push(u.unitCode || u.name));
     csvContent += header.join(";") + "\r\n";
 
-    // 2. Recopilar todos los RA/Descriptores ¨²nicos de la asignatura
-    // (Asumimos que est¨¢n en this.currentSubject.competencies o similar, 
+    // 2. Recopilar todos los RA/Descriptores Â¨Â²nicos de la asignatura
+    // (Asumimos que estÂ¨Â¢n en this.currentSubject.competencies o similar, 
     // pero si no, los sacamos de las propias UDs para asegurar que sale todo lo usado)
     
     const allDescriptorsMap = new Map(); // Mapa para evitar duplicados
@@ -3184,7 +3199,7 @@ exportAlignmentMatrix() {
             if (!allDescriptorsMap.has(desc)) {
                 allDescriptorsMap.set(desc, {
                     name: desc,
-                    type: "Generikoa" // Aqu¨ª podr¨ªas buscar el tipo real si lo tienes en otra lista
+                    type: "Generikoa" // AquÂ¨Âª podrÂ¨Âªas buscar el tipo real si lo tienes en otra lista
                 });
             }
         });
@@ -3216,10 +3231,10 @@ exportAlignmentMatrix() {
 }
 
 
-    // --- GESTIÃ“N DE UNIDADES (UNITATEAK) ---
+    // --- GESTIÃƒâ€œN DE UNIDADES (UNITATEAK) ---
 
 // A. ABRIR EL EDITOR Y CARGAR DATOS
-// --- GESTI¨®N DE UNIDADES (TABLA) ---
+// --- GESTIÂ¨Â®N DE UNIDADES (TABLA) ---
 
 openUnitEditor() {
     if (!this.currentSubject) return;
@@ -3232,18 +3247,18 @@ openUnitEditor() {
     // Obtenemos las unidades existentes
     let units = this.currentSubject.unitateak || [];
 
-    // --- CORRECCI¨®N FORZOSA DE C¨®DIGOS ---
-    // Recorremos todas las unidades y regeneramos su c¨®digo AHORA MISMO
+    // --- CORRECCIÂ¨Â®N FORZOSA DE CÂ¨Â®DIGOS ---
+    // Recorremos todas las unidades y regeneramos su cÂ¨Â®digo AHORA MISMO
     // Esto arregla las que pone "XX1..." o las antiguas sin formato.
     units = units.map((u, i) => {
-        // Generamos el c¨®digo correcto basado en la posici¨®n actual
+        // Generamos el cÂ¨Â®digo correcto basado en la posiciÂ¨Â®n actual
         const newCode = this.generateUnitAutoCode(i);
         
         // Actualizamos el objeto (puedes comentar este if si quieres machacar TODO siempre)
-        // Aqu¨ª decimos: si el c¨®digo actual es diferente al calculado, actual¨ªzalo.
+        // AquÂ¨Âª decimos: si el cÂ¨Â®digo actual es diferente al calculado, actualÂ¨Âªzalo.
         if (u.unitCode !== newCode) {
             u.unitCode = newCode;
-            // Tambi¨¦n actualizamos la propiedad legacy 'code' por si acaso
+            // TambiÂ¨Â¦n actualizamos la propiedad legacy 'code' por si acaso
             u.code = newCode;
         }
         return u;
@@ -3255,14 +3270,14 @@ openUnitEditor() {
     // --- RENDERIZADO ---
     units.forEach((u, i) => this.addUnitRow(u, i));
 
-    // Si no hab¨ªa ninguna, a?adimos una fila vac¨ªa (que generar¨¢ UD01)
+    // Si no habÂ¨Âªa ninguna, a?adimos una fila vacÂ¨Âªa (que generarÂ¨Â¢ UD01)
     if (units.length === 0) this.addUnitRow({}, 0);
 
     modal.classList.remove('hidden');
 }
 
 // ==========================================
-// 2. HELPER: Generador de C¨®digo Autom¨¢tico
+// 2. HELPER: Generador de CÂ¨Â®digo AutomÂ¨Â¢tico
 // ==========================================
 
 // Konpetentziaren kodea bilatzeko funtzio unibertsala
@@ -3296,11 +3311,11 @@ generateUnitAutoCode(index) {
     const curso = subj.course || subj.year || "1";
     const periodo = subj.term || subj.semester || "1";
 
-    // 3. ACR¨®NIMO (Correcci¨®n):
+    // 3. ACRÂ¨Â®NIMO (CorrecciÂ¨Â®n):
     // Priorizamos el nombre visual (ej: "Proiektuak I")
     const rawName = subj.name || subj.subjectTitle || subj.title || "ASIG";
     
-    // Limpiamos el nombre: Quitamos n¨²meros, puntos y espacios para que "Proiektuak 1" sea "PRO"
+    // Limpiamos el nombre: Quitamos nÂ¨Â²meros, puntos y espacios para que "Proiektuak 1" sea "PRO"
     const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
     
     // Cogemos las 3 primeras letras. Si es muy corto, rellenamos con X.
@@ -3316,14 +3331,14 @@ generateUnitAutoCode(index) {
 addUnitRow(data = {}, index = null) {
     const tbody = document.getElementById('unitEditorBody');
     
-    // Calcular ¨ªndice si es una fila nueva manual
+    // Calcular Â¨Âªndice si es una fila nueva manual
     const currentRowCount = tbody.children.length;
     const finalIndex = index !== null ? index : currentRowCount;
 
     const tr = document.createElement('tr');
     tr.className = "bg-white border-b hover:bg-gray-50 group";
     
-    // Usamos el c¨®digo que ya viene corregido en 'data', o generamos si es nueva
+    // Usamos el cÂ¨Â®digo que ya viene corregido en 'data', o generamos si es nueva
     const code = data.unitCode || this.generateUnitAutoCode(finalIndex);
     
     const name = data.unitName || "";
@@ -3376,7 +3391,7 @@ addUnitRow(data = {}, index = null) {
     }, 10);
 }
 
-// Funci¨®n auxiliar para auto-resize
+// FunciÂ¨Â®n auxiliar para auto-resize
 autoResize(textarea) {
     textarea.style.height = 'auto';
     textarea.style.height = (textarea.scrollHeight) + 'px';
@@ -3394,7 +3409,7 @@ saveUnitEditor() {
         const hours = row.querySelector('.unit-hours-input')?.value.trim();
         const descriptorsText = row.querySelector('.unit-descriptors-input')?.value.trim();
 
-        // Guardamos si hay c¨®digo O nombre (para evitar filas vac¨ªas fantasma)
+        // Guardamos si hay cÂ¨Â®digo O nombre (para evitar filas vacÂ¨Âªas fantasma)
         if (code || name) {
             const descriptors = descriptorsText 
                 ? descriptorsText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
@@ -3483,7 +3498,7 @@ addSubjectArea() {
         document.getElementById('areaColorInput').value = randomColor;
         document.getElementById('colorHexValue').textContent = randomColor;
         
-        // OCULTAR BOT¨®N DE BORRAR (Porque es nueva)
+        // OCULTAR BOTÂ¨Â®N DE BORRAR (Porque es nueva)
         const btnDelete = document.getElementById('btnDeleteArea');
         if (btnDelete) btnDelete.style.display = 'none';
 
@@ -3493,21 +3508,21 @@ addSubjectArea() {
 editSubjectArea(encodedName) {
         if (!this.currentDegree) return;
         const name = decodeURIComponent(encodedName);
-        this.editingAreaOldName = name; // Importante para saber cu¨¢l borrar
+        this.editingAreaOldName = name; // Importante para saber cuÂ¨Â¢l borrar
         
         if (!this.currentDegree.subjectAreas) this.currentDegree.subjectAreas = [];
         const area = this.currentDegree.subjectAreas.find(a => a.name === name);
         
         this.showModal();
         
-        // Configuraci¨®n UI
+        // ConfiguraciÂ¨Â®n UI
         document.getElementById('areaModalTitle').textContent = "Eremua Editatu";
         document.getElementById('areaNameInput').value = area ? area.name : name;
         let color = (area && area.color) ? area.color : '#3b82f6';
         document.getElementById('areaColorInput').value = color;
         document.getElementById('colorHexValue').textContent = color;
 
-        // MOSTRAR BOT¨®N DE BORRAR
+        // MOSTRAR BOTÂ¨Â®N DE BORRAR
         const btnDelete = document.getElementById('btnDeleteArea');
         if (btnDelete) btnDelete.style.display = 'flex';
     }
@@ -3554,7 +3569,7 @@ deleteSubjectArea() {
         const confirmMessage = `Ziur zaude '${this.editingAreaOldName}' eremua ezabatu nahi duzula?...`;
 		
         if (confirm(confirmMessage)) {
-            // Filtrar para quitar el ¨¢rea actual
+            // Filtrar para quitar el Â¨Â¢rea actual
             this.currentDegree.subjectAreas = this.currentDegree.subjectAreas.filter(a => a.name !== this.editingAreaOldName);
             
             // Guardar en base de datos
@@ -3564,7 +3579,7 @@ deleteSubjectArea() {
             document.getElementById('areaModal').style.display = 'none';
             if (window.ui) {
                 window.ui.renderSidebar(this.currentDegree);
-                // Si est¨¢s en la vista de a?o, refrescar para que se quiten los colores viejos
+                // Si estÂ¨Â¢s en la vista de a?o, refrescar para que se quiten los colores viejos
                 if (this.currentYear) window.ui.renderYearView(this.currentDegree, this.currentYear);
             }
         }
@@ -3632,7 +3647,7 @@ openCompetenciesDashboard() {
             this.currentDegree.competencies = { ingreso: [], egreso: [] };
         }
 
-        // 1. Sortu filtroaren aukerak (¨¢reas)
+        // 1. Sortu filtroaren aukerak (Â¨Â¢reas)
         const areas = this.currentDegree.subjectAreas || [];
         const filterOptions = areas.map(a => 
             `<option value="${a.name}" style="background:${a.color}20; color:${a.color}; font-weight:bold;">${a.name}</option>`
@@ -3996,11 +4011,11 @@ openSingleCompEditor(type, index) {
         fillList('egreso', 'irteeraCompList');
     }
 	
-	// M¨¦todo para actualizar un ZH en todas partes
+	// MÂ¨Â¦todo para actualizar un ZH en todas partes
 actualizarZHGlobal(zhCodeViejo, nuevosDatos) {
     if (!this.currentDegree) return;
     
-    // 1. Actualizar en cat¨¢logo (Estructura: zhCode / zhDesc)
+    // 1. Actualizar en catÂ¨Â¢logo (Estructura: zhCode / zhDesc)
     if (this.currentDegree.zhCatalog) {
         const index = this.currentDegree.zhCatalog.findIndex(z => (z.zhCode || z.code) === zhCodeViejo);
         if (index !== -1) {
@@ -4027,12 +4042,12 @@ actualizarZHGlobal(zhCodeViejo, nuevosDatos) {
                         });
                     }
                     
-                    // Actualizar Criterios de Evaluaci¨®n vinculados
+                    // Actualizar Criterios de EvaluaciÂ¨Â®n vinculados
                     if (asig.subjectCritEval) {
                         asig.subjectCritEval.forEach(crit => {
                             if (crit.raRelacionado === zhCodeViejo) {
                                 crit.raRelacionado = nuevosDatos.zhCode || zhCodeViejo;
-                                // Actualiza el prefijo del c¨®digo del criterio (ej: ZH1.CE1 -> ZH1_NEW.CE1)
+                                // Actualiza el prefijo del cÂ¨Â®digo del criterio (ej: ZH1.CE1 -> ZH1_NEW.CE1)
                                 if (nuevosDatos.zhCode) {
                                     crit.ceCode = crit.ceCode.replace(zhCodeViejo, nuevosDatos.zhCode);
                                 }
@@ -4055,7 +4070,7 @@ actualizarZHGlobal(zhCodeViejo, nuevosDatos) {
         container.innerHTML = '';
 
         masterList.forEach(item => {
-            // Comprobar si est¨¢ seleccionado (comparando por c¨®digo/ID)
+            // Comprobar si estÂ¨Â¢ seleccionado (comparando por cÂ¨Â®digo/ID)
             const isSelected = currentSelection.some(sel => {
                 const selValue = (typeof sel === 'object') ? sel[keyField] : sel;
                 return selValue === item[keyField];
@@ -4147,9 +4162,9 @@ if (!window.gradosManager) {
     window.gradosManager = gradosManager;
 }
 
-// grados-manager.js - AL FINAL, DESPU¨¦S DE window.gradosManager
+// grados-manager.js - AL FINAL, DESPUÂ¨Â¦S DE window.gradosManager
 
-// Asegurar funciones globales CR¨ªTICAS que usa el HTML
+// Asegurar funciones globales CRÂ¨ÂªTICAS que usa el HTML
 if (!window.selectDegree) {
     window.selectDegree = (e) => {
         if (window.gradosManager && window.gradosManager.selectDegree) {
@@ -4168,7 +4183,7 @@ if (!window.createNewDegree) {
     };
 }
 
-// Tambi¨¦n asegurar otras funciones usadas en botones
+// TambiÂ¨Â¦n asegurar otras funciones usadas en botones
 if (!window.addSubjectArea) {
     window.addSubjectArea = () => {
         if (window.gradosManager && window.gradosManager.addSubjectArea) {
@@ -4187,7 +4202,7 @@ if (!window.editSubjectArea) {
     };
 }
 
-// Funci¨®n para guardar ¨¢rea (si se usa en HTML)
+// FunciÂ¨Â®n para guardar Â¨Â¢rea (si se usa en HTML)
 if (!window.confirmSaveArea) {
     window.confirmSaveArea = () => {
         if (window.gradosManager && window.gradosManager.confirmSaveArea) {
@@ -4197,7 +4212,7 @@ if (!window.confirmSaveArea) {
     };
 }
 
-// Funci¨®n para crear nueva asignatura (si se usa)
+// FunciÂ¨Â®n para crear nueva asignatura (si se usa)
 if (!window.crearNuevaAsignatura) {
     window.crearNuevaAsignatura = (yearNum) => {
         if (window.gradosManager && window.gradosManager.crearNuevaAsignatura) {
@@ -4207,7 +4222,7 @@ if (!window.crearNuevaAsignatura) {
     };
 }
 
-// Funci¨®n para guardar datos b¨¢sicos de asignatura
+// FunciÂ¨Â®n para guardar datos bÂ¨Â¢sicos de asignatura
 if (!window.saveSubjectBasicData) {
     window.saveSubjectBasicData = () => {
         if (window.gradosManager && window.gradosManager.saveSubjectBasicData) {
@@ -4223,18 +4238,18 @@ if (!window.openEditSubjectModal) {
             return window.gradosManager.openEditSubjectModal();
         }
         console.error('? gradosManager.openEditSubjectModal no disponible');
-        alert('Funci¨®n openEditSubjectModal no disponible');
+        alert('FunciÂ¨Â®n openEditSubjectModal no disponible');
     };
     console.log('? openEditSubjectModal asignada a window');
 }
 
 if (window.gradosManager && !window.gradosManager.openEditSubjectModal) {
-    console.warn('?? gradosManager NO tiene m¨¦todo openEditSubjectModal');
+    console.warn('?? gradosManager NO tiene mÂ¨Â¦todo openEditSubjectModal');
 } else if (window.gradosManager) {
     console.log('? gradosManager tiene openEditSubjectModal');
 }
 
-// grados-manager.js - AL FINAL, DESPU¨¦S DE window.gradosManager
+// grados-manager.js - AL FINAL, DESPUÂ¨Â¦S DE window.gradosManager
 
 // Opcional: Registrar con AppCoordinator si existe
 if (window.AppCoordinator) {
@@ -4242,4 +4257,5 @@ if (window.AppCoordinator) {
 }
 
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
+
 export default gradosManager;
