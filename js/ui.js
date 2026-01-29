@@ -495,6 +495,27 @@ renderSubjectDetail: async (subject, degree) => {
 			}
 		}
 
+		if (!hasPermission) {
+			if (saveBtn) saveBtn.style.display = 'none';
+			
+			if (!warningDiv) {
+				warningDiv = document.createElement('div');
+				// ... (warningDiv-aren estiloak)
+			}
+			warningDiv.innerHTML = `...`;
+		} else {
+			// --- HEMEN EGIN ALDAKETA ---
+			if (saveBtn) saveBtn.style.display = 'block';
+			if (warningDiv) warningDiv.remove();
+			
+			// GAKOA: Hurrengo bi lerro hauek gehitu
+			window.gradosManager.currentSubject = subject; 
+			window.gradosManager.currentRowId = subject.idAsig; 
+			// ---------------------------
+		}
+
+// Lerro honen gainean geratu behar da:
+console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
 		// UI-a Egokitu baimenen arabera
 		const warningDivId = 'permission-warning';
 		let warningDiv = document.getElementById(warningDivId);
@@ -1585,6 +1606,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
