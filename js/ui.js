@@ -460,7 +460,7 @@ renderSubjectDetail: async (subject, degree) => {
 	if (!subject) return;
 	
 	    // --- BAIMENEN EGIAZTAPENA (GEHITUTAKO ZATIA) ---
-	    const supabase = getSupabaseInstance();
+	    const supabase = window.supabase;
 	    const { data: { user } } = await supabase.auth.getUser();
 	    const saveBtn = document.getElementById('saveSubjectBtn'); // Ziurtatu zure gordetzeko botoiak ID hau duela
 	    const detailHeader = document.getElementById('subjectDetailView');
@@ -1582,4 +1582,5 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
