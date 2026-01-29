@@ -457,62 +457,70 @@ renderYearView: (degree, yearNum) => {
 	
     // --- 3. DETALLE DE ASIGNATURA ---
 renderSubjectDetail: async (subject, degree) => {
-	if (!subject) return;
+    if (!subject) return;
 
-		// --- BAIMENEN EGIAZTAPENA (GEHITUTAKO ZATIA) ---
-		const supabase = window.supabase;
-		const { data: { user } } = await supabase.auth.getUser();
-		const saveBtn = document.getElementById('saveSubjectBtn'); // Ziurtatu zure gordetzeko botoiak ID hau duela
-		const detailHeader = document.getElementById('subjectDetailView');
+    // --- BAIMENEN EGIAZTAPENA ---
+    const supabase = window.supabase;
+    const { data: { user } } = await supabase.auth.getUser();
+    const saveBtn = document.getElementById('saveSubjectBtn');
+    const detailHeader = document.getElementById('subjectDetailView');
 
-		let hasPermission = false;
+    let hasPermission = false;
+    const warningDivId = 'permission-warning';
+    // GAKOA: Deklaratu aldagai hau HEMEN erabili baino lehen
+    let warningDiv = document.getElementById(warningDivId);
 
-		if (user) {
-			// 1. Begiratu ea administratzailea den (profiles taulatik)
-			const { data: profile } = await supabase
-				.from('profiles')
-				.select('role')
-				.eq('id', user.id)
-				.single();
+    if (user) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
 
-			if (profile?.role === 'admin') {
-				hasPermission = true;
-			} else {
-				// 2. Irakaslea bada, begiratu ea irakasgai hau berea den
-				// KONTUZ: Lehen 'subjectCode' erabiltzen zen (DG2_2BAL), 
-				// baina datu-baseko loturak 'idAsig' estatikoarekin (ASG-114) daude.
-				
-				const targetId = subject.idAsig; // <--- HAU DA ALDAKETA NAGUSIA
-				
-				const { data: link } = await supabase
-					.from('irakasle_irakasgaiak')
-					.select('id')
-					.eq('user_id', user.id)
-					.eq('idAsig', targetId) // targetId (idAsig estatikoa) erabiltzen dugu
-					.single();
-				
-				if (link) hasPermission = true;
-			}
-		}
+        if (profile?.role === 'admin') {
+            hasPermission = true;
+        } else {
+            const targetId = subject.idAsig; 
+            const { data: link } = await supabase
+                .from('irakasle_irakasgaiak')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('idAsig', targetId)
+                .single();
+            
+            if (link) hasPermission = true;
+        }
+    }
 
-		if (!hasPermission) {
-			if (saveBtn) saveBtn.style.display = 'none';
-			
-			if (!warningDiv) {
-				warningDiv = document.createElement('div');
-				// ... (warningDiv-aren estiloak)
-			}
-			warningDiv.innerHTML = `...`;
-		} else {
-			// --- HEMEN EGIN ALDAKETA ---
-			if (saveBtn) saveBtn.style.display = 'block';
-			if (warningDiv) warningDiv.remove();
-			
-			// GAKOA: Hurrengo bi lerro hauek gehitu
-			window.gradosManager.currentSubject = subject; 
-			window.gradosManager.currentRowId = subject.idAsig; 
-			// ---------------------------
-		}
+    // UI-a Egokitu
+    if (!hasPermission) {
+        if (saveBtn) saveBtn.style.display = 'none';
+        
+        if (!warningDiv) {
+            warningDiv = document.createElement('div');
+            warningDiv.id = warningDivId;
+            warningDiv.className = "bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 flex items-center gap-3 shadow-sm rounded-r";
+            detailHeader.prepend(warningDiv);
+        }
+        warningDiv.innerHTML = `
+            <i class="fas fa-eye text-amber-500"></i>
+            <div>
+                <p class="text-sm font-bold text-amber-800 italic">Irakurtzeko soilik modua</p>
+                <p class="text-[11px] text-amber-700 leading-tight">Ez daukazu baimenik irakasgai hau editatzeko.</p>
+            </div>
+        `;
+    } else {
+        // BAIMENA BADU: Erakutsi botoia eta prestatu IDa gordetzeko
+        if (saveBtn) saveBtn.style.display = 'block';
+        if (warningDiv) warningDiv.remove();
+
+        // GAKOA: Hemen sinkronizatzen dugu GradosManager-ekin
+        if (window.gradosManager) {
+            window.gradosManager.currentSubject = subject;
+            window.gradosManager.currentRowId = subject.idAsig; 
+            console.log("?? GradosManager prest IDarekin:", subject.idAsig);
+        }
+    }
 
 // Lerro honen gainean geratu behar da:
 console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
@@ -1606,6 +1614,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
