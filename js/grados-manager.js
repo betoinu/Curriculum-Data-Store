@@ -184,38 +184,30 @@ class GradosManager {
 async saveData() {
     try {
         const supabase = getSupabaseInstance();
-        if (!this.cachedData || !this.currentSubject) return;
+        // Irakasgaiaren datuak erabili fitxategi nagusiaren ordez
+        const dataToSave = this.currentSubject; 
+        const targetId = this.currentRowId; // Hau 'ASG-114' izango da orain
 
-        console.log("💾 Gordetzen: ", this.currentSubject.subjectTitle);
-
-        // GAKOA: Irakasgaiaren ID estatikoa erabiltzen dugu (ASG-114)
-        // Honek ziurtatzen du RLS-ak irakasleari baimena emango diola
-        const targetId = this.currentSubject.idAsig; 
-
-        if (!targetId) {
-            console.error("Errorea: Irakasgaiak ez du idAsig-ik.");
-            return;
+        if (!targetId || targetId.includes('fitxategi_nagusiaren_id-a')) {
+             console.error("ID okerra. Ziurtatu irakasgaia ondo kargatu dela.");
+             return;
         }
 
-        // Kontuz: Irakasleek 'curriculum_data' taulako lerro espezifiko bat
-        // editatzen badute, updateData-k JSON hori bakarrik izan behar du.
-        const updateData = { 
-            datos: this.currentSubject // Irakasgaiaren JSON objektua bakarrik bidali
-        };
+        console.log("💾 Gordetzen irakasgaia:", targetId);
 
-        const { data, error } = await supabase
+        const { error } = await supabase
             .from('curriculum_data')
-            .update(updateData)
-            .eq('id', targetId); // GAKOA: ASG-114-aren gainean idatzi
+            .update({ datos: dataToSave }) // JSON berria bidali
+            .eq('id', targetId);
 
-        if (error) {
-            console.error("Errorea gordetzean:", error.message);
-        } else {
-            console.log("✅ Ondo gorde da!");
-        }
+        if (error) throw error;
+        
+        console.log("✅ Gorde da!");
+        alert("Aldaketak ondo gorde dira.");
 
     } catch (err) {
-        console.error("Error saving:", err);
+        console.error("Errorea gordetzean:", err);
+        alert("Ezin izan da gorde: " + err.message);
     }
 }
 	
@@ -4259,3 +4251,4 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
