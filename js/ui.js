@@ -456,7 +456,7 @@ renderYearView: (degree, yearNum) => {
 	},
 	
     // --- 3. DETALLE DE ASIGNATURA ---
-renderSubjectDetail: (subject, degree) => {
+renderSubjectDetail: async (subject, degree) => {
 	if (!subject) return;
 	
 	    // --- BAIMENEN EGIAZTAPENA (GEHITUTAKO ZATIA) ---
@@ -1582,3 +1582,4 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
