@@ -640,42 +640,20 @@ renderSubjectDetail: async (subject, degree) => {
             }
         }
         
-        // --- VISUALIZACIÓN PROYECTOS EXTERNOS ---
+// --- VISUALIZACIÓN PROYECTOS EXTERNOS (ZUZENDU ETA PREST) ---
         const projContainer = document.getElementById('detailExtProy');
         if (projContainer) {
             projContainer.innerHTML = '';
-            const projList = ctx.external_projects || subject.extProy || [];
+            const globalCatalog = window.gradosManager?.cachedData?.external_projects || [];
+            const subjectProjNames = subject.context?.external_projects || subject.extProy || [];
 
-            if (!projList || projList.length === 0) {
+            if (!subjectProjNames || subjectProjNames.length === 0) {
                 projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
             } else {
                 projContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2";
-                
-                const globalCatalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
-
-                const getAgentInfo = (proyecto) => {
-                    if (!proyecto) return 'Agente ezezaguna';
-                    if (proyecto.agent && proyecto.agent.trim() !== '') return proyecto.agent;
-                    if (proyecto.coordinator && proyecto.coordinator.trim() !== '') {
-                        const coord = proyecto.coordinator.split('/')[0].split(',')[0].trim();
-                        return `Coord: ${coord}`;
-                    }
-                    if (proyecto.program && proyecto.program.trim() !== '') return proyecto.program;
-                    const nombre = proyecto.name || '';
-                    if (nombre.includes(' - ')) return nombre.split(' - ')[0].trim();
-                    if (nombre.includes(':')) return nombre.split(':')[0].trim();
-                    if (proyecto.specialty) return proyecto.specialty;
-                    return 'Colaboración externa';
-                };
-
-                projList.forEach(p => {
-                    const localName = (typeof p === 'object') ? p.name : p;
-                    const master = globalCatalog.find(m => m.name === localName);
-                    const proyectoFuente = master || (typeof p === 'object' ? p : { name: localName });
-                    
-                    const displayName = proyectoFuente.name || localName;
-                    const displayAgent = getAgentInfo(proyectoFuente); 
-                    const displayType = proyectoFuente.type || '';
+                subjectProjNames.forEach(name => {
+                    const proyectoFuente = globalCatalog.find(p => p.name === name) || { name: name };
+                    const displayAgent = proyectoFuente.agent || 'Colaboración externa';
                     const displayColor = proyectoFuente.color || '#fdba74';
 
                     projContainer.innerHTML += `
@@ -689,60 +667,44 @@ renderSubjectDetail: async (subject, degree) => {
                                 <p class="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-gray-700 transition">
                                     ${displayAgent}
                                 </p>
-                                <p class="text-sm font-bold text-gray-800 truncate mt-1">
-                                    ${displayName}
-                                </p>
-                                ${displayType ? `<p class="text-[10px] text-gray-400 italic text-right mt-1">${displayType}</p>` : ''}
+                                <p class="text-sm font-bold text-gray-800 truncate mt-1">${proyectoFuente.name}</p>
                             </div>
                         </div>`;
                 });
             }
         }
-        
-        // --- VISUALIZACIÓN IDU (Estandarizada) ---
+
+        // --- VISUALIZACIÓN IDU (ZUZENDU ETA PREST) ---
         const iduContainer = document.getElementById('detailIdujar');
         if (iduContainer) {
             iduContainer.innerHTML = '';
-            // 'idu' (json berria) edo 'idujar' (zaharra)
-            const iduList = subject.idu || ctx.idu || subject.idujar || [];
+            const globalIduCatalog = window.gradosManager?.cachedData?.idu || [];
+            const subjectIduCodes = subject.idu || [];
 
-            if (!iduList || iduList.length === 0) {
+            if (!subjectIduCodes || subjectIduCodes.length === 0) {
                 iduContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da IDU jarraibiderik zehaztu.</span>';
             } else {
                 iduContainer.className = "flex flex-wrap gap-2 mt-1";
-
                 const getIduStyle = (range) => {
-                    if (!range) return 'bg-gray-100 text-gray-600 border-gray-200';
-                    if (range.includes('IRUDIKAPENA')) return 'bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200';
-                    if (range.includes('EKINTZA')) return 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200';
-                    if (range.includes('INPLIKAZIOA')) return 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200';
+                    if (range?.includes('IRUDIKAPENA')) return 'bg-purple-100 text-purple-700 border-purple-200';
+                    if (range?.includes('EKINTZA')) return 'bg-blue-100 text-blue-700 border-blue-200';
+                    if (range?.includes('INPLIKAZIOA')) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
                     return 'bg-gray-100 text-gray-600 border-gray-200';
                 };
 
-                // Ordenar por iduCode o code
-                iduList.sort((a, b) => (a.iduCode || a.code || '').localeCompare(b.iduCode || b.code || ''));
-
-                iduList.forEach(item => {
-                    // ALDAKETA: iduCode bilatu lehenik
-                    const rawCode = item.iduCode || item.code || '';
-                    const shortCode = rawCode.replace('IDU-', '');
-                    
-                    const styleClass = getIduStyle(item.range);
-                    const desc = item.name || item.description || '';
+                subjectIduCodes.forEach(code => {
+                    const fullIduText = globalIduCatalog.find(text => text.startsWith(code));
+                    if (!fullIduText) return;
+                    const range = fullIduText.includes('[') ? fullIduText.split('[')[1].split(']')[0] : '';
+                    const cleanText = fullIduText.replace(`[${range}]`, '').trim();
+                    const styleClass = getIduStyle(range);
 
                     iduContainer.innerHTML += `
-                        <div class="relative group px-2 py-1 rounded border text-[10px] font-bold cursor-help transition transform hover:scale-105 ${styleClass}">
-                            ${shortCode}
-                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 
-                                        bg-slate-800 text-white text-[9px] font-normal leading-tight
-                                        rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 
-                                        group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
-                                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
-                                    ${item.range}
-                                </div>
-                                <div class="whitespace-normal">
-                                    ${desc.replace(/\n/g, '<br>')}
-                                </div>
+                        <div class="relative group px-2 py-1 rounded border text-[10px] font-bold cursor-help transition ${styleClass}">
+                            ${code.replace('IDU-', '')}
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+                                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">${range}</div>
+                                <div class="whitespace-normal">${cleanText}</div>
                                 <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
                             </div>
                         </div>`;
@@ -750,55 +712,28 @@ renderSubjectDetail: async (subject, degree) => {
             }
         }
 
-        // --- VISUALIZACIÓN ODS (Estandarizada) ---
+        // --- VISUALIZACIÓN ODS (ZUZENDU ETA PREST) ---
         const odsContainer = document.getElementById('detailOdsList');
         if (odsContainer) {
             odsContainer.innerHTML = '';
-            const odsList = subject.ods || ctx.ods || [];
+            const globalOdsCatalog = window.gradosManager?.cachedData?.ods || [];
+            const subjectOdsCodes = subject.ods || [];
 
-            if (!odsList || odsList.length === 0) {
+            if (!subjectOdsCodes || subjectOdsCodes.length === 0) {
                 odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
             } else {
-                const odsColors = {
-                    '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', '5': '#FF3A21',
-                    '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942', '9': '#FD6925', '10': '#DD1367',
-                    '11': '#FD9D24', '12': '#BF8B2E', '13': '#3F7E44', '14': '#0A97D9', '15': '#56C02B',
-                    '16': '#00689D', '17': '#19486A'
-                };
-
-                odsList.forEach(item => {
-                    let num = '0';
-                    let name = '';
-                    let color = '#999';
-
-                    if (typeof item === 'object') {
-                        // ALDAKETA: odsCode bilatu lehenik
-                        const rawCode = item.odsCode || item.code || '';
-                        num = rawCode.replace('ODS-', '');
-                        name = item.name;
-                        color = item.color || odsColors[num] || '#999';
-                    } 
-                    else if (typeof item === 'string') {
-                        const match = item.match(/ODS-(\d+)/);
-                        num = match ? match[1] : '?';
-                        name = item;
-                        color = odsColors[num] || '#999';
-                    }
+                const odsColors = { '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', '5': '#FF3A21', '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942', '9': '#FD6925', '10': '#DD1367', '11': '#FD9D24', '12': '#BF8B2E', '13': '#3F7E44', '14': '#0A97D9', '15': '#56C02B', '16': '#00689D', '17': '#19486A' };
+                subjectOdsCodes.forEach(code => {
+                    const num = code.replace('ODS-', '');
+                    const odsData = globalOdsCatalog.find(o => o.code === code) || { name: code };
+                    const color = odsColors[num] || '#999';
 
                     odsContainer.innerHTML += `
-                        <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 shrink-0" 
-                             style="background-color: ${color}">
+                        <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 shrink-0" style="background-color: ${color}">
                             ${num}
-                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 
-                                        bg-slate-800 text-white text-[9px] font-normal leading-tight
-                                        rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 
-                                        group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
-                                    ODS ${num}
-                                </div>
-                                <div class="whitespace-normal">
-                                    ${name}
-                                </div>
+                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
+                                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${num}</div>
+                                <div class="whitespace-normal">${odsData.name}</div>
                                 <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
                             </div>
                         </div>`;
@@ -1004,6 +939,7 @@ renderSubjectDetail: async (subject, degree) => {
         }
         document.getElementById('mainContent')?.scrollTo(0, 0);
     },
+
 	
     getAreaColor: (areaName, degree) => {
         const found = (degree?.subjectAreas || []).find(a => a.name === areaName);
@@ -1587,6 +1523,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
