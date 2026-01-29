@@ -459,18 +459,19 @@ renderYearView: (degree, yearNum) => {
 renderSubjectDetail: async (subject, degree) => {
     if (!subject) return;
 
-    // --- BAIMENEN EGIAZTAPENA ---
+    // 1. Oinarrizko aldagaiak definitu
     const supabase = window.supabase;
     const { data: { user } } = await supabase.auth.getUser();
     const saveBtn = document.getElementById('saveSubjectBtn');
     const detailHeader = document.getElementById('subjectDetailView');
-
+    
     let hasPermission = false;
-    const warningDivId = 'permission-warning';
-    // GAKOA: Deklaratu aldagai hau HEMEN erabili baino lehen
-    let warningDiv = document.getElementById(warningDivId);
+    const warningId = 'permission-warning';
+    let warningDiv = document.getElementById(warningId);
 
+    // 2. BAIMENEN LOGIKA (Bloke bakarra eta garbia)
     if (user) {
+        // Administratzailea den egiaztatu
         const { data: profile } = await supabase
             .from('profiles')
             .select('role')
@@ -480,6 +481,7 @@ renderSubjectDetail: async (subject, degree) => {
         if (profile?.role === 'admin') {
             hasPermission = true;
         } else {
+            // Irakasle lotura egiaztatu
             const targetId = subject.idAsig; 
             const { data: link } = await supabase
                 .from('irakasle_irakasgaiak')
@@ -492,13 +494,13 @@ renderSubjectDetail: async (subject, degree) => {
         }
     }
 
-    // UI-a Egokitu
+    // 3. UI-a EGOKITU
     if (!hasPermission) {
         if (saveBtn) saveBtn.style.display = 'none';
         
         if (!warningDiv) {
             warningDiv = document.createElement('div');
-            warningDiv.id = warningDivId;
+            warningDiv.id = warningId;
             warningDiv.className = "bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 flex items-center gap-3 shadow-sm rounded-r";
             detailHeader.prepend(warningDiv);
         }
@@ -506,51 +508,22 @@ renderSubjectDetail: async (subject, degree) => {
             <i class="fas fa-eye text-amber-500"></i>
             <div>
                 <p class="text-sm font-bold text-amber-800 italic">Irakurtzeko soilik modua</p>
-                <p class="text-[11px] text-amber-700 leading-tight">Ez daukazu baimenik irakasgai hau editatzeko.</p>
+                <p class="text-[11px] text-amber-700 leading-tight">Ez daukazu baimenik irakasgai hau editatzeko. Aldaketak ez dira gordeko.</p>
             </div>
         `;
     } else {
-        // BAIMENA BADU: Erakutsi botoia eta prestatu IDa gordetzeko
         if (saveBtn) saveBtn.style.display = 'block';
         if (warningDiv) warningDiv.remove();
 
-        // GAKOA: Hemen sinkronizatzen dugu GradosManager-ekin
+        // 🎯 GARRANTZITSUA: GradosManager sinkronizatu gordetzeko orduan IDa galdu ez dadin
         if (window.gradosManager) {
             window.gradosManager.currentSubject = subject;
             window.gradosManager.currentRowId = subject.idAsig; 
-            console.log("?? GradosManager prest IDarekin:", subject.idAsig);
         }
     }
 
-// Lerro honen gainean geratu behar da:
-console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
-		// UI-a Egokitu baimenen arabera
-		const warningDivId = 'permission-warning';
-		let warningDiv = document.getElementById(warningDivId);
-
-		if (!hasPermission) {
-			if (saveBtn) saveBtn.style.display = 'none'; // Gordetzeko botoia ezkutatu
-			
-			if (!warningDiv) {
-				warningDiv = document.createElement('div');
-				warningDiv.id = warningDivId;
-				warningDiv.className = "bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 flex items-center gap-3 shadow-sm rounded-r";
-				detailHeader.prepend(warningDiv);
-			}
-			warningDiv.innerHTML = `
-				<i class="fas fa-eye text-amber-500"></i>
-				<div>
-					<p class="text-sm font-bold text-amber-800 italic">Irakurtzeko soilik modua</p>
-					<p class="text-[11px] text-amber-700 leading-tight">Ez daukazu baimenik irakasgai hau editatzeko. Aldaketak ez dira gordeko.</p>
-				</div>
-			`;
-		} else {
-			if (saveBtn) saveBtn.style.display = 'block'; // Baimena badu, erakutsi
-			if (warningDiv) warningDiv.remove(); // Oharra kendu baimena badu
-		}
-		// --- BAIMENEN AMAIERA ---
-
-		console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
+    // --- HEMENDIK AURRERA ZURE JATORRIZKO KODE GUZTIA (console.log-ekin hasita) ---
+    console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
 
         // 1. Mostrar vista detalle
         document.getElementById('yearView')?.classList.add('hidden');
@@ -1614,6 +1587,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
