@@ -183,40 +183,21 @@ class GradosManager {
 
 async saveData() {
     try {
-        const supabase = getSupabaseInstance();
+        const supabase = window.supabase;
         
-        // GARRANTZITSUA: Bidali datuak JSON formatuan 'datos' zutabera
-        const dataToSave = JSON.parse(JSON.stringify(this.currentSubject)); 
-        const targetId = this.currentRowId; // Adibidez: 'ASG-114'
+        // GAKOA: cachedData-k graduaren JSON osoa du.
+        // currentRowId-k gradu horren "giltza" nagusia izan behar du (adib: MEKA-rena).
+        if (!this.cachedData || !this.currentRowId) return;
 
-        if (!targetId) {
-             console.error("❌ Errorea: Ez dago IDrik (currentRowId hutsik dago)");
-             return;
-        }
-
-        console.log("💾 Gordetzen curriculum_data taulan. ID:", targetId);
-
-        const { data, error, status } = await supabase
+        const { error } = await supabase
             .from('curriculum_data')
-            .update({ 
-                datos: dataToSave,            // JSONB zutabea
-                last_updated: new Date(),    // Data eguneratu
-                nombre: dataToSave.name || dataToSave.subjectTitle // 'nombre' zutabea ere eguneratu
-            })
-            .eq('id', targetId); // Eskeman 'id' da Primary Key, eta targetId-k 'ASG-114' balio du
+            .update({ datos: this.cachedData }) // Fitxategi osoa ordezkatzen dugu
+            .eq('id', this.currentRowId);       // Gradu honen fitxategia, ez besteena
 
-        if (error) {
-            // 406 errorea bada, hemen azalduko du zergatia
-            console.error(`❌ Errorea (${status}):`, error.message);
-            throw error;
-        }
-        
-        console.log("✅ Gorde da zuzenki!");
-        alert("Aldaketak ondo gorde dira.");
-
+        if (error) throw error;
+        console.log("✅ Graduaren JSONB fitxategi osoa eguneratu da.");
     } catch (err) {
-        console.error("❌ Errorea prozesuan:", err);
-        alert("Ezin izan da gorde: " + err.message);
+        console.error("Errorea gordetzean:", err);
     }
 }
 	
@@ -4260,5 +4241,6 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
