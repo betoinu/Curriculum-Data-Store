@@ -481,16 +481,17 @@ renderSubjectDetail: async (subject, degree) => {
         if (profile?.role === 'admin') {
             hasPermission = true;
         } else {
-            // Irakasle lotura egiaztatu
-            const targetId = subject.idAsig; 
-            const { data: link } = await supabase
-                .from('irakasle_irakasgaiak')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('idAsig', targetId)
-                .single();
-            
-            if (link) hasPermission = true;
+            // 🔥 ERABILI idAsig BAKARRIK
+            if (subject.idAsig) {
+                const { data: link } = await supabase
+                    .from('irakasle_irakasgaiak')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .eq('idAsig', subject.idAsig)
+                    .single();
+                
+                if (link) hasPermission = true;
+            }
         }
     }
 
@@ -1523,6 +1524,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
