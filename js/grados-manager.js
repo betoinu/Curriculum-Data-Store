@@ -104,81 +104,95 @@ class GradosManager {
 		}
 
 async loadData() {
-        console.log(`📥 Datuak kargatzen (${this.currentRowId})...`);
-        
-        try {
-            const supabase = this.supabase || window.supabase;
-            if (!supabase) throw new Error("Supabase ez dago inizializatuta");
+	try {
+		const supabase = getSupabaseInstance();
+		if (!supabase) return;
 
-            // 1. KATALOGOAK KARGATU (Hau gabe ui.js-k ez daki zein kolore jarri)
-            // Zure klasean badago 'loadCatalogs' metodoa? Baietz suposatzen dut.
-            if (this.loadCatalogs) {
-                await this.loadCatalogs(); 
-            }
+		// 1. CARGAR PROYECTOS COMPLETOS
+		const { data: proyectosCompletos, error: errorProyectos } = await supabase
+			.from('admin_external_projects')
+			.select('id, name, type, agent, color, coordinator')
+			.order('name');
+		
+		// 2. CARGAR curriculum_data
+		const { data: curriculumData, error: errorCurriculum } = await supabase
+			.from('curriculum_data')
+			.select('*')
+			.order('created_at', { ascending: false })
+			.limit(1);
 
-            // 2. CURRICULUM DATUAK EKARRI
-            const { data, error } = await supabase
-                .from('curriculum_data')
-                .select('datos')
-                .eq('id', this.currentRowId)
-                .single();
+		if (errorCurriculum) throw errorCurriculum;
 
-            if (error) throw error;
+		if (curriculumData && curriculumData.length > 0) {
+			const row = curriculumData[0];
+			this.currentRowId = row.id;
+			
+			if (row.datos) {
+				this.cachedData = row.datos;
+				
+				// 🔥 3. GEHITU idAsig IRAKASGAI ZAHARRETAN
+				if (this.cachedData.graduak) {
+					this.cachedData.graduak.forEach(grado => {
+						Object.values(grado.year || {}).forEach((asignaturas, yearIndex) => {
+							asignaturas.forEach((asig, asigIndex) => {
+								if (!asig.idAsig) {
+									const gradoCodigo = grado.codigo || 'G';
+									// YearIndex + 1 porque los años empiezan en 1
+									const yearNum = Object.keys(grado.year || {})[yearIndex] || '1';
+									const indice = asigIndex + 1;
+									asig.idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+								}
+							});
+						});
+					});
+				}
+				
+				// 4. Completar proyectos...
+				if (this.cachedData.proyectosExternos && 
+					proyectosCompletos && 
+					proyectosCompletos.length > 0) {
+					
+					const nuevosProyectos = this.cachedData.proyectosExternos.map(item => {
+						if (typeof item === 'string') {
+							const proyectoCompleto = proyectosCompletos.find(p => p.name === item);
+							return proyectoCompleto || { name: item, agent: 'Desconocido' };
+						}
+						return item;
+					});
+					
+					this.cachedData.proyectosExternos = nuevosProyectos;
+				}
+			}
+		}
 
-            if (data && data.datos) {
-                this.cachedData = data.datos;
-                
-                // --- 3. DATUEN HIDRATAZIOA (PRESTATZE LANAK) ---
-                // UI-ak objektuak behar ditu, ez String-ak. Hemen bihurtzen ditugu.
-                
-                const projectsCatalog = this.adminCatalogs?.externalProjects || [];
-                
-                // Gradu eta irakasgai guztietatik pasa
-                if (this.cachedData.graduak) {
-                    this.cachedData.graduak.forEach(gradu => {
-                        if (gradu.mailak) {
-                            gradu.mailak.forEach(maila => {
-                                Object.values(maila).forEach(asig => {
-                                    // Bakarrik irakasgaiak (objektuak direnak)
-                                    if (typeof asig === 'object' && asig !== null) {
-                                        
-                                        // A) Proiektuak: String bada -> Objektu bihurtu
-                                        if (asig.extProy && Array.isArray(asig.extProy)) {
-                                            asig.extProy = asig.extProy.map(pId => {
-                                                if (typeof pId === 'string') {
-                                                    // Bilatu katalogoan
-                                                    return projectsCatalog.find(pc => pc.id === pId) || { id: pId, name: pId, color: '#ccc' };
-                                                }
-                                                return pId;
-                                            });
-                                        }
-                                        
-                                        // B) Beste eremu batzuk (ODS, etab.) hemen berdin...
-                                    }
-                                });
-                            });
-                        }
-                    });
-                }
-                // ------------------------------------------------
+		// 🔥 5. Asegurar estructura (GEHITU idAsig hutsik dagoenean)
+		if (!this.cachedData) {
+			this.cachedData = {
+				graduak: [],
+				proyectosExternos: []
+			};
+		}
+		
+		if (!this.cachedData.graduak) {
+			this.cachedData.graduak = [];
+		}
+		
+		if (!this.cachedData.proyectosExternos) {
+			this.cachedData.proyectosExternos = [];
+		}
 
-                console.log(`✅ Datuak prest UI-arentzat.`);
+		this.populateDegreeSelect();
 
-                // 4. UI SINKRONIZAZIOA
-                // Hemen deitzen dugu zure UI kudeatzailea
-                this.populateDegreeSelect(); // Select-a bete
+		if (this.cachedData.graduak.length > 0) {
+			const primer = this.cachedData.graduak[0];
+			this.loadDegreeData(primer.codigo || primer.id);
+		}
 
-                // Lehen gradua badago, kargatu
-                if (this.cachedData.graduak.length > 0) {
-                    // Honek 'loadDegreeData' deituko du, eta horrek 'ui.renderSidebar' deituko du
-                    this.loadDegreeData(this.cachedData.graduak[0].id);
-                }
-            }
-
-        } catch (error) {
-            console.error("❌ Errorea loadData-n:", error);
-        }
-    }
+	} catch (err) {
+		console.error("❌ Error cargando:", err);
+	}
+}
+	
 async saveData() {
     const supabase = window.supabase;
     const targetId = this.currentRowId; // Logetan ikusi dugun: '6e406af1...'
@@ -391,55 +405,60 @@ getFullZhDescription(zhItem) {
 	}
 
     // --- CREACIÃ“N DE ASIGNATURA (NUEVA FUNCIÃ“N) ---
-	crearNuevaAsignatura(yearNum) {
-		if (!this.currentDegree) {
-			alert("Mesedez, hautatu gradu bat lehenago.");
-			return;
-		}
-		
-		// 1. Inicializar estructura si no existe
-		if (!this.currentDegree.year) this.currentDegree.year = {};
-		if (!this.currentDegree.year[yearNum]) this.currentDegree.year[yearNum] = [];
-
-		// 2. Crear el objeto completo (Basado en tu modelo de datos oficial)
-		const nuevoId = `ASG-${Date.now()}`;
-		const newSubj = {
-			id: nuevoId,
-			code: 'NEW',
-			subjectCode: 'NEW',
-			name: 'Irakasgai Berria',
-			subjectTitle: 'Irakasgai Berria',
-			subjectArea: '',
-			subjectCredits: 6,
-			credits: 6,
-			year: yearNum,
-			degreeCode: this.currentDegree.codigo || '',
-			subjectType: [],
-			currentOfficialRAs: [],
-			zhRAs: [],
-			preReq: [],
-			idujar: [],
-			unitateak: [], // Importante para el Gantt
-			ikasEgoerak: { extProy: [], signAct: [] }
-		};
-
-		// 3. Persistencia y Navegaci¨®n
-		this.currentDegree.year[yearNum].push(newSubj);
-		this.saveData();
-		
-		// 4. UI: Refrescar y saltar directamente a la edici¨®n
-		this.selectYear(yearNum); 
-		this.selectSubject(newSubj); 
-		
-		// Peque?o retardo para asegurar que el DOM del detalle est¨¢ listo
-		setTimeout(() => {
-			if (this.openEditSubjectModal) {
-				this.openEditSubjectModal();
-			} else if (window.gradosManager.openEditSubjectModal) {
-				window.gradosManager.openEditSubjectModal();
-			}
-		}, 150);
+crearNuevaAsignatura(yearNum) {
+	if (!this.currentDegree) {
+		alert("Mesedez, hautatu gradu bat lehenago.");
+		return;
 	}
+	
+	// 1. Inicializar estructura si no existe
+	if (!this.currentDegree.year) this.currentDegree.year = {};
+	if (!this.currentDegree.year[yearNum]) this.currentDegree.year[yearNum] = [];
+
+	// 🔥 2. Crear idAsig (Grado_Año_Índice)
+	const gradoCodigo = this.currentDegree.codigo || 'G';
+	const indice = this.currentDegree.year[yearNum].length + 1;
+	const idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+
+	// 3. Crear el objeto completo
+	const nuevoId = `ASG-${Date.now()}`;
+	const newSubj = {
+		id: nuevoId,
+		idAsig: idAsig, // 🔥 GEHITU HAU BAKARRIK
+		code: 'NEW',
+		subjectCode: 'NEW',
+		name: 'Irakasgai Berria',
+		subjectTitle: 'Irakasgai Berria',
+		subjectArea: '',
+		subjectCredits: 6,
+		credits: 6,
+		year: yearNum,
+		degreeCode: this.currentDegree.codigo || '',
+		subjectType: [],
+		currentOfficialRAs: [],
+		zhRAs: [],
+		preReq: [],
+		idujar: [],
+		unitateak: [],
+		ikasEgoerak: { extProy: [], signAct: [] }
+	};
+
+	// 4. Persistencia y Navegación (KODE BERDINA)
+	this.currentDegree.year[yearNum].push(newSubj);
+	this.saveData();
+	
+	// 5. UI (KODE BERDINA)
+	this.selectYear(yearNum); 
+	this.selectSubject(newSubj); 
+	
+	setTimeout(() => {
+		if (this.openEditSubjectModal) {
+			this.openEditSubjectModal();
+		} else if (window.gradosManager.openEditSubjectModal) {
+			window.gradosManager.openEditSubjectModal();
+		}
+	}, 150);
+}
 	
 	openEditSubjectModal() {
 			if (!this.currentSubject) return;
@@ -598,65 +617,25 @@ saveSubjectBasicData() {
 }
 
     // --- UTILS ---
-populateDegreeSelect() {
-        // Segurtasuna: daturik ez badago, irten
-        const graduak = this.cachedData?.graduak || [];
-        if (graduak.length === 0) return;
-
-        // 1. EXISTITZEN DEN? (Zure HTML originala errespetatzeko)
-        let selectEl = document.getElementById('degreeSelect');
-
-        // 2. EZ BADAGO BAKARRIK SORTU (Gatazkak saihesteko)
-        if (!selectEl) {
-            console.warn("⚠️ 'degreeSelect' ez da aurkitu HTMLan. Dinamikoki sortzen...");
-            // Bilatu non txertatu (Navbar edo body)
-            const container = document.querySelector('.navbar') || 
-                              document.querySelector('#app') || 
-                              document.body;
-            
-            // Edukiontzia sortu
-            const div = document.createElement('div');
-            div.style.cssText = "margin: 10px; padding: 10px; background: #f5f5f5; border-radius: 5px;";
-            div.innerHTML = `
-                <label style="font-weight: bold; display:block; margin-bottom:5px;">🎓 Gradua:</label>
-                <select id="degreeSelect" class="form-select" style="width: 100%;"></select>
-            `;
-            
-            // Txertatu hasieran
-            container.insertBefore(div, container.firstChild);
-            selectEl = div.querySelector('#degreeSelect');
-        }
-
-        // 3. EDUKIA GARBITU ETA BETE (Bikoizketak saihesteko)
-        selectEl.innerHTML = '<option value="">-- Aukeratu Gradua --</option>';
-
-        graduak.forEach(g => {
-            const option = document.createElement('option');
-            // IDa erabili balio gisa
-            option.value = g.id;
-            // Izena erakutsi (lehentasunak errespetatuz)
-            option.textContent = g.selectedDegree || g.nombre || g.title || g.id;
-            selectEl.appendChild(option);
-        });
-
-        // 4. CHANGE LISTENER (Klonazioa erabiltzen dugu pilatutako listenerrak garbitzeko)
-        const newSelect = selectEl.cloneNode(true);
-        selectEl.parentNode.replaceChild(newSelect, selectEl);
+    populateDegreeSelect() {
+        const select = document.getElementById('degreeSelect');
+        if (!select || !this.cachedData.graduak) return;
         
-        newSelect.addEventListener('change', (e) => {
-            const selectedId = e.target.value;
-            if (selectedId && this.loadDegreeData) {
-                this.loadDegreeData(selectedId);
-            }
+        select.innerHTML = '';
+        this.cachedData.graduak.forEach(g => {
+            const op = document.createElement('option');
+            op.value = g.codigo || g.id;
+            op.textContent = g.selectedDegree;
+            select.appendChild(op);
         });
-
-        // Sinkronizatu oraingo graduarekin (baldin badago)
-        if (this.currentDegree) {
-            newSelect.value = this.currentDegree.id;
-        }
         
-        console.log("✅ Graduen desplegablea eguneratuta.");
+        // Opci贸n para crear nuevo
+        const createOp = document.createElement('option');
+        createOp.value = "NEW_DEGREE";
+        createOp.textContent = "+ Gradu Berria...";
+        select.appendChild(createOp);
     }
+ 
     
     selectDegree(e) {
         const val = (e.target && e.target.value) ? e.target.value : e;
@@ -4295,6 +4274,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
