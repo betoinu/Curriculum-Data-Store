@@ -8,7 +8,7 @@ class GradosManager {
         this.currentSubject = null;
         this.currentYear = null;
         this.cachedData = null;
-        this.currentRowId = null;
+        this.currentRowId = 'id_user';
         this.dataColumnName = 'datos';
         this.editingAreaOldName = null; 
         
@@ -4256,6 +4256,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
