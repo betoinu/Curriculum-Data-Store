@@ -107,39 +107,71 @@ async loadData() {
         console.log(`📥 Datuak kargatzen (${this.currentRowId})...`);
         
         try {
-            // Ziurtatu Supabase instantzia badugula
             const supabase = this.supabase || window.supabase;
             if (!supabase) throw new Error("Supabase ez dago inizializatuta");
 
-            // 1. KONPONKETA: ID zehatza erabili eta .single()
+            // 1. KATALOGOAK KARGATU (Hau gabe ui.js-k ez daki zein kolore jarri)
+            // Zure klasean badago 'loadCatalogs' metodoa? Baietz suposatzen dut.
+            if (this.loadCatalogs) {
+                await this.loadCatalogs(); 
+            }
+
+            // 2. CURRICULUM DATUAK EKARRI
             const { data, error } = await supabase
                 .from('curriculum_data')
                 .select('datos')
-                .eq('id', this.currentRowId) // 'id_user' erabiltzen du orain
+                .eq('id', this.currentRowId)
                 .single();
 
             if (error) throw error;
 
             if (data && data.datos) {
-                // 2. KONPONKETA: Memoria bete
                 this.cachedData = data.datos;
                 
-                // Zure sistema zaharrarekiko bateragarritasuna (badaezpada)
-                if (!this.cachedData.curriculum) {
-                    this.cachedData.curriculum = data.datos;
+                // --- 3. DATUEN HIDRATAZIOA (PRESTATZE LANAK) ---
+                // UI-ak objektuak behar ditu, ez String-ak. Hemen bihurtzen ditugu.
+                
+                const projectsCatalog = this.adminCatalogs?.externalProjects || [];
+                
+                // Gradu eta irakasgai guztietatik pasa
+                if (this.cachedData.graduak) {
+                    this.cachedData.graduak.forEach(gradu => {
+                        if (gradu.mailak) {
+                            gradu.mailak.forEach(maila => {
+                                Object.values(maila).forEach(asig => {
+                                    // Bakarrik irakasgaiak (objektuak direnak)
+                                    if (typeof asig === 'object' && asig !== null) {
+                                        
+                                        // A) Proiektuak: String bada -> Objektu bihurtu
+                                        if (asig.extProy && Array.isArray(asig.extProy)) {
+                                            asig.extProy = asig.extProy.map(pId => {
+                                                if (typeof pId === 'string') {
+                                                    // Bilatu katalogoan
+                                                    return projectsCatalog.find(pc => pc.id === pId) || { id: pId, name: pId, color: '#ccc' };
+                                                }
+                                                return pId;
+                                            });
+                                        }
+                                        
+                                        // B) Beste eremu batzuk (ODS, etab.) hemen berdin...
+                                    }
+                                });
+                            });
+                        }
+                    });
                 }
+                // ------------------------------------------------
 
-                console.log(`✅ Datuak memorian. Graduak: ${this.cachedData.graduak?.length || 0}`);
+                console.log(`✅ Datuak prest UI-arentzat.`);
 
-                // 3. KONPONKETA: UI eguneratu
-                this.populateDegreeSelect();
+                // 4. UI SINKRONIZAZIOA
+                // Hemen deitzen dugu zure UI kudeatzailea
+                this.populateDegreeSelect(); // Select-a bete
 
-                // 4. KONPONKETA: Lehen gradua automatikoki kargatu (existitzen bada)
-                if (this.cachedData.graduak?.length > 0) {
-                     // Ziurtatu loadDegreeData existitzen dela deitu aurretik
-                     if (this.loadDegreeData) {
-                         this.loadDegreeData(this.cachedData.graduak[0].id);
-                     }
+                // Lehen gradua badago, kargatu
+                if (this.cachedData.graduak.length > 0) {
+                    // Honek 'loadDegreeData' deituko du, eta horrek 'ui.renderSidebar' deituko du
+                    this.loadDegreeData(this.cachedData.graduak[0].id);
                 }
             }
 
@@ -147,7 +179,6 @@ async loadData() {
             console.error("❌ Errorea loadData-n:", error);
         }
     }
-	
 async saveData() {
     const supabase = window.supabase;
     const targetId = this.currentRowId; // Logetan ikusi dugun: '6e406af1...'
@@ -4264,6 +4295,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
