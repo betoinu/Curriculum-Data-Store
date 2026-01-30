@@ -182,22 +182,37 @@ class GradosManager {
 		}
 
 async saveData() {
-    try {
-        const supabase = window.supabase;
-        
-        // GAKOA: cachedData-k graduaren JSON osoa du.
-        // currentRowId-k gradu horren "giltza" nagusia izan behar du (adib: MEKA-rena).
-        if (!this.cachedData || !this.currentRowId) return;
+    const supabase = window.supabase;
+    const targetId = this.currentRowId; // Logetan ikusi dugun: '6e406af1...'
+    const dataToSave = this.cachedData; // Memorian dituzun datu guztiak
 
-        const { error } = await supabase
+    console.log("💾 Gordetzen curriculum_data taulan...", targetId);
+
+    if (!targetId || !dataToSave) {
+        console.error("❌ Errorea: IDa edo datuak falta dira.");
+        return;
+    }
+
+    try {
+        const { data, error, status } = await supabase
             .from('curriculum_data')
-            .update({ datos: this.cachedData }) // Fitxategi osoa ordezkatzen dugu
-            .eq('id', this.currentRowId);       // Gradu honen fitxategia, ez besteena
+            .update({ 
+                datos: dataToSave,
+                last_updated: new Date().toISOString() 
+            })
+            .eq('id', targetId)
+            .select(); // Select honek gordetakoa itzultzen duen ziurtatzeko
 
         if (error) throw error;
-        console.log("✅ Graduaren JSONB fitxategi osoa eguneratu da.");
+
+        if (data && data.length > 0) {
+            console.log("✅ GORDE DA! Status:", status, data[0]);
+            alert("Aldaketak ondo gorde dira.");
+        } else {
+            console.error("⚠️ Ez da errenkadarik aurkitu ID horrekin (RLS baimen arazoa izan daiteke).");
+        }
     } catch (err) {
-        console.error("Errorea gordetzean:", err);
+        console.error("❌ Errore larria gordetzean:", err.message);
     }
 }
 	
@@ -4241,6 +4256,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
