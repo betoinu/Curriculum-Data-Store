@@ -201,39 +201,83 @@ async loadData() {
 }
 	
 async saveData() {
-    const supabase = window.supabase;
-    const targetId = this.currentRowId; // Logetan ikusi dugun: '6e406af1...'
-    const dataToSave = this.cachedData; // Memorian dituzun datu guztiak
-
-    console.log("💾 Gordetzen curriculum_data taulan...", targetId);
-
-    if (!targetId || !dataToSave) {
-        console.error("❌ Errorea: IDa edo datuak falta dira.");
-        return;
-    }
-
-    try {
-        const { data, error, status } = await supabase
-            .from('curriculum_data')
-            .update({ 
-                datos: dataToSave,
-                last_updated: new Date().toISOString() 
-            })
-            .eq('id', targetId)
-            .select(); // Select honek gordetakoa itzultzen duen ziurtatzeko
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-            console.log("✅ GORDE DA! Status:", status, data[0]);
-            alert("Aldaketak ondo gorde dira.");
-        } else {
-            console.error("⚠️ Ez da errenkadarik aurkitu ID horrekin (RLS baimen arazoa izan daiteke).");
+        const supabase = window.supabase;
+        const saveBtn = document.getElementById('saveSubjectBtn');
+        
+        // UI Feedback: Botoia "Gordetzen..." jarri
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+            saveBtn.disabled = true;
         }
-    } catch (err) {
-        console.error("❌ Errore larria gordetzean:", err.message);
+
+        try {
+            // 1. Lortu erabiltzailearen IDa segurtasunez
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Saioa iraungita edo ez da hasi.");
+
+            const targetId = user.id; // Zure kasuan IDa erabiltzailearen ID bera da
+            
+            // 2. Zein datu gorde? (CurriculumData izan ohi da editatzen dena)
+            // cachedData bada zaharra, curriculumData da berria.
+            const dataToSave = this.curriculumData || this.cachedData; 
+
+            console.log("💾 Gordetzen 'curriculum_data' taulan...", targetId);
+
+            if (!dataToSave) {
+                throw new Error("Ez dago daturik gordetzeko.");
+            }
+
+            // 3. Egin UPDATE (Zutabe zuzenak: 'datos' eta 'id')
+            const { data, error } = await supabase
+                .from('curriculum_data')
+                .update({ 
+                    datos: dataToSave,
+                    last_updated: new Date().toISOString() 
+                })
+                .eq('id', targetId)
+                .select();
+
+            if (error) throw error;
+
+            console.log("✅ GORDE DA!", data);
+
+            // UI Feedback: Arrakasta
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="fas fa-check"></i> Gordeta!';
+                saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                saveBtn.classList.add('bg-green-600', 'hover:bg-green-700');
+                
+                setTimeout(() => {
+                    saveBtn.innerHTML = 'Gorde Aldaketak'; // Edo jatorrizko testua
+                    saveBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                    saveBtn.disabled = false;
+                }, 2000);
+            }
+            
+            // Jakinarazpena
+            if (window.ui && window.ui.showNotification) {
+                window.ui.showNotification("Aldaketak ondo gorde dira", "success");
+            } else {
+                alert("Aldaketak ondo gorde dira.");
+            }
+
+        } catch (err) {
+            console.error("❌ Errore larria gordetzean:", err.message);
+            
+            // UI Feedback: Errorea
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i class="fas fa-times"></i> Errorea';
+                saveBtn.classList.add('bg-red-600');
+                setTimeout(() => {
+                    saveBtn.innerHTML = 'Gorde Aldaketak';
+                    saveBtn.classList.remove('bg-red-600');
+                    saveBtn.disabled = false;
+                }, 3000);
+            }
+            alert("Errorea gordetzean: " + err.message);
+        }
     }
-}
 	
 	// --- CARGA DE GRADO ESPECÃFICO ---
 async loadDegreeData(id) {
@@ -4281,6 +4325,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
