@@ -481,17 +481,16 @@ renderSubjectDetail: async (subject, degree) => {
         if (profile?.role === 'admin') {
             hasPermission = true;
         } else {
-            // 🔥 ERABILI idAsig BAKARRIK
-            if (subject.idAsig) {
-                const { data: link } = await supabase
-                    .from('irakasle_irakasgaiak')
-                    .select('id')
-                    .eq('user_id', user.id)
-                    .eq('idAsig', subject.idAsig)
-                    .single();
-                
-                if (link) hasPermission = true;
-            }
+            // Irakasle lotura egiaztatu
+            const targetId = subject.idAsig; 
+            const { data: link } = await supabase
+                .from('irakasle_irakasgaiak')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('idAsig', targetId)
+                .single();
+            
+            if (link) hasPermission = true;
         }
     }
 
@@ -645,7 +644,7 @@ renderSubjectDetail: async (subject, degree) => {
         const projContainer = document.getElementById('detailExtProy');
         if (projContainer) {
             projContainer.innerHTML = '';
-            const globalCatalog = window.gradosManager?.cachedData?.external_projects || [];
+			const globalCatalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
             const subjectProjNames = subject.context?.external_projects || subject.extProy || [];
 
             if (!subjectProjNames || subjectProjNames.length === 0) {
@@ -679,7 +678,7 @@ renderSubjectDetail: async (subject, degree) => {
         const iduContainer = document.getElementById('detailIdujar');
         if (iduContainer) {
             iduContainer.innerHTML = '';
-            const globalIduCatalog = window.gradosManager?.cachedData?.idu || [];
+            const globalIduCatalog = window.gradosManager?.adminCatalogs?.iduGuidelines || [];
             const subjectIduCodes = subject.idu || [];
 
             if (!subjectIduCodes || subjectIduCodes.length === 0) {
@@ -717,7 +716,7 @@ renderSubjectDetail: async (subject, degree) => {
         const odsContainer = document.getElementById('detailOdsList');
         if (odsContainer) {
             odsContainer.innerHTML = '';
-            const globalOdsCatalog = window.gradosManager?.cachedData?.ods || [];
+            const globalOdsCatalog = window.gradosManager?.adminCatalogs?.ods || [];
             const subjectOdsCodes = subject.ods || [];
 
             if (!subjectOdsCodes || subjectOdsCodes.length === 0) {
@@ -940,6 +939,7 @@ renderSubjectDetail: async (subject, degree) => {
         }
         document.getElementById('mainContent')?.scrollTo(0, 0);
     },
+
 
 	
     getAreaColor: (areaName, degree) => {
@@ -1524,6 +1524,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
