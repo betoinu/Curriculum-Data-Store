@@ -832,61 +832,100 @@ saveSubjectBasicData() {
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
-    openOdsSelector() {
-        if (!this.currentSubject) return;
+openOdsSelector() {
+    // 1. PRESTAKETA: Ziurtatu context existitzen dela eta zerrenda lortu
+    if (!this.currentSubject.context) this.currentSubject.context = {};
+    const currentList = this.currentSubject.context.ods || []; // <--- HEMEN begiratu behar du
 
-        const modal = document.getElementById('listEditorModal');
-        const container = document.getElementById('listEditorContainer');
-        const titleEl = document.getElementById('listEditorTitle');
-        const inputTop = document.getElementById('newItemInput')?.parentElement;
+    const modal = document.createElement('div');
+    modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
+    
+    // Edukia sortu
+    const content = document.createElement('div');
+    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
+    
+    // Goiburua
+    content.innerHTML = `
+        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold text-lg text-gray-800">Hautatu ODSak</h3>
+            <button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-4 gap-4" id="odsGrid"></div>
+        <div class="p-4 border-t bg-gray-50 flex justify-end">
+            <button id="finishOds" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium">Ados</button>
+        </div>
+    `;
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    const grid = content.querySelector('#odsGrid');
+    const catalog = this.adminCatalogs.ods || [];
+
+    catalog.forEach(ods => {
+        const card = document.createElement('div');
+        // 2. LOGIKA BISUALA: Dagoeneko aukeratuta al dago context-ean?
+        const isSelected = currentList.some(o => o.code === ods.code);
+
+        card.className = `cursor-pointer p-4 rounded-xl border-2 transition-all hover:scale-105 flex flex-col items-center text-center gap-2 ${
+            isSelected 
+            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg' // Aukeratuta badago
+            : 'border-gray-200 hover:border-blue-300 bg-white'
+        }`;
         
-        if(inputTop) inputTop.classList.add('hidden');
-        if(titleEl) titleEl.innerHTML = `<i class="fas fa-check-double mr-2 text-green-500"></i> Aukeratu ODSak (${this.currentSubject.subjectCode || 'Asignatura'})`;
+        // Kolorea lortu (defektuzkoa edo katalogoarena)
+        const color = ods.color || '#9ca3af';
 
-        // Renderizado Grid (El que ya ten¨ªas, funciona bien para esto)
-        container.innerHTML = `<div class="grid grid-cols-2 gap-2" id="odsGrid"></div>`;
-        const grid = document.getElementById('odsGrid');
-        
-        const currentList = this.currentSubject.ods || [];
+        card.innerHTML = `
+            <div class="w-12 h-12 rounded-lg text-white font-bold flex items-center justify-center text-lg shadow-md mb-2" style="background-color: ${color}">
+                ${ods.code.replace(/\D/g,'')}
+            </div>
+            <div class="text-xs font-bold text-gray-700 uppercase leading-tight">${ods.name}</div>
+            ${isSelected ? '<div class="absolute top-2 right-2 text-blue-500"><i class="fas fa-check-circle"></i></div>' : ''}
+        `;
 
-        this.adminCatalogs.ods.forEach(ods => {
-            const isActive = currentList.some(o => o.code === ods.code);
+        // 3. KLIK LOGIKA (Toggle)
+        card.onclick = () => {
+            // Berriro irakurri zerrenda (ziurtatzeko)
+            if (!this.currentSubject.context) this.currentSubject.context = {};
+            let list = this.currentSubject.context.ods || [];
             
-            const card = document.createElement('div');
-            card.className = `p-2 rounded border cursor-pointer flex items-center gap-2 transition-all ${isActive ? 'ring-2 ring-offset-1 ring-blue-500 bg-white shadow-md' : 'opacity-60 bg-gray-50 hover:opacity-100'}`;
-            card.style.borderColor = ods.color;
+            const exists = list.some(o => o.code === ods.code);
 
-            card.innerHTML = `
-                <div class="w-8 h-8 rounded flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm" style="background-color: ${ods.color}">
-                    ${ods.code.replace('ODS-', '')}
-                </div>
-                <div class="text-xs leading-tight text-gray-700 font-medium">${ods.name}</div>
-                ${isActive ? '<i class="fas fa-check-circle text-blue-500 ml-auto"></i>' : ''}
-            `;
+            if (exists) {
+                // KENTZEKO (Filter erabili)
+                list = list.filter(o => o.code !== ods.code);
+            } else {
+                // GEHITZEKO
+                list.push(ods);
+            }
 
-            card.onclick = () => {
-                let list = this.currentSubject.ods || [];
-                if (isActive) list = list.filter(o => o.code !== ods.code);
-                else list.push(ods); // Guardamos copia del objeto maestro
+            // GORDE context-ean
+            this.currentSubject.context.ods = list;
 
-                if(!this.currentSubject.context) this.currentSubject.context = {};
-                this.currentSubject.context.ods = list;
-                
-                this.openOdsSelector(); // Refrescar visualmente
-            };
-            grid.appendChild(card);
-        });
-
-        // Guardado Estandard (Para la asignatura)
-        const saveBtn = this._setupSaveButtonRaw(modal);
-        saveBtn.onclick = async () => {
-            await this.saveData(); // Guarda la asignatura
-            modal.classList.add('hidden');
-            if(window.ui) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            // Leihoa itxi eta berriro ireki (egoera eguneratzeko)
+            modal.remove();
+            this.openOdsSelector();
+            
+            // Atzeko UI-a ere eguneratu momentuan (aukerakoa)
+            if (window.ui && window.ui.renderSubjectDetail) {
+               window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
         };
 
-        modal.classList.remove('hidden');
-    }
+        grid.appendChild(card);
+    });
+
+    // Botoiak
+    content.querySelector('#closeOdsModal').onclick = () => modal.remove();
+    content.querySelector('#finishOds').onclick = () => {
+        modal.remove();
+        // Azken gordeketak UI-an
+        if (window.ui && window.ui.renderSubjectDetail) {
+            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+        }
+    };
+}
 	
 	// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO IDU (Para el Sidebar - Master)
     openIduCatalogEditor() {
@@ -1000,95 +1039,107 @@ saveSubjectBasicData() {
 	
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist con Filtro)
-    openIduSelector() {
-        if (!this.currentSubject) return;
+openIduSelector() {
+    if (!this.currentSubject.context) this.currentSubject.context = {};
+    const currentList = this.currentSubject.context.iduGuidelines || []; // <--- Context begiratu
 
-        const modal = document.getElementById('listEditorModal');
-        const container = document.getElementById('listEditorContainer');
-        const titleEl = document.getElementById('listEditorTitle');
-        const inputTop = document.getElementById('newItemInput')?.parentElement;
+    const modal = document.createElement('div');
+    modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
+    
+    const content = document.createElement('div');
+    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
+    
+    content.innerHTML = `
+        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold text-lg text-gray-800">Hautatu IDU Jarraibideak</h3>
+            <button id="closeIduModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-6 overflow-y-auto space-y-6" id="iduContent"></div>
+        <div class="p-4 border-t bg-gray-50 flex justify-end">
+            <button id="finishIdu" class="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 font-medium">Ados</button>
+        </div>
+    `;
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    const container = content.querySelector('#iduContent');
+    const catalog = this.adminCatalogs.iduGuidelines || [];
+
+    // Multzokatu motaren arabera (Action, Implication, Representation)
+    const grouped = { 'EKINTZA': [], 'INPLIKAZIOA': [], 'IRUDIKAPENA': [] };
+    catalog.forEach(item => {
+        const key = Object.keys(grouped).find(k => item.range && item.range.includes(k));
+        if (key) grouped[key].push(item);
+        else grouped['EKINTZA'].push(item); // Fallback
+    });
+
+    Object.entries(grouped).forEach(([groupName, items]) => {
+        if(items.length === 0) return;
         
-        if(inputTop) inputTop.classList.add('hidden');
-        if(titleEl) titleEl.innerHTML = `<i class="fas fa-check-double mr-2 text-yellow-500"></i> Aukeratu IDU Jarraibideak`;
+        // Goiburuak koloreztatu
+        let colorClass = 'text-gray-700';
+        let bgClass = 'bg-gray-100';
+        if(groupName === 'EKINTZA') { colorClass = 'text-blue-700'; bgClass = 'bg-blue-50'; }
+        if(groupName === 'INPLIKAZIOA') { colorClass = 'text-emerald-700'; bgClass = 'bg-emerald-50'; }
+        if(groupName === 'IRUDIKAPENA') { colorClass = 'text-purple-700'; bgClass = 'bg-purple-50'; }
 
-        // Estructura: Filtro + Lista
-        container.innerHTML = `
-            <div class="mb-3 sticky top-0 bg-white pb-2 z-10 border-b border-gray-100 pt-1">
-                <select id="iduFilter" class="w-full text-sm border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 p-2 bg-gray-50 shadow-sm">
-                    <option value="ALL">-- Printzipio Guztiak --</option>
-                </select>
-            </div>
-            <div id="iduList" class="space-y-2 pb-2"></div>
-        `;
+        const groupDiv = document.createElement('div');
+        groupDiv.innerHTML = `<h4 class="font-bold ${colorClass} ${bgClass} px-3 py-2 rounded mb-3 text-sm tracking-wider sticky top-0 z-10 border">${groupName}</h4>`;
+        
+        const grid = document.createElement('div');
+        grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3";
+        
+        items.forEach(item => {
+            const card = document.createElement('div');
+            // Konparatu context-arekin
+            const isSelected = currentList.some(o => o.code === item.code);
 
-        // Llenar Select
-        const ranges = [...new Set(this.adminCatalogs.iduGuidelines.map(i => i.range))];
-        const select = document.getElementById('iduFilter');
-        ranges.forEach(r => {
-            const op = document.createElement('option');
-            op.value = r;
-            op.textContent = r;
-            select.appendChild(op);
+            card.className = `cursor-pointer p-3 rounded border text-sm transition relative ${
+                isSelected ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-gray-200 hover:border-teal-300'
+            }`;
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-1">
+                    <span class="font-bold text-xs bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">${item.code.replace('IDU-','')}</span>
+                    ${isSelected ? '<i class="fas fa-check-circle text-teal-600"></i>' : ''}
+                </div>
+                <p class="text-gray-600 leading-snug text-xs">${item.name}</p>
+            `;
+
+            card.onclick = () => {
+                if (!this.currentSubject.context) this.currentSubject.context = {};
+                let list = this.currentSubject.context.iduGuidelines || [];
+                
+                const exists = list.some(o => o.code === item.code);
+
+                if (exists) {
+                    list = list.filter(o => o.code !== item.code);
+                } else {
+                    list.push(item);
+                }
+
+                this.currentSubject.context.iduGuidelines = list;
+                
+                modal.remove();
+                this.openIduSelector();
+                 if (window.ui && window.ui.renderSubjectDetail) {
+                   window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+                }
+            };
+            grid.appendChild(card);
         });
+        
+        groupDiv.appendChild(grid);
+        container.appendChild(groupDiv);
+    });
 
-        const renderList = (filter) => {
-            const listDiv = document.getElementById('iduList');
-            listDiv.innerHTML = '';
-
-            const currentSelected = this.currentSubject.idu || this.currentSubject.idujar || [];
-            const filteredCatalog = this.adminCatalogs.iduGuidelines.filter(i => filter === 'ALL' || i.range === filter);
-
-            if (filteredCatalog.length === 0) {
-                listDiv.innerHTML = '<div class="text-center text-gray-400 text-sm py-4 italic">Ez dago emaitzarik.</div>';
-                return;
-            }
-
-            filteredCatalog.forEach(item => {
-                const isActive = currentSelected.some(sel => sel.code === item.code);
-                
-                const row = document.createElement('div');
-                row.className = `flex gap-3 p-3 border rounded-lg cursor-pointer transition-all duration-200 group ${isActive ? 'bg-yellow-50 border-yellow-200 shadow-sm' : 'bg-white border-gray-200 hover:border-yellow-300'}`;
-                
-                row.innerHTML = `
-                    <div class="mt-0.5 shrink-0 ${isActive ? 'text-yellow-600' : 'text-gray-300 group-hover:text-yellow-400'}">
-                        <i class="fas ${isActive ? 'fa-check-square' : 'fa-square'} text-lg"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-start mb-1">
-                            <span class="font-mono text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">${item.code}</span>
-                        </div>
-                        <p class="text-sm text-gray-700 leading-snug">${item.name}</p>
-                    </div>
-                `;
-                
-                row.onclick = () => {
-                    let list = this.currentSubject.idu || [];
-                    if (isActive) list = list.filter(x => x.code !== item.code);
-                    else list.push(item);
-
-                    if(!this.currentSubject.context) this.currentSubject.context = {};
-                    this.currentSubject.context.idu = list;
-                    this.currentSubject.idujar = list; // Compatibilidad
-                    
-                    renderList(filter); // Re-render solo lista
-                };
-                listDiv.appendChild(row);
-            });
-        };
-
-        select.onchange = (e) => renderList(e.target.value);
-        renderList('ALL');
-
-        // Guardar en la Asignatura
-        const saveBtn = this._setupSaveButtonRaw(modal);
-        saveBtn.onclick = async () => {
-            await this.saveData(); // Guarda la asignatura
-            modal.classList.add('hidden');
-            if(window.ui) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        };
-
-        modal.classList.remove('hidden');
-    }
+    content.querySelector('#closeIduModal').onclick = () => modal.remove();
+    content.querySelector('#finishIdu').onclick = () => {
+        modal.remove();
+        if (window.ui && window.ui.renderSubjectDetail) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+    };
+}
 	
 	openProjectsCatalogEditor() {
 		const modal = document.getElementById('listEditorModal');
@@ -1476,98 +1527,84 @@ saveSubjectBasicData() {
 	}
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
-    openProjectsSelector() {
-        if (!this.currentSubject) return;
-        // ... (configuraci¨®n modal igual) ...
-        const modal = document.getElementById('listEditorModal');
-        const container = document.getElementById('listEditorContainer');
-        const titleEl = document.getElementById('listEditorTitle');
-        const inputTop = document.getElementById('newItemInput')?.parentElement;
-        if(inputTop) inputTop.classList.add('hidden');
-        if(titleEl) titleEl.innerHTML = `<i class="fas fa-handshake mr-2 text-orange-500"></i> Aukeratu Kanpo Proiektuak`;
+openProjectsSelector() {
+    if (!this.currentSubject.context) this.currentSubject.context = {};
+    const currentList = this.currentSubject.context.externalProjects || []; // <--- Context begiratu
 
-        container.innerHTML = `
-            <div class="mb-3 sticky top-0 bg-white pb-2 z-10 border-b pt-1">
-                <input type="text" id="projFilter" placeholder="Bilatu agentea, mota edo izena..." 
-                    class="w-full text-sm border-gray-300 rounded-md focus:ring-orange-500 focus:border-orange-500 p-2 bg-gray-50">
+    const modal = document.createElement('div');
+    modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
+    
+    const content = document.createElement('div');
+    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
+    
+    content.innerHTML = `
+        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold text-lg text-gray-800">Hautatu Kanpo Proiektuak</h3>
+            <button id="closePrModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4" id="prGrid"></div>
+        <div class="p-4 border-t bg-gray-50 flex justify-end">
+            <button id="finishPr" class="bg-orange-600 text-white px-6 py-2 rounded-lg hover:bg-orange-700 font-medium">Ados</button>
+        </div>
+    `;
+
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    const grid = content.querySelector('#prGrid');
+    const catalog = this.adminCatalogs.externalProjects || [];
+
+    catalog.forEach(item => {
+        const card = document.createElement('div');
+        // Konparatu context-eko zerrendarekin
+        const isSelected = currentList.some(o => o.code === item.code || o.id === item.id);
+
+        card.className = `cursor-pointer p-3 rounded-lg border-l-4 shadow-sm transition flex items-center gap-3 ${
+            isSelected ? 'bg-orange-50 ring-1 ring-orange-200' : 'bg-white hover:bg-gray-50'
+        }`;
+        card.style.borderLeftColor = item.color || '#fdba74';
+
+        card.innerHTML = `
+            <div class="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0" style="background-color: ${item.color || '#fdba74'}">
+                <i class="fas fa-building"></i>
             </div>
-            <div id="projList" class="space-y-2 pb-2"></div>
+            <div class="flex-1 min-w-0">
+                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">${item.agent || 'Agentea'}</div>
+                <div class="text-sm font-bold text-gray-800 truncate">${item.name}</div>
+            </div>
+            ${isSelected ? '<div class="text-orange-500"><i class="fas fa-check-circle"></i></div>' : ''}
         `;
 
-        const renderList = (filter = "") => {
-            const listDiv = document.getElementById('projList');
-            listDiv.innerHTML = '';
+        card.onclick = () => {
+            if (!this.currentSubject.context) this.currentSubject.context = {};
+            let list = this.currentSubject.context.externalProjects || [];
             
-            // Lista seleccionada actualmente en la asignatura
-            const currentSelected = this.currentSubject.external_projects || this.currentSubject.extProy || [];
-            
-            // Filtrar cat¨¢logo global
-            const filtered = this.adminCatalogs.externalProjects.filter(p => {
-                const term = filter.toLowerCase();
-                return (p.name || '').toLowerCase().includes(term) || 
-                       (p.agent || '').toLowerCase().includes(term) || 
-                       (p.type || '').toLowerCase().includes(term);
-            });
+            // Bilaketa sendoagoa (ID edo Code)
+            const exists = list.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
 
-            if (filtered.length === 0) {
-                listDiv.innerHTML = '<div class="text-center text-gray-400 text-sm italic">Ez da ezer aurkitu.</div>';
-                return;
+            if (exists) {
+                list = list.filter(o => (o.code && o.code !== item.code) || (o.id && o.id !== item.id));
+            } else {
+                list.push(item);
             }
 
-            filtered.forEach(item => {
-                // Comprobamos si est¨¢ seleccionado (por ID si existe, o por nombre/agente)
-                const isActive = currentSelected.some(sel => 
-                    (sel.id && sel.id === item.id) || 
-                    (sel.name === item.name && sel.agent === item.agent)
-                );
-
-                const row = document.createElement('div');
-                row.className = `flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition group ${isActive ? 'bg-orange-50 border-orange-200' : 'bg-white hover:border-orange-300'}`;
-                
-                row.innerHTML = `
-                    <div class="${isActive ? 'text-orange-600' : 'text-gray-300 group-hover:text-orange-400'}">
-                        <i class="fas ${isActive ? 'fa-check-square' : 'fa-square'} text-lg"></i>
-                    </div>
-                    <div class="flex-1">
-                        <div class="flex justify-between">
-                            <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wide">${item.agent || 'Agente gabe'}</span>
-                            <span class="text-[9px] text-gray-400">${item.type || ''}</span>
-                        </div>
-                        <div class="text-sm font-semibold text-gray-800">${item.name}</div>
-                    </div>
-                `;
-
-                row.onclick = () => {
-                    let list = this.currentSubject.external_projects || [];
-                    if (isActive) {
-                        // Desmarcar (filtrar fuera)
-                        list = list.filter(x => x.id !== item.id && x.name !== item.name);
-                    } else {
-                        // Marcar (a?adir objeto)
-                        list.push(item);
-                    }
-                    
-                    if(!this.currentSubject.context) this.currentSubject.context = {};
-                    this.currentSubject.context.external_projects = list;
-                    this.currentSubject.extProy = list;
-                    
-                    renderList(filter);
-                };
-                listDiv.appendChild(row);
-            });
+            this.currentSubject.context.externalProjects = list;
+            
+            modal.remove();
+            this.openProjectsSelector();
+             if (window.ui && window.ui.renderSubjectDetail) {
+               window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
         };
-        // ... (eventos de filtro y guardado igual que antes) ...
-        document.getElementById('projFilter').oninput = (e) => renderList(e.target.value);
-        renderList();
+        grid.appendChild(card);
+    });
 
-        const saveBtn = this._setupSaveButtonRaw(modal);
-        saveBtn.onclick = async () => {
-            await this.saveData();
-            modal.classList.add('hidden');
-            if(window.ui) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        };
-        modal.classList.remove('hidden');
-    }
+    content.querySelector('#closePrModal').onclick = () => modal.remove();
+    content.querySelector('#finishPr').onclick = () => {
+        modal.remove();
+        if (window.ui && window.ui.renderSubjectDetail) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+    };
+}
 
 	// Helper para configurar el bot¨®n guardar de estos modales
 	_setupSaveButtonForSelector(modal) {
@@ -4325,6 +4362,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
