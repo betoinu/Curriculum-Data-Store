@@ -551,13 +551,9 @@ renderSubjectDetail: async (subject, degree) => {
             badge.style.color = '#fff';
         }
 
-        // 3. Preparar Contexto
-        const ctx = subject.context || {};
-
         // --- VISUALIZACIÓN CONOCIMIENTOS PREVIOS ---        
         const preReqContainer = document.getElementById('detailPreReq');
-        // 'prerequisites' json berrian, 'preReq' zaharrean
-        const prereqs = subject.prerequisites || subject.context?.preReq || [];
+        const prereqs = subject.preReq || [];
 
         if (preReqContainer) {
             preReqContainer.innerHTML = '';
@@ -602,7 +598,7 @@ renderSubjectDetail: async (subject, degree) => {
         
         // --- VISUALIZACIÓN PROYECTOS SIGNIFICATIVOS ---
         const signActContainer = document.getElementById('detailSignAct');
-        const activities = subject.context?.signAct || []; 
+        const activities = subject.signAct || []; 
 
         if (signActContainer) {
             signActContainer.innerHTML = '';
@@ -645,7 +641,7 @@ renderSubjectDetail: async (subject, degree) => {
         if (projContainer) {
             projContainer.innerHTML = '';
 			const globalCatalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
-            const subjectProjNames = subject.context?.external_projects || subject.extProy || [];
+            const subjectProjNames = subject.extProy || [];
 
             if (!subjectProjNames || subjectProjNames.length === 0) {
                 projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
@@ -679,7 +675,7 @@ renderSubjectDetail: async (subject, degree) => {
         if (iduContainer) {
             iduContainer.innerHTML = '';
             const globalIduCatalog = window.gradosManager?.adminCatalogs?.iduGuidelines || [];
-            const subjectIduCodes = subject.idu || [];
+            const subjectIduCodes = subject.idujar || [];
 
             if (!subjectIduCodes || subjectIduCodes.length === 0) {
                 iduContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da IDU jarraibiderik zehaztu.</span>';
@@ -1524,6 +1520,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
