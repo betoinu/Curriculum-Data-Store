@@ -847,7 +847,7 @@ saveSubjectBasicData() {
         container.innerHTML = `<div class="grid grid-cols-2 gap-2" id="odsGrid"></div>`;
         const grid = document.getElementById('odsGrid');
         
-        const currentList = this.currentSubject.context?.ods || [];
+        const currentList = this.currentSubject.ods || [];
 
         this.adminCatalogs.ods.forEach(ods => {
             const isActive = currentList.some(o => o.code === ods.code);
@@ -865,7 +865,7 @@ saveSubjectBasicData() {
             `;
 
             card.onclick = () => {
-                let list = this.currentSubject.context?.ods || [];
+                let list = this.currentSubject.ods || [];
                 if (isActive) list = list.filter(o => o.code !== ods.code);
                 else list.push(ods); // Guardamos copia del objeto maestro
 
@@ -1035,7 +1035,7 @@ saveSubjectBasicData() {
             const listDiv = document.getElementById('iduList');
             listDiv.innerHTML = '';
 
-            const currentSelected = this.currentSubject.context?.idu || this.currentSubject.idujar || [];
+            const currentSelected = this.currentSubject.idu || this.currentSubject.idujar || [];
             const filteredCatalog = this.adminCatalogs.iduGuidelines.filter(i => filter === 'ALL' || i.range === filter);
 
             if (filteredCatalog.length === 0) {
@@ -1062,7 +1062,7 @@ saveSubjectBasicData() {
                 `;
                 
                 row.onclick = () => {
-                    let list = this.currentSubject.context?.idu || [];
+                    let list = this.currentSubject.idu || [];
                     if (isActive) list = list.filter(x => x.code !== item.code);
                     else list.push(item);
 
@@ -1499,7 +1499,7 @@ saveSubjectBasicData() {
             listDiv.innerHTML = '';
             
             // Lista seleccionada actualmente en la asignatura
-            const currentSelected = this.currentSubject.context?.external_projects || this.currentSubject.extProy || [];
+            const currentSelected = this.currentSubject.external_projects || this.currentSubject.extProy || [];
             
             // Filtrar cat¨¢logo global
             const filtered = this.adminCatalogs.externalProjects.filter(p => {
@@ -1538,7 +1538,7 @@ saveSubjectBasicData() {
                 `;
 
                 row.onclick = () => {
-                    let list = this.currentSubject.context?.external_projects || [];
+                    let list = this.currentSubject.external_projects || [];
                     if (isActive) {
                         // Desmarcar (filtrar fuera)
                         list = list.filter(x => x.id !== item.id && x.name !== item.name);
