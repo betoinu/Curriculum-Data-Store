@@ -688,54 +688,107 @@ renderSubjectDetail: async (subject, degree) => {
                     return 'bg-gray-100 text-gray-600 border-gray-200';
                 };
 
-                subjectIduCodes.forEach(code => {
-                    const fullIduText = globalIduCatalog.find(text => text.startsWith(code));
-                    if (!fullIduText) return;
-                    const range = fullIduText.includes('[') ? fullIduText.split('[')[1].split(']')[0] : '';
-                    const cleanText = fullIduText.replace(`[${range}]`, '').trim();
-                    const styleClass = getIduStyle(range);
-
-                    iduContainer.innerHTML += `
-                        <div class="relative group px-2 py-1 rounded border text-[10px] font-bold cursor-help transition ${styleClass}">
-                            ${code.replace('IDU-', '')}
-                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
-                                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">${range}</div>
-                                <div class="whitespace-normal">${cleanText}</div>
-                                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
-                            </div>
-                        </div>`;
-                });
+				subjectIduCodes.forEach(code => {
+				    // 1. Bilatu katalogoan (OBJEKTUAK!)
+				    const foundIdu = globalIduCatalog.find(item => {
+				        // String vs Objektu kontrola
+				        const searchCode = typeof code === 'string' ? code : (code.code || code.iduCode || '');
+				        
+				        return item.code === searchCode || 
+				               item.iduCode === searchCode ||
+				               item.name?.includes(searchCode);
+				    });
+				    
+				    if (!foundIdu) return; // Ez bada aurkitzen, jarraitu
+				    
+				    // 2. Informazioa atera
+				    const range = foundIdu.range || '';
+				    const cleanText = foundIdu.name || foundIdu.description || '';
+				    const styleClass = getIduStyle(range);
+				    const displayCode = foundIdu.code || foundIdu.iduCode || code;
+				    
+				    // 3. Renderizatu
+				    iduContainer.innerHTML += `
+				        <div class="relative group px-2 py-1 rounded border text-[10px] font-bold cursor-help transition ${styleClass}">
+				            ${displayCode.replace('IDU-', '')}
+				            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+				                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">${range}</div>
+				                <div class="whitespace-normal">${cleanText}</div>
+				                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+				            </div>
+				        </div>`;
+				});
             }
         }
 
-        // --- VISUALIZACIÓN ODS (ZUZENDU ETA PREST) ---
-        const odsContainer = document.getElementById('detailOdsList');
-        if (odsContainer) {
-            odsContainer.innerHTML = '';
-            const globalOdsCatalog = window.gradosManager?.adminCatalogs?.ods || [];
-            const subjectOdsCodes = subject.ods || [];
-
-            if (!subjectOdsCodes || subjectOdsCodes.length === 0) {
-                odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
-            } else {
-                const odsColors = { '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', '5': '#FF3A21', '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942', '9': '#FD6925', '10': '#DD1367', '11': '#FD9D24', '12': '#BF8B2E', '13': '#3F7E44', '14': '#0A97D9', '15': '#56C02B', '16': '#00689D', '17': '#19486A' };
-                subjectOdsCodes.forEach(code => {
-                    const num = code.replace('ODS-', '');
-                    const odsData = globalOdsCatalog.find(o => o.code === code) || { name: code };
-                    const color = odsColors[num] || '#999';
-
-                    odsContainer.innerHTML += `
-                        <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 shrink-0" style="background-color: ${color}">
-                            ${num}
-                            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-                                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${num}</div>
-                                <div class="whitespace-normal">${odsData.name}</div>
-                                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
-                            </div>
-                        </div>`;
-                });
-            }
-        }
+		// --- VISUALIZACIÓN ODS (KODE OSOA ZUZENDUTA) ---
+		const odsContainer = document.getElementById('detailOdsList');
+		if (odsContainer) {
+		    odsContainer.innerHTML = '';
+		    
+		    // DATU ITURRIA: subject.ods (ez context!)
+		    const subjectOdsCodes = subject.ods || [];
+		    
+		    if (!subjectOdsCodes || subjectOdsCodes.length === 0) {
+		        odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
+		    } else {
+		        // Katalogo globala
+		        const globalOdsCatalog = window.gradosManager?.adminCatalogs?.ods || [];
+		        
+		        // ODS kolore ofizialak
+		        const odsColors = { 
+		            '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', 
+		            '5': '#FF3A21', '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942',
+		            '9': '#FD6925', '10': '#DD1367', '11': '#FD9D24', '12': '#BF8B2E',
+		            '13': '#3F7E44', '14': '#0A97D9', '15': '#56C02B', '16': '#00689D',
+		            '17': '#19486A' 
+		        };
+		        
+		        // Prozesatu ODS bakoitza
+		        subjectOdsCodes.forEach(odsItem => {
+		            // 1. Datu mota identifikatu
+		            let odsCode, odsName;
+		            
+		            if (typeof odsItem === 'string') {
+		                // String bada (adibidez: "ODS-08")
+		                odsCode = odsItem;
+		                
+		                // Bilatu katalogoan informazio osagarriarentzat
+		                const found = globalOdsCatalog.find(o => 
+		                    o.code === odsCode || 
+		                    o.odsCode === odsCode
+		                );
+		                odsName = found?.name || odsCode;
+		            } else {
+		                // Objektua bada (adibidez: {code: "ODS-08", name: "..."})
+		                odsCode = odsItem.code || odsItem.odsCode || '';
+		                odsName = odsItem.name || odsCode;
+		            }
+		            
+		            // 2. Zenbakia atera ("ODS-08" -> "8")
+		            const num = odsCode.replace('ODS-', '').replace('ods-', '').trim();
+		            
+		            // 3. Kolorea lortu
+		            const color = odsColors[num] || '#999';
+		            
+		            // 4. Zenbakiaren bistaratzea
+		            const displayNum = num || '?';
+		            
+		            // 5. Renderizatu
+		            odsContainer.innerHTML += `
+		                <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 hover:shadow-md shrink-0" 
+		                     style="background-color: ${color}"
+		                     title="${odsName}">
+		                    ${displayNum}
+		                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
+		                        <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${displayNum}</div>
+		                        <div class="whitespace-normal pt-1">${odsName}</div>
+		                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+		                    </div>
+		                </div>`;
+		        });
+		    }
+		}
 
         // =========================================================
         // 4. RA (Ikaskuntza Emaitzak) - ID BERRIAK
@@ -1520,6 +1573,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
