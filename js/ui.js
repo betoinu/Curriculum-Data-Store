@@ -636,39 +636,72 @@ renderSubjectDetail: async (subject, degree) => {
             }
         }
         
-// --- VISUALIZACIÓN PROYECTOS EXTERNOS (ZUZENDU ETA PREST) ---
-        const projContainer = document.getElementById('detailExtProy');
-        if (projContainer) {
-            projContainer.innerHTML = '';
-			const globalCatalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
-            const subjectProjNames = subject.extProy || [];
-
-            if (!subjectProjNames || subjectProjNames.length === 0) {
-                projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
-            } else {
-                projContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2";
-                subjectProjNames.forEach(name => {
-                    const proyectoFuente = globalCatalog.find(p => p.name === name) || { name: name };
-                    const displayAgent = proyectoFuente.agent || 'Colaboración externa';
-                    const displayColor = proyectoFuente.color || '#fdba74';
-
-                    projContainer.innerHTML += `
-                        <div class="flex items-center gap-3 p-3 rounded-lg border-l-4 bg-white shadow hover:shadow-md transition w-full group" 
-                             style="border-left-color: ${displayColor}">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                                 style="background-color: ${displayColor}">
-                                <i class="fas fa-building"></i>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-gray-700 transition">
-                                    ${displayAgent}
-                                </p>
-                                <p class="text-sm font-bold text-gray-800 truncate mt-1">${proyectoFuente.name}</p>
-                            </div>
-                        </div>`;
-                });
-            }
-        }
+		// --- VISUALIZACIÓN PROYECTOS EXTERNOS (ZUZENDU) ---
+		const projContainer = document.getElementById('detailExtProy');
+		if (projContainer) {
+		    projContainer.innerHTML = '';
+		    const globalCatalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
+		    const proyectos = subject.extProy || [];
+		
+		    if (!proyectos || proyectos.length === 0) {
+		        projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
+		    } else {
+		        projContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2";
+		        
+		        proyectos.forEach(proyecto => {
+		            // ✅ GARRANTZITSUA: Identifikatu datu mota
+		            let proyectoObj;
+		            let displayName;
+		            let displayAgent;
+		            let displayColor;
+		            let displayType;
+		            
+		            if (typeof proyecto === 'string') {
+		                // String bada (izenarekin): bilatu katalogoan
+		                proyectoObj = globalCatalog.find(p => p.name === proyecto) || { name: proyecto };
+		                displayName = proyectoObj.name;
+		                displayAgent = proyectoObj.agent || 'Colaboración externa';
+		                displayColor = proyectoObj.color || '#fdba74';
+		                displayType = proyectoObj.type || 'Proiektua';
+		            } else {
+		                // ✅✅✅ OBJEKTUA BADA: erabili datuak direktoki
+		                displayName = proyecto.name || proyecto.id || 'Proiektu anonimoa';
+		                displayAgent = proyecto.agent || 'Colaboración externa';
+		                displayColor = proyecto.color || '#fdba74';
+		                displayType = proyecto.type || 'Proiektua';
+		                
+		                // Hobetu katalogoko datuekin
+		                const catalogMatch = globalCatalog.find(p => 
+		                    p.id === proyecto.id || 
+		                    p.name === proyecto.name
+		                );
+		                if (catalogMatch) {
+		                    displayName = catalogMatch.name || displayName;
+		                    displayAgent = catalogMatch.agent || displayAgent;
+		                    displayColor = catalogMatch.color || displayColor;
+		                    displayType = catalogMatch.type || displayType;
+		                }
+		            }
+		            
+		            // ✅ ONDO: displayName string bat da, ez objektua
+		            projContainer.innerHTML += `
+		                <div class="flex items-center gap-3 p-3 rounded-lg border-l-4 bg-white shadow hover:shadow-md transition w-full group" 
+		                     style="border-left-color: ${displayColor}">
+		                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+		                         style="background-color: ${displayColor}">
+		                        <i class="fas fa-building"></i>
+		                    </div>
+		                    <div class="min-w-0 flex-1">
+		                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-gray-700 transition">
+		                            ${displayAgent}
+		                        </p>
+		                        <p class="text-sm font-bold text-gray-800 truncate mt-1">${displayName}</p>
+		                        <p class="text-[10px] text-gray-400 italic">${displayType}</p>
+		                    </div>
+		                </div>`;
+		        });
+		    }
+		}
 
         // --- VISUALIZACIÓN IDU (ZUZENDU ETA PREST) ---
         const iduContainer = document.getElementById('detailIdujar');
@@ -1573,6 +1606,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
