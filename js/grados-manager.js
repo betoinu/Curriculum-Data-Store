@@ -24,7 +24,6 @@ class GradosManager {
             'subjectArea',
             'subjectCredits',
             'subjectType',
-            'subjectAEmin',
             'zhRAs',
             'currentOfficialRAs',
             'subjectCritEval',
@@ -38,7 +37,7 @@ class GradosManager {
             'preReq',           
             'extProy',          
             'signAct',          
-            'ikasEgoerak'       
+            'ods'       
         ];
     }
 
@@ -491,7 +490,7 @@ crearNuevaAsignatura(yearNum) {
 		preReq: [],
 		idujar: [],
 		unitateak: [],
-		ikasEgoerak: { extProy: [], signAct: [] }
+		ods: []
 	};
 
 	// 4. Persistencia y Navegación (KODE BERDINA)
@@ -833,18 +832,15 @@ saveSubjectBasicData() {
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
 openOdsSelector() {
-    // 1. PRESTAKETA: Ziurtatu context existitzen dela eta zerrenda lortu
-    if (!this.currentSubject.context) this.currentSubject.context = {};
-    const currentList = this.currentSubject.context.ods || []; // <--- HEMEN begiratu behar du
+    // ZUZENKETA: 'ods' propietatea zuzenean
+    const currentList = this.currentSubject.ods || [];
 
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
     
-    // Edukia sortu
     const content = document.createElement('div');
     content.className = "bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
     
-    // Goiburua
     content.innerHTML = `
         <div class="p-4 border-b flex justify-between items-center bg-gray-50">
             <h3 class="font-bold text-lg text-gray-800">Hautatu ODSak</h3>
@@ -862,52 +858,46 @@ openOdsSelector() {
     const grid = content.querySelector('#odsGrid');
     const catalog = this.adminCatalogs.ods || [];
 
-    catalog.forEach(ods => {
+    catalog.forEach(item => {
         const card = document.createElement('div');
-        // 2. LOGIKA BISUALA: Dagoeneko aukeratuta al dago context-ean?
-        const isSelected = currentList.some(o => o.code === ods.code);
+        // 'ods' zerrendan bilatu
+        const isSelected = currentList.some(o => o.code === item.code);
 
         card.className = `cursor-pointer p-4 rounded-xl border-2 transition-all hover:scale-105 flex flex-col items-center text-center gap-2 ${
             isSelected 
-            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg' // Aukeratuta badago
+            ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg' 
             : 'border-gray-200 hover:border-blue-300 bg-white'
         }`;
         
-        // Kolorea lortu (defektuzkoa edo katalogoarena)
-        const color = ods.color || '#9ca3af';
+        const color = item.color || '#9ca3af';
 
         card.innerHTML = `
             <div class="w-12 h-12 rounded-lg text-white font-bold flex items-center justify-center text-lg shadow-md mb-2" style="background-color: ${color}">
-                ${ods.code.replace(/\D/g,'')}
+                ${item.code.replace(/\D/g,'')}
             </div>
-            <div class="text-xs font-bold text-gray-700 uppercase leading-tight">${ods.name}</div>
+            <div class="text-xs font-bold text-gray-700 uppercase leading-tight">${item.name}</div>
             ${isSelected ? '<div class="absolute top-2 right-2 text-blue-500"><i class="fas fa-check-circle"></i></div>' : ''}
         `;
 
-        // 3. KLIK LOGIKA (Toggle)
         card.onclick = () => {
-            // Berriro irakurri zerrenda (ziurtatzeko)
-            if (!this.currentSubject.context) this.currentSubject.context = {};
-            let list = this.currentSubject.context.ods || [];
+            let list = this.currentSubject.ods || [];
             
-            const exists = list.some(o => o.code === ods.code);
+            const exists = list.some(o => o.code === item.code);
 
             if (exists) {
-                // KENTZEKO (Filter erabili)
-                list = list.filter(o => o.code !== ods.code);
+                // KENDU
+                list = list.filter(o => o.code !== item.code);
             } else {
-                // GEHITZEKO
-                list.push(ods);
+                // GEHITU
+                list.push(item);
             }
 
-            // GORDE context-ean
-            this.currentSubject.context.ods = list;
+            // GORDE 'ods' aldagaian
+            this.currentSubject.ods = list;
 
-            // Leihoa itxi eta berriro ireki (egoera eguneratzeko)
             modal.remove();
             this.openOdsSelector();
             
-            // Atzeko UI-a ere eguneratu momentuan (aukerakoa)
             if (window.ui && window.ui.renderSubjectDetail) {
                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
             }
@@ -916,11 +906,9 @@ openOdsSelector() {
         grid.appendChild(card);
     });
 
-    // Botoiak
     content.querySelector('#closeOdsModal').onclick = () => modal.remove();
     content.querySelector('#finishOds').onclick = () => {
         modal.remove();
-        // Azken gordeketak UI-an
         if (window.ui && window.ui.renderSubjectDetail) {
             window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
         }
@@ -1040,8 +1028,8 @@ openOdsSelector() {
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist con Filtro)
 openIduSelector() {
-    if (!this.currentSubject.context) this.currentSubject.context = {};
-    const currentList = this.currentSubject.context.iduGuidelines || []; // <--- Context begiratu
+    // ZUZENKETA: 'idujar' propietatea zuzenean
+    const currentList = this.currentSubject.idujar || [];
 
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
@@ -1066,18 +1054,17 @@ openIduSelector() {
     const container = content.querySelector('#iduContent');
     const catalog = this.adminCatalogs.iduGuidelines || [];
 
-    // Multzokatu motaren arabera (Action, Implication, Representation)
+    // Multzokatu (logika bisuala mantenduz)
     const grouped = { 'EKINTZA': [], 'INPLIKAZIOA': [], 'IRUDIKAPENA': [] };
     catalog.forEach(item => {
         const key = Object.keys(grouped).find(k => item.range && item.range.includes(k));
         if (key) grouped[key].push(item);
-        else grouped['EKINTZA'].push(item); // Fallback
+        else grouped['EKINTZA'].push(item);
     });
 
     Object.entries(grouped).forEach(([groupName, items]) => {
         if(items.length === 0) return;
         
-        // Goiburuak koloreztatu
         let colorClass = 'text-gray-700';
         let bgClass = 'bg-gray-100';
         if(groupName === 'EKINTZA') { colorClass = 'text-blue-700'; bgClass = 'bg-blue-50'; }
@@ -1092,7 +1079,7 @@ openIduSelector() {
         
         items.forEach(item => {
             const card = document.createElement('div');
-            // Konparatu context-arekin
+            // 'idujar' zerrendan bilatu
             const isSelected = currentList.some(o => o.code === item.code);
 
             card.className = `cursor-pointer p-3 rounded border text-sm transition relative ${
@@ -1108,18 +1095,20 @@ openIduSelector() {
             `;
 
             card.onclick = () => {
-                if (!this.currentSubject.context) this.currentSubject.context = {};
-                let list = this.currentSubject.context.iduGuidelines || [];
+                let list = this.currentSubject.idujar || [];
                 
                 const exists = list.some(o => o.code === item.code);
 
                 if (exists) {
+                    // KENDU
                     list = list.filter(o => o.code !== item.code);
                 } else {
+                    // GEHITU
                     list.push(item);
                 }
 
-                this.currentSubject.context.iduGuidelines = list;
+                // GORDE 'idujar' aldagaian
+                this.currentSubject.idujar = list;
                 
                 modal.remove();
                 this.openIduSelector();
@@ -1528,8 +1517,8 @@ openIduSelector() {
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
 openProjectsSelector() {
-    if (!this.currentSubject.context) this.currentSubject.context = {};
-    const currentList = this.currentSubject.context.externalProjects || []; // <--- Context begiratu
+    // ZUZENKETA: 'extProy' propietatea zuzenean
+    const currentList = this.currentSubject.extProy || [];
 
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
@@ -1552,11 +1541,11 @@ openProjectsSelector() {
     document.body.appendChild(modal);
 
     const grid = content.querySelector('#prGrid');
-    const catalog = this.adminCatalogs.externalProjects || [];
+    const catalog = this.adminCatalogs.externalProjects || []; // Katalogoak bere horretan jarraitzen du
 
     catalog.forEach(item => {
         const card = document.createElement('div');
-        // Konparatu context-eko zerrendarekin
+        // 'extProy' zerrendan bilatu
         const isSelected = currentList.some(o => o.code === item.code || o.id === item.id);
 
         card.className = `cursor-pointer p-3 rounded-lg border-l-4 shadow-sm transition flex items-center gap-3 ${
@@ -1576,19 +1565,20 @@ openProjectsSelector() {
         `;
 
         card.onclick = () => {
-            if (!this.currentSubject.context) this.currentSubject.context = {};
-            let list = this.currentSubject.context.externalProjects || [];
+            let list = this.currentSubject.extProy || [];
             
-            // Bilaketa sendoagoa (ID edo Code)
             const exists = list.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
 
             if (exists) {
+                // KENDU
                 list = list.filter(o => (o.code && o.code !== item.code) || (o.id && o.id !== item.id));
             } else {
+                // GEHITU
                 list.push(item);
             }
 
-            this.currentSubject.context.externalProjects = list;
+            // GORDE 'extProy' aldagaian
+            this.currentSubject.extProy = list;
             
             modal.remove();
             this.openProjectsSelector();
@@ -4362,6 +4352,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
