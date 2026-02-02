@@ -459,568 +459,398 @@ renderYearView: (degree, yearNum) => {
 renderSubjectDetail: async (subject, degree) => {
     if (!subject) return;
 
-    // 1. Oinarrizko aldagaiak definitu
+    // =========================================================
+    // 1. HASIERAKETA ETA BAIMENAK
+    // =========================================================
     const supabase = window.supabase;
     const { data: { user } } = await supabase.auth.getUser();
     const saveBtn = document.getElementById('saveSubjectBtn');
     const detailHeader = document.getElementById('subjectDetailView');
     
     let hasPermission = false;
-    const warningId = 'permission-warning';
-    let warningDiv = document.getElementById(warningId);
+    let warningDiv = document.getElementById('permission-warning');
 
-    // 2. BAIMENEN LOGIKA (Bloke bakarra eta garbia)
+    // Baimen logika
     if (user) {
-        // Administratzailea den egiaztatu
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-
-        if (profile?.role === 'admin') {
-            hasPermission = true;
-        } else {
-            // Irakasle lotura egiaztatu
-            const targetId = subject.idAsig; 
-            const { data: link } = await supabase
-                .from('irakasle_irakasgaiak')
-                .select('id')
-                .eq('user_id', user.id)
-                .eq('idAsig', targetId)
-                .single();
-            
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        if (profile?.role === 'admin') hasPermission = true;
+        else {
+            const { data: link } = await supabase.from('irakasle_irakasgaiak').select('id').eq('user_id', user.id).eq('idAsig', subject.idAsig).single();
             if (link) hasPermission = true;
         }
     }
 
-    // 3. UI-a EGOKITU
+    // UI egokitu baimenen arabera
     if (!hasPermission) {
         if (saveBtn) saveBtn.style.display = 'none';
-        
         if (!warningDiv) {
             warningDiv = document.createElement('div');
-            warningDiv.id = warningId;
+            warningDiv.id = 'permission-warning';
             warningDiv.className = "bg-amber-50 border-l-4 border-amber-400 p-3 mb-4 flex items-center gap-3 shadow-sm rounded-r";
             detailHeader.prepend(warningDiv);
         }
-        warningDiv.innerHTML = `
-            <i class="fas fa-eye text-amber-500"></i>
-            <div>
-                <p class="text-sm font-bold text-amber-800 italic">Irakurtzeko soilik modua</p>
-                <p class="text-[11px] text-amber-700 leading-tight">Ez daukazu baimenik irakasgai hau editatzeko. Aldaketak ez dira gordeko.</p>
-            </div>
-        `;
+        warningDiv.innerHTML = `<div><p class="text-sm font-bold text-amber-800 italic">Irakurtzeko soilik</p></div>`;
     } else {
         if (saveBtn) saveBtn.style.display = 'block';
         if (warningDiv) warningDiv.remove();
-
-        // 🎯 GARRANTZITSUA: GradosManager sinkronizatu gordetzeko orduan IDa galdu ez dadin
+        // Sinkronizazioa editatzeko
         if (window.gradosManager) {
             window.gradosManager.currentSubject = subject;
-            window.gradosManager.currentRowId = subject.idAsig; 
+            window.gradosManager.currentRowId = subject.idAsig;
         }
     }
 
-    // --- HEMENDIK AURRERA ZURE JATORRIZKO KODE GUZTIA (console.log-ekin hasita) ---
     console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
+    
+    // Bista aldatu
+    document.getElementById('yearView')?.classList.add('hidden');
+    document.getElementById('subjectDetailView')?.classList.remove('hidden');
 
-        // 1. Mostrar vista detalle
-        document.getElementById('yearView')?.classList.add('hidden');
-        document.getElementById('subjectDetailView')?.classList.remove('hidden');
+    // =========================================================
+    // 2. HELPER KRITIKOA: Datu hibridoak (String/Objektu) kudeatzeko
+    // =========================================================
+    const resolveData = (item, catalog = []) => {
+        if (!item) return null;
+        
+        // A) Dagoeneko Objektua da (Hidratatua badago)
+        if (typeof item === 'object') {
+            return {
+                id: item.id || item.code || item.odsCode || item.iduCode,
+                name: item.name || item.description || '',
+                color: item.color, // Kolorea badu, errespetatu!
+                agent: item.agent,
+                type: item.type,
+                range: item.range,
+                code: item.code || item.odsCode || item.iduCode
+            };
+        }
+        
+        // B) String da (IDa bakarrik): Katalogoan bilatu
+        const found = catalog.find(c => c.id === item || c.code === item || c.name === item);
+        if (found) return found;
 
-        // 2. Colores y Header
-        const areaColor = ui.getAreaColor(subject.subjectArea, degree);
-        const colorBar = document.getElementById('subjectColorBar');
-        if (colorBar) colorBar.style.backgroundColor = areaColor;
+        // C) Ez da katalogoan aurkitu (Fallback)
+        return { id: item, name: item, color: '#9ca3af' };
+    };
 
-        const setText = (id, val) => { 
-            const el = document.getElementById(id); 
-            if(el) el.textContent = val; 
+    // =========================================================
+    // 3. OINARRIZKO DATUAK (Goiburua)
+    // =========================================================
+    const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    setText('detailSubjectCode', subject.subjectCode || subject.code || '-');
+    setText('detailSubjectTitle', subject.subjectTitle || subject.name || 'Izena gabe');
+    setText('detailCredits', `${subject.subjectCredits || subject.credits || 0} ECTS`);
+
+    const areaColor = window.ui ? window.ui.getAreaColor(subject.subjectArea, degree) : '#666';
+    const badge = document.getElementById('detailSubjectArea');
+    if (badge) {
+        badge.textContent = subject.subjectArea || 'Eremu gabe';
+        badge.style.backgroundColor = areaColor;
+        badge.style.color = '#fff';
+    }
+    const colorBar = document.getElementById('subjectColorBar');
+    if(colorBar) colorBar.style.backgroundColor = areaColor;
+
+    // =========================================================
+    // 4. EZAGUTZA PREBIOAK (preReq)
+    // =========================================================
+    const preReqContainer = document.getElementById('detailPreReq');
+    if (preReqContainer) {
+        preReqContainer.innerHTML = '';
+        const list = subject.preReq || [];
+        if (list.length === 0) {
+            preReqContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago aurre-ezagutzarik zehaztuta.</div>';
+        } else {
+            list.forEach(item => {
+                const isObj = typeof item === 'object';
+                const name = isObj ? item.name : item;
+                const reqCode = isObj ? (item.preReqCode || item.reqCode || '') : '';
+                const area = isObj ? (item.area || '') : '';
+                const color = isObj ? (item.color || '#9ca3af') : '#9ca3af';
+
+                preReqContainer.innerHTML += `
+                    <div class="flex items-center text-sm p-2 bg-slate-50 border border-slate-100 rounded mb-1 hover:bg-white hover:shadow-sm transition" style="border-left: 3px solid ${color};">
+                        ${reqCode ? `<span class="font-mono text-xs font-bold text-slate-500 mr-2 bg-slate-200 px-1 rounded">${reqCode}</span>` : ''}
+                        <span class="text-slate-700 font-medium flex-1">${name}</span>
+                        ${area ? `<span class="text-[10px] uppercase font-bold text-slate-400 ml-2 tracking-wide">${area}</span>` : ''}
+                    </div>`;
+            });
+        }
+    }
+
+    // =========================================================
+    // 5. JARDUERA ESANGURATSUAK (signAct)
+    // =========================================================
+    const signActContainer = document.getElementById('detailSignAct');
+    if (signActContainer) {
+        signActContainer.innerHTML = '';
+        const list = subject.signAct || [];
+        if (list.length === 0) {
+            signActContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago jarduerarik zehaztuta.</div>';
+        } else {
+            list.forEach(act => {
+                const isObj = typeof act === 'object';
+                const name = isObj ? act.name : act;
+                const agent = isObj ? (act.agent || '') : '';
+                const type = isObj ? (act.type || '') : '';
+                const color = isObj ? (act.color || '#6366f1') : '#9ca3af';
+
+                signActContainer.innerHTML += `
+                    <div class="flex items-center gap-3 p-2 bg-white border-l-4 rounded shadow-sm mb-1" style="border-left-color: ${color};">
+                        ${agent ? 
+                            `<div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0" style="background-color: ${color}"><i class="fas fa-star"></i></div>` : 
+                            '<i class="fas fa-circle text-[6px] text-gray-300 ml-1"></i>'}
+                        <div class="min-w-0 flex-1">
+                            ${agent ? `<div class="text-[9px] font-bold text-gray-400 uppercase leading-none mb-0.5">${agent}</div>` : ''}
+                            <div class="text-xs font-bold text-gray-700 leading-tight">${name}</div>
+                        </div>
+                        ${type ? `<div class="text-[9px] text-gray-400 italic bg-gray-50 px-1 rounded">${type}</div>` : ''}
+                    </div>`;
+            });
+        }
+    }
+
+    // =========================================================
+    // 6. KANPO PROIEKTUAK (extProy) - FIX
+    // =========================================================
+    const projContainer = document.getElementById('detailExtProy');
+    if (projContainer) {
+        projContainer.innerHTML = '';
+        const list = subject.extProy || [];
+        const catalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
+
+        if (list.length === 0) {
+            projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
+        } else {
+            projContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2";
+            list.forEach(item => {
+                const data = resolveData(item, catalog);
+                if (!data) return;
+
+                const color = data.color || '#fdba74';
+                const agent = data.agent || 'Agente ezezaguna';
+
+                projContainer.innerHTML += `
+                    <div class="flex items-center gap-3 p-3 rounded-lg border-l-4 bg-white shadow hover:shadow-md transition w-full group" style="border-left-color: ${color}">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style="background-color: ${color}">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-gray-700 transition">${agent}</p>
+                            <p class="text-sm font-bold text-gray-800 truncate mt-1">${data.name}</p>
+                        </div>
+                    </div>`;
+            });
+        }
+    }
+
+    // =========================================================
+    // 7. IDU JARRAIBIDEAK (idujar) - FIX
+    // =========================================================
+    const iduContainer = document.getElementById('detailIdujar');
+    if (iduContainer) {
+        iduContainer.innerHTML = '';
+        const list = subject.idujar || [];
+        const catalog = window.gradosManager?.adminCatalogs?.iduGuidelines || [];
+
+        if (list.length === 0) {
+            iduContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da IDU jarraibiderik zehaztu.</span>';
+        } else {
+            iduContainer.className = "flex flex-wrap gap-2 mt-1";
+            list.forEach(item => {
+                let data = resolveData(item, catalog);
+                if (!data) return;
+
+                const rawCode = typeof item === 'string' ? item : (item.iduCode || item.code || '');
+                const cleanCode = rawCode.replace('IDU-', '');
+                const range = data.range || '';
+                
+                let styleClass = 'bg-gray-100 text-gray-600 border-gray-200';
+                if (range.includes('EKINTZA')) styleClass = 'bg-blue-100 text-blue-700 border-blue-200';
+                if (range.includes('INPLIKAZIOA')) styleClass = 'bg-emerald-100 text-emerald-700 border-emerald-200';
+                if (range.includes('IRUDIKAPENA')) styleClass = 'bg-purple-100 text-purple-700 border-purple-200';
+
+                iduContainer.innerHTML += `
+                    <div class="relative group px-2 py-1 rounded border text-[10px] font-bold cursor-help transition ${styleClass}">
+                        ${cleanCode}
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+                            <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">${range}</div>
+                            <div class="whitespace-normal">${data.name}</div>
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+                        </div>
+                    </div>`;
+            });
+        }
+    }
+
+    // =========================================================
+    // 8. ODS (ods) - FIX KRITIKOA KOLOREENTZAT
+    // =========================================================
+    const odsContainer = document.getElementById('detailOdsList');
+    if (odsContainer) {
+        odsContainer.innerHTML = '';
+        const list = subject.ods || [];
+        const catalog = window.gradosManager?.adminCatalogs?.ods || [];
+        
+        const fallbackColors = { 
+            '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', 
+            '5': '#FF3A21', '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942', 
+            '9': '#FD6925', '10': '#DD1367', '11': '#FD9D24', '12': '#BF8B2E', 
+            '13': '#3F7E44', '14': '#0A97D9', '15': '#56C02B', '16': '#00689D', 
+            '17': '#19486A' 
         };
 
-        // Datos básicos
-        setText('detailSubjectCode', subject.subjectCode || subject.code || 'Kode gabe');
-        setText('detailSubjectTitle', subject.subjectTitle || subject.name || 'Izena gabe');
-        setText('detailCredits', `${subject.subjectCredits || subject.credits || 0} ECTS`);
+        if (list.length === 0) {
+            odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
+        } else {
+            list.forEach(item => {
+                const data = resolveData(item, catalog);
+                if (!data) return;
 
-        const badge = document.getElementById('detailSubjectArea');
-        if (badge) {
-            badge.textContent = subject.subjectArea || 'Eremu gabe';
-            badge.style.backgroundColor = areaColor;
-            badge.style.color = '#fff';
-        }
+                const rawCode = typeof item === 'string' ? item : (item.odsCode || item.code || '');
+                const num = rawCode.replace(/ODS-|ods-/gi, '').replace(/^0+/, ''); 
+                const finalColor = data.color || fallbackColors[num] || '#9ca3af';
 
-        // --- VISUALIZACIÓN CONOCIMIENTOS PREVIOS ---        
-        const preReqContainer = document.getElementById('detailPreReq');
-        const prereqs = subject.preReq || [];
-
-        if (preReqContainer) {
-            preReqContainer.innerHTML = '';
-
-            if (!prereqs || prereqs.length === 0) {
-                preReqContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago aurre-ezagutzarik zehaztuta.</div>';
-            } else {
-                const list = Array.isArray(prereqs) ? prereqs : [prereqs];
-                
-                list.forEach(item => {
-                    const isString = typeof item === 'string';
-                    const name = isString ? item : item.name;
-                    
-                    // ALDAKETA: preReqCode bilatu lehenik
-                    const reqCode = isString ? '' : (item.preReqCode || item.reqCode || item.code || '');
-                    
-                    const area = isString ? '' : (item.area || '');
-                    const color = isString ? '#9ca3af' : (item.color || '#9ca3af');
-
-                    preReqContainer.innerHTML += `
-                        <div class="flex items-center text-sm p-2 bg-slate-50 border border-slate-100 rounded mb-1 hover:bg-white hover:shadow-sm transition"
-                             style="border-left: 3px solid ${color};">
-                            
-                            ${reqCode ? `
-                                <span class="font-mono text-xs font-bold text-slate-500 mr-2 bg-slate-200 px-1 rounded">
-                                    ${reqCode}
-                                </span>
-                            ` : ''}
-                            
-                            <span class="text-slate-700 font-medium flex-1">${name}</span>
-                            
-                            ${area ? `
-                                <span class="text-[10px] uppercase font-bold text-slate-400 ml-2 tracking-wide">
-                                    ${area}
-                                </span>
-                            ` : ''}
+                odsContainer.innerHTML += `
+                    <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 shrink-0" style="background-color: ${finalColor}">
+                        ${num}
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
+                            <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${num}</div>
+                            <div class="whitespace-normal">${data.name}</div>
+                            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
                         </div>
-                    `;
-                });
-            }
-        }
-        
-        // --- VISUALIZACIÓN PROYECTOS SIGNIFICATIVOS ---
-        const signActContainer = document.getElementById('detailSignAct');
-        const activities = subject.signAct || []; 
-
-        if (signActContainer) {
-            signActContainer.innerHTML = '';
-
-            if (activities.length === 0) {
-                signActContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago jarduerarik zehaztuta.</div>';
-            } else {
-                activities.forEach(act => {
-                    const isString = typeof act === 'string';
-                    const name = isString ? act : act.name;
-                    const agent = isString ? '' : (act.agent || '');
-                    const type = isString ? '' : (act.type || '');
-                    const color = isString ? '#9ca3af' : (act.color || '#6366f1');
-
-                    signActContainer.innerHTML += `
-                        <div class="flex items-center gap-3 p-2 bg-white border-l-4 rounded shadow-sm mb-1" 
-                             style="border-left-color: ${color};">
-                            
-                            ${agent ? `
-                            <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0"
-                                 style="background-color: ${color}">
-                                <i class="fas fa-star"></i>
-                            </div>
-                            ` : '<i class="fas fa-circle text-[6px] text-gray-300 ml-1"></i>'}
-
-                            <div class="min-w-0 flex-1">
-                                 ${agent ? `<div class="text-[9px] font-bold text-gray-400 uppercase leading-none mb-0.5">${agent}</div>` : ''}
-                                 <div class="text-xs font-bold text-gray-700 leading-tight">${name}</div>
-                            </div>
-                            
-                            ${type ? `<div class="text-[9px] text-gray-400 italic bg-gray-50 px-1 rounded">${type}</div>` : ''}
-                        </div>
-                    `;
-                });
-            }
-        }
-        
-		// --- VISUALIZACIÓN PROYECTOS EXTERNOS (ZUZENDU) ---
-		const projContainer = document.getElementById('detailExtProy');
-		if (projContainer) {
-		    projContainer.innerHTML = '';
-		    const globalCatalog = window.gradosManager?.adminCatalogs?.externalProjects || [];
-		    const proyectos = subject.extProy || [];
-		
-		    if (!proyectos || proyectos.length === 0) {
-		        projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
-		    } else {
-		        projContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2";
-		        
-		        proyectos.forEach(proyecto => {
-		            // ✅ GARRANTZITSUA: Identifikatu datu mota
-		            let proyectoObj;
-		            let displayName;
-		            let displayAgent;
-		            let displayColor;
-		            let displayType;
-		            
-		            if (typeof proyecto === 'string') {
-		                // String bada (izenarekin): bilatu katalogoan
-		                proyectoObj = globalCatalog.find(p => p.name === proyecto) || { name: proyecto };
-		                displayName = proyectoObj.name;
-		                displayAgent = proyectoObj.agent || 'Colaboración externa';
-		                displayColor = proyectoObj.color || '#fdba74';
-		                displayType = proyectoObj.type || 'Proiektua';
-		            } else {
-		                // ✅✅✅ OBJEKTUA BADA: erabili datuak direktoki
-		                displayName = proyecto.name || proyecto.id || 'Proiektu anonimoa';
-		                displayAgent = proyecto.agent || 'Colaboración externa';
-		                displayColor = proyecto.color || '#fdba74';
-		                displayType = proyecto.type || 'Proiektua';
-		                
-		                // Hobetu katalogoko datuekin
-		                const catalogMatch = globalCatalog.find(p => 
-		                    p.id === proyecto.id || 
-		                    p.name === proyecto.name
-		                );
-		                if (catalogMatch) {
-		                    displayName = catalogMatch.name || displayName;
-		                    displayAgent = catalogMatch.agent || displayAgent;
-		                    displayColor = catalogMatch.color || displayColor;
-		                    displayType = catalogMatch.type || displayType;
-		                }
-		            }
-		            
-		            // ✅ ONDO: displayName string bat da, ez objektua
-		            projContainer.innerHTML += `
-		                <div class="flex items-center gap-3 p-3 rounded-lg border-l-4 bg-white shadow hover:shadow-md transition w-full group" 
-		                     style="border-left-color: ${displayColor}">
-		                    <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-		                         style="background-color: ${displayColor}">
-		                        <i class="fas fa-building"></i>
-		                    </div>
-		                    <div class="min-w-0 flex-1">
-		                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-gray-700 transition">
-		                            ${displayAgent}
-		                        </p>
-		                        <p class="text-sm font-bold text-gray-800 truncate mt-1">${displayName}</p>
-		                        <p class="text-[10px] text-gray-400 italic">${displayType}</p>
-		                    </div>
-		                </div>`;
-		        });
-		    }
-		}
-
-        // --- VISUALIZACIÓN IDU (ZUZENDU ETA PREST) ---
-        const iduContainer = document.getElementById('detailIdujar');
-        if (iduContainer) {
-            iduContainer.innerHTML = '';
-            const globalIduCatalog = window.gradosManager?.adminCatalogs?.iduGuidelines || [];
-            const subjectIduCodes = subject.idujar || [];
-
-            if (!subjectIduCodes || subjectIduCodes.length === 0) {
-                iduContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da IDU jarraibiderik zehaztu.</span>';
-            } else {
-                iduContainer.className = "flex flex-wrap gap-2 mt-1";
-                const getIduStyle = (range) => {
-                    if (range?.includes('IRUDIKAPENA')) return 'bg-purple-100 text-purple-700 border-purple-200';
-                    if (range?.includes('EKINTZA')) return 'bg-blue-100 text-blue-700 border-blue-200';
-                    if (range?.includes('INPLIKAZIOA')) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-                    return 'bg-gray-100 text-gray-600 border-gray-200';
-                };
-
-				subjectIduCodes.forEach(code => {
-				    // 1. Bilatu katalogoan (OBJEKTUAK!)
-				    const foundIdu = globalIduCatalog.find(item => {
-				        // String vs Objektu kontrola
-				        const searchCode = typeof code === 'string' ? code : (code.code || code.iduCode || '');
-				        
-				        return item.code === searchCode || 
-				               item.iduCode === searchCode ||
-				               item.name?.includes(searchCode);
-				    });
-				    
-				    if (!foundIdu) return; // Ez bada aurkitzen, jarraitu
-				    
-				    // 2. Informazioa atera
-				    const range = foundIdu.range || '';
-				    const cleanText = foundIdu.name || foundIdu.description || '';
-				    const styleClass = getIduStyle(range);
-				    const displayCode = foundIdu.code || foundIdu.iduCode || code;
-				    
-				    // 3. Renderizatu
-				    iduContainer.innerHTML += `
-				        <div class="relative group px-2 py-1 rounded border text-[10px] font-bold cursor-help transition ${styleClass}">
-				            ${displayCode.replace('IDU-', '')}
-				            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
-				                <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">${range}</div>
-				                <div class="whitespace-normal">${cleanText}</div>
-				                <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
-				            </div>
-				        </div>`;
-				});
-            }
-        }
-
-		// --- VISUALIZACIÓN ODS (KODE OSOA ZUZENDUTA) ---
-		const odsContainer = document.getElementById('detailOdsList');
-		if (odsContainer) {
-		    odsContainer.innerHTML = '';
-		    
-		    // DATU ITURRIA: subject.ods (ez context!)
-		    const subjectOdsCodes = subject.ods || [];
-		    
-		    if (!subjectOdsCodes || subjectOdsCodes.length === 0) {
-		        odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
-		    } else {
-		        // Katalogo globala
-		        const globalOdsCatalog = window.gradosManager?.adminCatalogs?.ods || [];
-		        
-		        // ODS kolore ofizialak
-		        const odsColors = { 
-		            '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', 
-		            '5': '#FF3A21', '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942',
-		            '9': '#FD6925', '10': '#DD1367', '11': '#FD9D24', '12': '#BF8B2E',
-		            '13': '#3F7E44', '14': '#0A97D9', '15': '#56C02B', '16': '#00689D',
-		            '17': '#19486A' 
-		        };
-		        
-		        // Prozesatu ODS bakoitza
-		        subjectOdsCodes.forEach(odsItem => {
-		            // 1. Datu mota identifikatu
-		            let odsCode, odsName;
-		            
-		            if (typeof odsItem === 'string') {
-		                // String bada (adibidez: "ODS-08")
-		                odsCode = odsItem;
-		                
-		                // Bilatu katalogoan informazio osagarriarentzat
-		                const found = globalOdsCatalog.find(o => 
-		                    o.code === odsCode || 
-		                    o.odsCode === odsCode
-		                );
-		                odsName = found?.name || odsCode;
-		            } else {
-		                // Objektua bada (adibidez: {code: "ODS-08", name: "..."})
-		                odsCode = odsItem.code || odsItem.odsCode || '';
-		                odsName = odsItem.name || odsCode;
-		            }
-		            
-		            // 2. Zenbakia atera ("ODS-08" -> "8")
-		            const num = odsCode.replace('ODS-', '').replace('ods-', '').trim();
-		            
-		            // 3. Kolorea lortu
-		            const color = odsColors[num] || '#999';
-		            
-		            // 4. Zenbakiaren bistaratzea
-		            const displayNum = num || '?';
-		            
-		            // 5. Renderizatu
-		            odsContainer.innerHTML += `
-		                <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 hover:shadow-md shrink-0" 
-		                     style="background-color: ${color}"
-		                     title="${odsName}">
-		                    ${displayNum}
-		                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
-		                        <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${displayNum}</div>
-		                        <div class="whitespace-normal pt-1">${odsName}</div>
-		                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
-		                    </div>
-		                </div>`;
-		        });
-		    }
-		}
-
-        // =========================================================
-        // 4. RA (Ikaskuntza Emaitzak) - ID BERRIAK
-        // =========================================================
-        const raContainer = document.getElementById('detailRasList');
-        if (raContainer) {
-            raContainer.innerHTML = `
-                <div class="flex flex-col gap-6">
-                    <div class="bg-white p-4 rounded-xl border-l-4 shadow-sm" style="border-left-color: ${areaColor};">
-                        <h5 class="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 border-b pb-2" 
-                            style="color: ${areaColor}; border-color: #f3f4f6;">
-                            <span class="p-1 rounded text-white" style="background-color: ${areaColor};"><i class="fas fa-cogs"></i></span>
-                            Tekniko / Ofizialak
-                        </h5>
-                        <div id="listTec" class="space-y-3"></div>
-                    </div>
-                    <div class="bg-teal-50/30 p-4 rounded-xl border border-teal-100">
-                        <h5 class="text-xs font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-teal-100 pb-2">
-                            <span class="bg-teal-100 text-teal-700 p-1 rounded"><i class="fas fa-network-wired"></i></span>
-                            Zeharkakoak (ZH)
-                        </h5>
-                        <div id="listZh" class="space-y-3"></div>
-                    </div>
-                </div>
-            `;
-
-            const renderRaItem = (item, index, type) => {
-                let codigo = '', descripcion = '';
-                const isTec = type === 'tec';
-                const isZh = type === 'zh';
-
-                const badgeStyle = isTec 
-                    ? `background-color: ${areaColor}; color: white; border: none;` 
-                    : ``; 
-                
-                const badgeClasses = isTec
-                    ? `font-mono text-xs font-bold mt-0.5 px-2 py-1 rounded shrink-0 min-w-[3.5rem] text-center shadow-sm`
-                    : `font-mono text-xs font-bold text-teal-600 mt-0.5 bg-teal-50 px-2 py-1 rounded border border-teal-100 shrink-0 min-w-[3.5rem] text-center`;
-
-                if (typeof item === 'object' && item !== null) {
-                    // ALDAKETA: raCode eta zhCode lehenetsi
-                    if (isTec) {
-                        codigo = item.raCode || item.code || item.id || `RA${index+1}`;
-                        descripcion = item.raDesc || item.desc || item.description;
-                    } 
-                    else if (isZh) {
-                        codigo = item.zhCode || item.subjectZhCode || item.code || item.id || `ZH${index+1}`;
-                        descripcion = item.zhDesc || item.subjectZhDesc || item.desc || item.description;
-
-                        // Katalogoan bilatu deskribapena falta bada
-                        if (!descripcion && degree && degree.zhCatalog) {
-                            const fromCatalog = degree.zhCatalog.find(c => (c.zhCode || c.code) === codigo);
-                            if (fromCatalog) descripcion = fromCatalog.zhDesc || fromCatalog.desc;
-                        }
-                    }
-                    descripcion = descripcion || "Deskribapenik gabe";
-                } else {
-                    codigo = (isTec ? `RA${index+1}` : `ZH${index+1}`);
-                    descripcion = item;
-                }
-
-                return `
-                    <div class="flex gap-4 text-sm text-gray-700 items-start group transition hover:bg-gray-50 p-2 rounded">
-                        <span class="${badgeClasses}" style="${badgeStyle}">${codigo}</span>
-                        <span class="leading-relaxed text-gray-600 group-hover:text-gray-900">${descripcion}</span>
                     </div>`;
-            };
-
-            const listTec = document.getElementById('listTec');
-            const tecArray = subject.currentOfficialRAs || subject.technicals || subject.ra || [];
-            
-            if (!tecArray.length) listTec.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA teknikorik.</div>';
-            else tecArray.forEach((item, i) => listTec.innerHTML += renderRaItem(item, i, 'tec'));
-
-            const listZh = document.getElementById('listZh');
-            // ALDAKETA: subjectZhRAs izena gehitu
-            const zhArray = subject.subjectZhRAs || subject.zhRAs || subject.transversals || [];
-            
-            if (!zhArray.length) listZh.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA zeharkakorik.</div>';
-            else zhArray.forEach((item, i) => listZh.innerHTML += renderRaItem(item, i, 'zh'));
+            });
         }
+    }
 
-        // =========================================================
-        // 5. Unitateak - ID BERRIAK
-        // =========================================================
-        const unitsTable = document.getElementById('detailUnitsTable');
-        if (unitsTable) {
-            unitsTable.innerHTML = '';
-            // unitateak vs units
-            const unitsList = subject.unitateak || subject.units || [];
+    // =========================================================
+    // 9. IKASKUNTZA EMAITZAK (RAs)
+    // =========================================================
+    const raContainer = document.getElementById('detailRasList');
+    if (raContainer) {
+        raContainer.innerHTML = `
+            <div class="flex flex-col gap-6">
+                <div class="bg-white p-4 rounded-xl border-l-4 shadow-sm" style="border-left-color: ${areaColor};">
+                    <h5 class="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 border-b pb-2" style="color: ${areaColor}; border-color: #f3f4f6;">
+                        <span class="p-1 rounded text-white" style="background-color: ${areaColor};"><i class="fas fa-cogs"></i></span>
+                        Tekniko / Ofizialak
+                    </h5>
+                    <div id="listTec" class="space-y-3"></div>
+                </div>
+                <div class="bg-teal-50/30 p-4 rounded-xl border border-teal-100">
+                    <h5 class="text-xs font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-teal-100 pb-2">
+                        <span class="bg-teal-100 text-teal-700 p-1 rounded"><i class="fas fa-network-wired"></i></span>
+                        Zeharkakoak (ZH)
+                    </h5>
+                    <div id="listZh" class="space-y-3"></div>
+                </div>
+            </div>`;
+
+        const renderRaItem = (item, index, type) => {
+            let codigo = '', descripcion = '';
+            const isTec = type === 'tec';
             
-            if (unitsList.length === 0) {
-                unitsTable.innerHTML = `
-                    <tr>
-                        <td colspan="4" class="px-4 py-8 text-center">
-                            <div class="text-gray-400">
-                                <i class="fas fa-inbox text-2xl mb-2"></i>
-                                <p class="text-sm italic">Ez dago unitaterik sortuta.</p>
-                            </div>
-                        </td>
-                    </tr>`;
+            const badgeStyle = isTec ? `background-color: ${areaColor}; color: white; border: none;` : ``; 
+            const badgeClasses = isTec 
+                ? `font-mono text-xs font-bold mt-0.5 px-2 py-1 rounded shrink-0 min-w-[3.5rem] text-center shadow-sm`
+                : `font-mono text-xs font-bold text-teal-600 mt-0.5 bg-teal-50 px-2 py-1 rounded border border-teal-100 shrink-0 min-w-[3.5rem] text-center`;
+
+            if (typeof item === 'object' && item !== null) {
+                if (isTec) {
+                    codigo = item.raCode || item.code || item.id || `RA${index+1}`;
+                    descripcion = item.raDesc || item.desc || item.description;
+                } else {
+                    codigo = item.zhCode || item.subjectZhCode || item.code || item.id || `ZH${index+1}`;
+                    descripcion = item.zhDesc || item.subjectZhDesc || item.desc || item.description;
+                    if (!descripcion && degree && degree.zhCatalog) {
+                        const fromCatalog = degree.zhCatalog.find(c => (c.zhCode || c.code) === codigo);
+                        if (fromCatalog) descripcion = fromCatalog.zhDesc || fromCatalog.desc;
+                    }
+                }
+                descripcion = descripcion || "Deskribapenik gabe";
             } else {
-                const bgColor = `color-mix(in srgb, ${areaColor} 15%, transparent)`;
-                const borderColor = `color-mix(in srgb, ${areaColor} 25%, transparent)`;
-                const descriptorBgColor = `color-mix(in srgb, ${areaColor} 12%, transparent)`;
-                
-                unitsList.forEach((ud, index) => {
-                    const descriptors = ud.descriptores || ud.descriptors || [];
-                    const descriptorsCount = descriptors.length;
-                    
-                    // ALDAKETA: unitCode erabili
-                    const uCode = ud.unitCode || ud.code || '-';
-                    
-                    unitsTable.innerHTML += `
-                        <tr class="bg-white border-b hover:bg-gray-50 transition"
-                            data-unit-index="${index}">
-                            
-                            <td class="px-3 py-3 w-8">
-                                <div class="text-gray-300 cursor-grab active:cursor-grabbing">
-                                    <i class="fas fa-list-ul"></i>
-                                </div>
-                            </td>
-                            
-                            <td class="px-3 py-3 font-mono text-xs font-bold text-gray-600 align-top">
-                                ${uCode}
-                            </td>
-                            
-                            <td class="px-3 py-3">
-                                <div class="font-medium text-gray-800 mb-2">${ud.unitName || ud.name || ''}</div>
-                                
-                                ${descriptorsCount > 0 ? `
-                                    <div class="mt-3">
-                                        <div class="descriptors-container flex flex-wrap gap-2 min-h-[40px] p-1"
-                                             data-unit-index="${index}">
-                                              
-                                                ${descriptors.map((desc, descIndex) => `
-                                                    <div class="descriptor-tag draggable-descriptor group relative"
-                                                         data-unit-index="${index}"
-                                                         data-descriptor-index="${descIndex}"
-                                                         draggable="true">
-                                                         <span class="descriptor-content flex items-center gap-1 text-xs px-3 py-2 rounded-lg text-gray-700 font-medium transition-all hover:scale-[1.02] cursor-move border"
-                                                              style="background-color: ${descriptorBgColor}; 
-                                                                     border-color: ${borderColor};
-                                                                     min-height: 36px;
-                                                                     max-width: 100%;">
-                                                            
-                                                            <i class="fas fa-grip-lines text-gray-400 text-xs flex-shrink-0"></i>
-                                                            
-                                                            <span class="descriptor-text flex-1 truncate">
-                                                                ${desc}
-                                                            </span>
-                                                            
-                                                            </span>
-                                                    </div>
-                                                `).join('')}
-                                            
-                                            <div class="descriptor-drop-zone hidden h-10 w-full border-2 border-dashed rounded-lg border-gray-300 bg-gray-50/50">
-                                            </div>
-                                        </div>
-                                    </div>
-                                ` : ''}
-                            </td>
-                            
-                            <td class="px-3 py-3 text-right text-xs text-gray-500 font-mono align-top">
-                                ${ud.irauOrd || ud.hours || 0}h
-                            </td>
-                        </tr>`;
-                });             
+                codigo = (isTec ? `RA${index+1}` : `ZH${index+1}`);
+                descripcion = item;
+            }
+
+            return `
+                <div class="flex gap-4 text-sm text-gray-700 items-start group transition hover:bg-gray-50 p-2 rounded">
+                    <span class="${badgeClasses}" style="${badgeStyle}">${codigo}</span>
+                    <span class="leading-relaxed text-gray-600 group-hover:text-gray-900">${descripcion}</span>
+                </div>`;
+        };
+
+        const listTec = document.getElementById('listTec');
+        const tecArray = subject.currentOfficialRAs || subject.technicals || subject.ra || [];
+        if (!tecArray.length) listTec.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA teknikorik.</div>';
+        else tecArray.forEach((item, i) => listTec.innerHTML += renderRaItem(item, i, 'tec'));
+
+        const listZh = document.getElementById('listZh');
+        const zhArray = subject.subjectZhRAs || subject.zhRAs || subject.transversals || [];
+        if (!zhArray.length) listZh.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA zeharkakorik.</div>';
+        else zhArray.forEach((item, i) => listZh.innerHTML += renderRaItem(item, i, 'zh'));
+    }
+
+    // =========================================================
+    // 10. UNITATEAK (Units)
+    // =========================================================
+    const unitsTable = document.getElementById('detailUnitsTable');
+    if (unitsTable) {
+        unitsTable.innerHTML = '';
+        const unitsList = subject.unitateak || subject.units || [];
+        
+        if (unitsList.length === 0) {
+            unitsTable.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center"><div class="text-gray-400"><i class="fas fa-inbox text-2xl mb-2"></i><p class="text-sm italic">Ez dago unitaterik sortuta.</p></div></td></tr>`;
+        } else {
+            const bgColor = `color-mix(in srgb, ${areaColor} 15%, transparent)`;
+            const borderColor = `color-mix(in srgb, ${areaColor} 25%, transparent)`;
+            const descriptorBgColor = `color-mix(in srgb, ${areaColor} 12%, transparent)`;
+            
+            unitsList.forEach((ud, index) => {
+                const descriptors = ud.descriptores || ud.descriptors || [];
+                const uCode = ud.unitCode || ud.code || '-';
                 
                 unitsTable.innerHTML += `
-                    <tr id="dropZoneRow" class="h-2 transition-all">
-                        <td colspan="4" class="p-0">
-                            <div class="drop-zone h-2 bg-transparent"></div>
+                    <tr class="bg-white border-b hover:bg-gray-50 transition" data-unit-index="${index}">
+                        <td class="px-3 py-3 w-8"><div class="text-gray-300 cursor-grab active:cursor-grabbing"><i class="fas fa-list-ul"></i></div></td>
+                        <td class="px-3 py-3 font-mono text-xs font-bold text-gray-600 align-top">${uCode}</td>
+                        <td class="px-3 py-3">
+                            <div class="font-medium text-gray-800 mb-2">${ud.unitName || ud.name || ''}</div>
+                            ${descriptors.length > 0 ? `
+                                <div class="mt-3">
+                                    <div class="descriptors-container flex flex-wrap gap-2 min-h-[40px] p-1" data-unit-index="${index}">
+                                        ${descriptors.map((desc, descIndex) => `
+                                            <div class="descriptor-tag draggable-descriptor group relative" data-unit-index="${index}" data-descriptor-index="${descIndex}" draggable="true">
+                                                <span class="descriptor-content flex items-center gap-1 text-xs px-3 py-2 rounded-lg text-gray-700 font-medium transition-all hover:scale-[1.02] cursor-move border" style="background-color: ${descriptorBgColor}; border-color: ${borderColor}; min-height: 36px; max-width: 100%;">
+                                                    <i class="fas fa-grip-lines text-gray-400 text-xs flex-shrink-0"></i>
+                                                    <span class="descriptor-text flex-1 truncate">${desc}</span>
+                                                </span>
+                                            </div>`).join('')}
+                                        <div class="descriptor-drop-zone hidden h-10 w-full border-2 border-dashed rounded-lg border-gray-300 bg-gray-50/50"></div>
+                                    </div>
+                                </div>` : ''}
                         </td>
+                        <td class="px-3 py-3 text-right text-xs text-gray-500 font-mono align-top">${ud.irauOrd || ud.hours || 0}h</td>
                     </tr>`;
-
-                // Estilos y Drag&Drop init
-                const styleId = 'drag-drop-descriptors-styles';
-                if (!document.getElementById(styleId)) {
-                    const style = document.createElement('style');
-                    style.id = styleId;
-                    style.textContent = `
-                        .draggable-descriptor { cursor: move !important; user-select: none; position: relative; }
-                        .draggable-descriptor.dragging { opacity: 0.5; transform: scale(1.02); z-index: 10; }
-                        .draggable-descriptor:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-                        .descriptors-container { min-height: 50px; transition: all 0.2s; }
-                        .descriptors-container.drag-over { background-color: rgba(59, 130, 246, 0.05) !important; border-radius: 6px; }
-                    `;
-                    document.head.appendChild(style);
-                }
-
-                setTimeout(() => {
-                    console.log('🎯 Inicializando drag & drop de descriptores...');
-                    if(typeof setupAdvancedDragAndDrop === 'function') setupAdvancedDragAndDrop();
-                }, 300);    
-            }   
-        }
-        document.getElementById('mainContent')?.scrollTo(0, 0);
-    },
+            });
+            unitsTable.innerHTML += `<tr id="dropZoneRow" class="h-2 transition-all"><td colspan="4" class="p-0"><div class="drop-zone h-2 bg-transparent"></div></td></tr>`;
+            
+            // Estilos Drag & Drop
+            const styleId = 'drag-drop-descriptors-styles';
+            if (!document.getElementById(styleId)) {
+                const style = document.createElement('style');
+                style.id = styleId;
+                style.textContent = `.draggable-descriptor { cursor: move !important; user-select: none; position: relative; } .draggable-descriptor.dragging { opacity: 0.5; transform: scale(1.02); z-index: 10; } .draggable-descriptor:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.1); } .descriptors-container { min-height: 50px; transition: all 0.2s; } .descriptors-container.drag-over { background-color: rgba(59, 130, 246, 0.05) !important; border-radius: 6px; }`;
+                document.head.appendChild(style);
+            }
+            setTimeout(() => {
+                if(typeof setupAdvancedDragAndDrop === 'function') setupAdvancedDragAndDrop();
+            }, 300);    
+        }   
+    }
+    document.getElementById('mainContent')?.scrollTo(0, 0);
+},
 
 
 	
@@ -1606,6 +1436,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
