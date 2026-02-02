@@ -200,83 +200,164 @@ async loadData() {
 }
 	
 async saveData() {
-        const supabase = window.supabase;
-        const saveBtn = document.getElementById('saveSubjectBtn');
-        
-        // UI Feedback: Botoia "Gordetzen..." jarri
+    const supabase = window.supabase;
+    
+    // UI Feedback: aurretik botoiak desgaitu
+    const saveBtn = document.getElementById('saveSubjectBtn');
+    const saveListBtn = document.getElementById('saveListBtn');
+    
+    const disableSaveButtons = () => {
         if (saveBtn) {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
             saveBtn.disabled = true;
         }
-
-        try {
-            // 1. Lortu erabiltzailearen IDa segurtasunez
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Saioa iraungita edo ez da hasi.");
-
-            const targetId = user.id; // Zure kasuan IDa erabiltzailearen ID bera da
-            
-            // 2. Zein datu gorde? (CurriculumData izan ohi da editatzen dena)
-            // cachedData bada zaharra, curriculumData da berria.
-            const dataToSave = this.curriculumData || this.cachedData; 
-
-            console.log("💾 Gordetzen 'curriculum_data' taulan...", targetId);
-
-            if (!dataToSave) {
-                throw new Error("Ez dago daturik gordetzeko.");
-            }
-
-            // 3. Egin UPDATE (Zutabe zuzenak: 'datos' eta 'id')
-            const { data, error } = await supabase
-                .from('curriculum_data')
-                .update({ 
-                    datos: dataToSave,
-                    last_updated: new Date().toISOString() 
-                })
-                .eq('id', targetId)
-                .select();
-
-            if (error) throw error;
-
-            console.log("✅ GORDE DA!", data);
-
-            // UI Feedback: Arrakasta
-            if (saveBtn) {
+        if (saveListBtn) {
+            saveListBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+            saveListBtn.disabled = true;
+        }
+    };
+    
+    const enableSaveButtons = (success = true) => {
+        if (saveBtn) {
+            if (success) {
                 saveBtn.innerHTML = '<i class="fas fa-check"></i> Gordeta!';
                 saveBtn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
                 saveBtn.classList.add('bg-green-600', 'hover:bg-green-700');
                 
                 setTimeout(() => {
-                    saveBtn.innerHTML = 'Gorde Aldaketak'; // Edo jatorrizko testua
+                    saveBtn.innerHTML = 'Gorde Aldaketak';
                     saveBtn.classList.remove('bg-green-600', 'hover:bg-green-700');
                     saveBtn.classList.add('bg-blue-600', 'hover:bg-blue-700');
                     saveBtn.disabled = false;
                 }, 2000);
-            }
-            
-            // Jakinarazpena
-            if (window.ui && window.ui.showNotification) {
-                window.ui.showNotification("Aldaketak ondo gorde dira", "success");
             } else {
-                alert("Aldaketak ondo gorde dira.");
+                saveBtn.innerHTML = 'Gorde Aldaketak';
+                saveBtn.disabled = false;
             }
-
-        } catch (err) {
-            console.error("❌ Errore larria gordetzean:", err.message);
-            
-            // UI Feedback: Errorea
-            if (saveBtn) {
-                saveBtn.innerHTML = '<i class="fas fa-times"></i> Errorea';
-                saveBtn.classList.add('bg-red-600');
-                setTimeout(() => {
-                    saveBtn.innerHTML = 'Gorde Aldaketak';
-                    saveBtn.classList.remove('bg-red-600');
-                    saveBtn.disabled = false;
-                }, 3000);
-            }
-            alert("Errorea gordetzean: " + err.message);
         }
+        if (saveListBtn) {
+            saveListBtn.innerHTML = 'Gorde Aldaketak';
+            saveListBtn.disabled = false;
+        }
+    };
+
+    // Botoiak desgaitu
+    disableSaveButtons();
+
+    try {
+        // 1. Lortu erabiltzailearen IDa
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Saioa iraungita edo ez da hasi.");
+
+        console.log("💾 Gordetzen datuak...");
+
+        // 2. GORDE SUBJECT-A (irakasgaiak)
+        if (this.currentSubject) {
+            console.log("📚 Irakasgaia gordetzen:", this.currentSubject.name);
+            
+            // ✨ ALDAKETA: context propietatea konprimitu edo kendu
+            const subjectToSave = {
+                ...this.currentSubject,
+                // Datuak erroan daude, baina context mantentzeko (bateragarritasuna)
+                context: this.currentSubject.context || {},
+                updated_at: new Date().toISOString(),
+                updated_by: user.id
+            };
+            
+            const { error: subjectError } = await supabase
+                .from('subjects')
+                .upsert(subjectToSave);
+            
+            if (subjectError) {
+                console.error("❌ Errorea irakasgaia gordetzean:", subjectError);
+                throw new Error(`Irakasgaia gordetzean: ${subjectError.message}`);
+            }
+            
+            console.log("✅ Irakasgaia gorde da");
+        }
+
+        // 3. GORDE DEGREE-A (graduak)
+        if (this.currentDegree) {
+            console.log("🎓 Gradua gordetzen:", this.currentDegree.name);
+            
+            const { error: degreeError } = await supabase
+                .from('degrees')
+                .upsert({
+                    ...this.currentDegree,
+                    updated_at: new Date().toISOString(),
+                    updated_by: user.id
+                });
+            
+            if (degreeError) {
+                console.error("❌ Errorea gradua gordetzean:", degreeError);
+                throw new Error(`Gradua gordetzean: ${degreeError.message}`);
+            }
+            
+            console.log("✅ Gradua gorde da");
+        }
+
+        // 4. GORDE CURRICULUM_DATA (datu orokorrak) - zure jatorrizko kodea
+        const dataToSave = this.curriculumData || this.cachedData;
+        
+        if (dataToSave) {
+            console.log("💾 Curriculum datuak gordetzen...");
+            
+            const { error: curriculumError } = await supabase
+                .from('curriculum_data')
+                .update({ 
+                    datos: dataToSave,
+                    last_updated: new Date().toISOString() 
+                })
+                .eq('id', user.id)
+                .select();
+            
+            if (curriculumError) {
+                console.error("❌ Errorea curriculum datuak gordetzean:", curriculumError);
+                // Ez bota errorea hemen, bakarrik logeatzen da
+            } else {
+                console.log("✅ Curriculum datuak gorde dira");
+            }
+        }
+
+        // 5. UI Feedback: Arrakasta
+        enableSaveButtons(true);
+        
+        // Jakinarazpena
+        if (window.ui && window.ui.showNotification) {
+            window.ui.showNotification("Aldaketak ondo gorde dira", "success");
+        } else if (this.showNotification) {
+            this.showNotification("Aldaketak ondo gorde dira", "success");
+        } else {
+            console.log("✅ Aldaketak ondo gorde dira");
+        }
+
+    } catch (err) {
+        console.error("❌ Errore larria gordetzean:", err.message);
+        
+        // UI Feedback: Errorea
+        enableSaveButtons(false);
+        
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-times"></i> Errorea';
+            saveBtn.classList.add('bg-red-600');
+            setTimeout(() => {
+                saveBtn.innerHTML = 'Gorde Aldaketak';
+                saveBtn.classList.remove('bg-red-600');
+            }, 3000);
+        }
+        
+        // Jakinarazpena
+        if (window.ui && window.ui.showNotification) {
+            window.ui.showNotification(`Errorea: ${err.message}`, "error");
+        } else if (this.showNotification) {
+            this.showNotification(`Errorea: ${err.message}`, "error");
+        } else {
+            alert("❌ Errorea gordetzean: " + err.message);
+        }
+        
+        throw err; // Re-lanzar para que saveListEditor() también lo capture
     }
+}
 	
 	// --- CARGA DE GRADO ESPECÃFICO ---
 async loadDegreeData(id) {
@@ -635,10 +716,10 @@ saveSubjectBasicData() {
                     .map(cb => cb.value);
     };
 
-    this.currentSubject.context = this.currentSubject.context || {};
-    this.currentSubject.context.idu = getChecked('idu_chk');
-    this.currentSubject.context.ods = getChecked('ods_chk');
-    this.currentSubject.context.external_projects = getChecked('ext_chk');
+    //this.currentSubject.context = this.currentSubject.context || {};
+    this.currentSubject.idu = getChecked('idu_chk');
+    this.currentSubject.ods = getChecked('ods_chk');
+    this.currentSubject.external_projects = getChecked('ext_chk');
 
     // 3. Datu basean gorde (Supabase / JSON)
     if (this.saveData) { 
@@ -1964,58 +2045,56 @@ guardarRAsDesdeEditor() {
 	
 // En grados-manager.js
 
-    async saveListEditor() {  // <--- ?F¨ªjate en el 'async' aqu¨ª!
-        if (!this.currentEditingField) return;
-        
-        const fieldName = this.currentEditingField;
-        const isDegree = this.isEditingDegree; 
+async saveListEditor() {
+    if (!this.currentEditingField) return;
+    
+    const fieldName = this.currentEditingField;
+    const isDegree = this.isEditingDegree; 
 
-        console.log(`?? Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
+    console.log(`🔧 Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
+    
+    const inputs = document.querySelectorAll('.list-item-input');
+    const newList = Array.from(inputs)
+        .map(i => i.value.trim())
+        .filter(v => v !== "");
+    
+    // 1. ACTUALIZAR EL OBJETO EN MEMORIA
+    if (isDegree) {
+        // Guardar en el objeto Grado
+        this.currentDegree[fieldName] = newList;
         
-        const inputs = document.querySelectorAll('.list-item-input');
-        const newList = Array.from(inputs)
-            .map(i => i.value.trim())
-            .filter(v => v !== "");
-        
-        // 1. ACTUALIZAR EL OBJETO EN MEMORIA
-        if (isDegree) {
-            // Guardar en el objeto Grado
-            this.currentDegree[fieldName] = newList;
-            
-            // Refrescar Sidebar inmediatamente
-            if (window.ui && window.ui.renderSidebar) {
-                window.ui.renderSidebar(this.currentDegree);
-            }
-        } else {
-            // Guardar en el objeto Asignatura
-            if (!this.currentSubject) return;
-            
-            // Si el campo no existe en 'context', lo creamos o actualizamos
-            // Nota: Aqu¨ª asumo que usas 'context' para las listas nuevas (IDU, ODS...)
-            // Si usas propiedades directas, ajusta esto.
-            const target = this.currentSubject.context ? this.currentSubject.context : this.currentSubject;
-            target[fieldName] = newList;
-
-            // Refrescar Detalle Asignatura
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
+        // Refrescar Sidebar inmediatamente
+        if (window.ui && window.ui.renderSidebar) {
+            window.ui.renderSidebar(this.currentDegree);
         }
+    } else {
+        // Guardar en el objeto Asignatura
+        if (!this.currentSubject) return;
         
-        // 2. GUARDAR EN SUPABASE (BD)
-        // Usamos 'await' para esperar a que se guarde antes de cerrar el modal
-        try {
-            await this.saveData(); 
-            console.log("? Datos guardados correctamente en BD");
-        } catch (e) {
-            console.error("? Error al guardar en BD:", e);
-            // Aqu¨ª podr¨ªas mostrar un aviso al usuario si falla
-        }
+        // ✨ ALDAKETA HEMEN: context erabili beharrean, erroan zuzenean
+        // Datua erroko propietatean gorde
+        this.currentSubject[fieldName] = newList;
 
-        // 3. CERRAR MODAL
-        const modal = document.getElementById('listEditorModal');
-        if(modal) modal.classList.add('hidden');
+        // Refrescar Detalle Asignatura
+        if (window.ui && window.ui.renderSubjectDetail) {
+            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+        }
     }
+    
+    // 2. GUARDAR EN SUPABASE (BD)
+    // Usamos 'await' para esperar a que se guarde antes de cerrar el modal
+    try {
+        await this.saveData(); 
+        console.log("✅ Datos guardados correctamente en BD");
+    } catch (e) {
+        console.error("❌ Error al guardar en BD:", e);
+        // Aquí podrías mostrar un aviso al usuario si falla
+    }
+
+    // 3. CERRAR MODAL
+    const modal = document.getElementById('listEditorModal');
+    if(modal) modal.classList.add('hidden');
+}
 	
 // Funci¨®n auxiliar para no repetir HTML
 	templateRA(codigo, desc, color, etiqueta) {
@@ -2314,689 +2393,768 @@ saveRaChanges() {
     }
 
 	
-	openPreReqEditor() {
-		if (!this.currentSubject) return;
+openPreReqEditor() {
+    if (!this.currentSubject) return;
 
-		// 1. Setup del Modal
-		const modal = document.getElementById('listEditorModal');
-		const container = document.getElementById('listEditorContainer');
-		const titleEl = document.getElementById('listEditorTitle');
-		const inputTop = document.getElementById('newItemInput')?.parentElement;
-		
-		if (inputTop) inputTop.classList.add('hidden');
-		if (titleEl) titleEl.innerHTML = `<i class="fas fa-layer-group mr-2 text-indigo-500"></i> Aurre-ezagutzak (Automatikoa)`;
+    // 1. Setup del Modal
+    const modal = document.getElementById('listEditorModal');
+    const container = document.getElementById('listEditorContainer');
+    const titleEl = document.getElementById('listEditorTitle');
+    const inputTop = document.getElementById('newItemInput')?.parentElement;
+    
+    if (inputTop) inputTop.classList.add('hidden');
+    if (titleEl) titleEl.innerHTML = `<i class="fas fa-layer-group mr-2 text-indigo-500"></i> Aurre-ezagutzak (Automatikoa)`;
 
-		// 2. Inicializar datos locales
-		if (!this.currentSubject.context) this.currentSubject.context = {};
-		if (!Array.isArray(this.currentSubject.context.preReq)) {
-			this.currentSubject.context.preReq = [];
-		}
-		const localList = this.currentSubject.context.preReq;
+    // 2. Inicializar datos locales - ✨ ALDAKETA: erroan zuzenean
+    if (!Array.isArray(this.currentSubject.preReq)) {
+        this.currentSubject.preReq = []; // Erroan hasieratu
+    }
+    const localList = this.currentSubject.preReq; // ✨ context erabili gabe
 
-		// ---------------------------------------------------------
-		// 3. ? FUNCI¨®N CONFIRMADA PARA LEER ¨¢REAS (igual que openEditSubjectModal)
-		// ---------------------------------------------------------
-		const getAreasFromSystem = () => {
-			const areaColorMap = {};
-			
-			console.log("?? Leyendo ¨¢reas del sistema...");
-			
-			// VERIFICADO: Las ¨¢reas est¨¢n en currentDegree.subjectAreas
-			if (this.currentDegree?.subjectAreas) {
-				const areas = this.currentDegree.subjectAreas;
-				
-				console.log(`Encontradas ${areas.length} ¨¢reas en currentDegree.subjectAreas`);
-				
-				areas.forEach(area => {
-					if (area && area.name) {
-						// Usar el color directamente (est¨¢ en formato HSL)
-						areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
-						console.log(`  ? "${area.name}" -> ${areaColorMap[area.name]}`);
-					}
-				});
-			} else {
-				console.warn("?? No se encontraron ¨¢reas en currentDegree.subjectAreas");
-				
-				// Fallback: usar ui.getAreaColor si est¨¢ disponible
-				if (window.ui && window.ui.getAreaColor) {
-					// Intentar con ¨¢reas conocidas del sidebar
-					const areaNames = [
-						"DISEINU PROIEKTUAK ETA METODOLOGIAK",
-						"ERAIKUNTZA ETA TEKNOLOGIA",
-						"DISEINUAREN IKUS-ADIERAZPENA",
-						"DISEINUAREN OINARRIAK",
-						"KUDEAKETA ETA PROFESIONALTASUNA"
-					];
-					
-					areaNames.forEach(name => {
-						const color = window.ui.getAreaColor(name, this.currentDegree);
-						if (color) {
-							areaColorMap[name] = color;
-						}
-					});
-				}
-			}
-			
-			console.log(`? Total ¨¢reas disponibles: ${Object.keys(areaColorMap).length}`);
-			return areaColorMap;
-		};
+    // ---------------------------------------------------------
+    // 3. FUNCIÓN PARA LEER ÁREAS DINÁMICAMENTE
+    // ---------------------------------------------------------
+    const getAreasFromSystem = () => {
+        const areaColorMap = {};
+        
+        console.log("🔍 Eremuak bilatzen...");
+        
+        // currentDegree-tik hartu (gradu bakoitzak bere eremuak ditu)
+        if (this.currentDegree?.subjectAreas) {
+            const areas = this.currentDegree.subjectAreas;
+            
+            console.log(`${areas.length} eremu aurkituak currentDegree.subjectAreas-en`);
+            
+            areas.forEach(area => {
+                if (area && area.name) {
+                    areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
+                    console.log(`  ✅ "${area.name}" -> ${areaColorMap[area.name]}`);
+                }
+            });
+        } 
+        // cloudModel-en bilatu fallback gisa
+        else if (this.cloudModel?.degrees) {
+            console.log("🔍 CloudModel-en bilatzen...");
+            
+            const currentDegreeId = this.currentDegree?.id || this.currentSubject.degreeId;
+            if (currentDegreeId) {
+                const degreeInCloud = this.cloudModel.degrees.find(d => d.id === currentDegreeId);
+                if (degreeInCloud?.subjectAreas) {
+                    degreeInCloud.subjectAreas.forEach(area => {
+                        if (area && area.name) {
+                            areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
+                        }
+                    });
+                }
+            }
+        }
+        
+        console.log(`📊 Guztira ${Object.keys(areaColorMap).length} eremu eskuragarri`);
+        return areaColorMap;
+    };
 
-		const areaColorMap = getAreasFromSystem();
-		const areaCount = Object.keys(areaColorMap).length;
-		
-		// Funci¨®n para convertir HSL a un formato usable
-		const parseColor = (hsl) => {
-			if (!hsl) return '#94a3b8';
-			// Si ya es HEX, devolverlo
-			if (hsl.startsWith('#')) return hsl;
-			// Si es HSL, mantenerlo como est¨¢ (CSS lo entiende)
-			if (hsl.startsWith('hsl')) return hsl;
-			// Por defecto
-			return '#94a3b8';
-		};
+    const areaColorMap = getAreasFromSystem();
+    const areaCount = Object.keys(areaColorMap).length;
+    const sortedAreaNames = Object.keys(areaColorMap).sort((a, b) => 
+        a.localeCompare(b, 'eu')
+    );
 
-		// ---------------------------------------------------------
-		// 4. GENERADOR DE C¨®DIGO MEJORADO
-		// ---------------------------------------------------------
-		const generateAutoCode = (index) => {
-			const subjectName = this.currentSubject.name || this.currentSubject.subjectTitle || "ASIG";
-			const cleanName = subjectName.replace(/^[\d\.\s]+/, '').trim();
-			
-			// Identificar n¨²mero romano o secuencia
-			const romanMap = {
-				' VIII': '8', ' VII': '7', ' VI': '6', ' V': '5', 
-				' IV': '4', ' III': '3', ' II': '2', ' I': '1'
-			};
-			
-			let numSuffix = '';
-			let baseName = cleanName;
-			
-			for (const [roman, num] of Object.entries(romanMap)) {
-				if (cleanName.toUpperCase().endsWith(roman)) {
-					numSuffix = num;
-					baseName = cleanName.substring(0, cleanName.length - roman.length).trim();
-					break;
-				}
-			}
-			
-			// Si no encuentra romano, buscar n¨²mero ar¨¢bigo
-			if (!numSuffix) {
-				const arabicMatch = cleanName.match(/(\d+)$/);
-				if (arabicMatch) {
-					numSuffix = arabicMatch[1];
-					baseName = cleanName.substring(0, cleanName.length - arabicMatch[0].length).trim();
-				}
-			}
-			
-			// Extraer las tres primeras letras (excluyendo n¨²meros y espacios)
-			const letters = baseName.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase();
-			const seq = String(index + 1).padStart(2, '0');
-			
-			// Formato: AE_numeroLETRAS_secuencia
-			// Ejemplo: "Proyectos I" -> AE_1PRO_01, "Proyectos II" -> AE_2PRO_01
-			return `AE_${numSuffix || ''}${letters}_${seq}`;
-		};
+    // Kolorea parseatzeko funtzioa
+    const parseColor = (hsl) => {
+        if (!hsl) return '#94a3b8';
+        if (hsl.startsWith('#')) return hsl;
+        if (hsl.startsWith('hsl')) return hsl;
+        return '#94a3b8';
+    };
 
-		// ---------------------------------------------------------
-		// 5. RENDERIZAR EDITOR - VERSI¨®N DEFINITIVA
-		// ---------------------------------------------------------
-		const renderTable = () => {
-			container.innerHTML = `
-				<div class="mb-4">
-					<div class="flex justify-between items-center mb-3">
-						<span class="text-[10px] text-gray-400 italic">
-							<i class="fas fa-robot mr-1"></i> Kodeak automatikoak dira.
-						</span>
-						<button id="btnAddPreReq" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
-							<i class="fas fa-plus mr-1"></i> Gehitu Aurre-ezagutza
-						</button>
-					</div>
-					
-					${areaCount === 0 ? `
-					<div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
-						<div class="flex items-start">
-							<i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-2"></i>
-							<div>
-								<p class="text-xs font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
-								<p class="text-[11px] text-yellow-700">
-									Defina ¨¢reas primero en el sidebar o en los datos del grado.
-								</p>
-							</div>
-						</div>
-					</div>
-					` : `
-					<div class="text-[10px] text-gray-500 mb-2">
-						<i class="fas fa-check-circle text-green-500 mr-1"></i>
-						${areaCount} eremu aurkituak. Erabili autobetetzea.
-					</div>
-					`}
-				</div>
-				
-				<div class="flex gap-2 px-3 mb-1 text-[9px] font-bold text-gray-400 uppercase">
-					<div class="w-1/4">Kodea</div>
-					<div class="w-2/5">Izena</div>
-					<div class="w-2/5">Ezagutza Eremua</div>
-					<div class="w-8"></div>
-				</div>
+    // ---------------------------------------------------------
+    // 4. GENERADOR DE CÓDIGO
+    // ---------------------------------------------------------
+    const generateAutoCode = (index) => {
+        const subjectName = this.currentSubject.name || this.currentSubject.subjectTitle || "ASIG";
+        const cleanName = subjectName.replace(/^[\d\.\s]+/, '').trim();
+        
+        const romanMap = {
+            ' VIII': '8', ' VII': '7', ' VI': '6', ' V': '5', 
+            ' IV': '4', ' III': '3', ' II': '2', ' I': '1'
+        };
+        
+        let numSuffix = '';
+        let baseName = cleanName;
+        
+        for (const [roman, num] of Object.entries(romanMap)) {
+            if (cleanName.toUpperCase().endsWith(roman)) {
+                numSuffix = num;
+                baseName = cleanName.substring(0, cleanName.length - roman.length).trim();
+                break;
+            }
+        }
+        
+        if (!numSuffix) {
+            const arabicMatch = cleanName.match(/(\d+)$/);
+            if (arabicMatch) {
+                numSuffix = arabicMatch[1];
+                baseName = cleanName.substring(0, cleanName.length - arabicMatch[0].length).trim();
+            }
+        }
+        
+        const letters = baseName.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase();
+        const seq = String(index + 1).padStart(2, '0');
+        
+        return `AE_${numSuffix || ''}${letters}_${seq}`;
+    };
 
-				<div id="preReqTableBody" class="space-y-2 pb-4 max-h-[60vh] overflow-y-auto pr-1"></div>
-				
-				<!-- Datalist para autocompletar -->
-				<datalist id="preReqAreasList"></datalist>
-			`;
+    // ---------------------------------------------------------
+    // 5. RENDERIZAR EDITOR
+    // ---------------------------------------------------------
+    const renderTable = () => {
+        container.innerHTML = `
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-[10px] text-gray-400 italic">
+                        <i class="fas fa-robot mr-1"></i> Kodeak automatikoak dira.
+                    </span>
+                    <button id="btnAddPreReq" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
+                        <i class="fas fa-plus mr-1"></i> Gehitu Aurre-ezagutza
+                    </button>
+                </div>
+                
+                ${areaCount === 0 ? `
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-2"></i>
+                        <div>
+                            <p class="text-xs font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
+                            <p class="text-[11px] text-yellow-700">
+                                Eremuak lehenik definitu behar dira graduan (sidebar edo graduaren datuetan).
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                ` : `
+                <div class="text-[10px] text-gray-500 mb-2 flex items-center">
+                    <i class="fas fa-check-circle text-green-500 mr-1"></i>
+                    <span class="mr-2">${areaCount} eremu aurkituak</span>
+                    <select id="quickAreaSelect" class="text-xs border border-gray-300 rounded px-2 py-1 ml-auto">
+                        <option value="">Hautatu eremua...</option>
+                        ${sortedAreaNames.map(area => `
+                            <option value="${area}">${area}</option>
+                        `).join('')}
+                    </select>
+                </div>
+                `}
+            </div>
+            
+            <div class="flex gap-2 px-3 mb-1 text-[9px] font-bold text-gray-400 uppercase">
+                <div class="w-1/4">Kodea</div>
+                <div class="w-2/5">Izena</div>
+                <div class="w-2/5">Ezagutza Eremua</div>
+                <div class="w-8"></div>
+            </div>
 
-			const body = document.getElementById('preReqTableBody');
-			
-			// Crear/actualizar datalist
-			let datalist = document.getElementById('preReqAreasList');
-			if (!datalist) {
-				datalist = document.createElement('datalist');
-				datalist.id = 'preReqAreasList';
-				document.body.appendChild(datalist);
-			}
-			
-			// Poblar datalist con ¨¢reas
-			datalist.innerHTML = '';
-			Object.keys(areaColorMap).sort().forEach(areaName => {
-				const option = document.createElement('option');
-				option.value = areaName;
-				datalist.appendChild(option);
-			});
+            <div id="preReqTableBody" class="space-y-2 pb-4 max-h-[60vh] overflow-y-auto pr-1"></div>
+            
+            <!-- Datalist para autocompletar -->
+            <datalist id="preReqAreasList">
+                ${sortedAreaNames.map(area => `
+                    <option value="${area}">${area}</option>
+                `).join('')}
+            </datalist>
+        `;
 
-			localList.forEach((item, index) => {
-				// Compatibilidad con datos antiguos
-				if (typeof item === 'string') {
-					item = { code: '', name: item, area: '', color: '#94a3b8' };
-				}
-				
-				// Generar c¨®digo autom¨¢tico
-				const autoCode = generateAutoCode(index);
-				item.code = autoCode;
-				localList[index] = item;
-				
-				// Determinar color para mostrar
-				let displayColor = '#e2e8f0';
-				if (item.area && areaColorMap[item.area]) {
-					displayColor = parseColor(areaColorMap[item.area]);
-				} else if (item.color) {
-					displayColor = parseColor(item.color);
-				}
+        const body = document.getElementById('preReqTableBody');
 
-				const row = document.createElement('div');
-				row.className = "flex gap-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition items-center";
-				
-				row.innerHTML = `
-					<div class="w-1/4">
-						<input type="text" 
-							   class="w-full text-xs font-mono font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 outline-none cursor-not-allowed" 
-							   value="${item.code}" 
-							   readonly
-							   title="Kode automatikoa (AE_numeroLETRAS_secuencia)">
-					</div>
-					<div class="w-2/5">
-						<input type="text" 
-							   class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 field-name" 
-							   value="${item.name || ''}" 
-							   placeholder="Aurre-ezagutzaren izena..."
-							   data-index="${index}"
-							   autocomplete="off">
-					</div>
-					<div class="w-2/5 relative">
-						<input type="text" 
-							   list="preReqAreasList"
-							   class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 pr-7 field-area" 
-							   value="${item.area || ''}" 
-							   placeholder="Hautatu eremua..."
-							   autocomplete="off"
-							   data-index="${index}"
-							   id="areaInput_${index}">
-						
-						<div class="absolute right-0 top-2.5 w-4 h-4 rounded-full area-color-preview border border-gray-300"
-							 style="background-color: ${displayColor}"
-							 title="${item.area || 'Ez dago eremurik'}"></div>
-					</div>
-					<button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition btn-delete" 
-							title="Ezabatu aurre-ezagutza hau"
-							data-index="${index}">
-						<i class="fas fa-trash-alt text-sm"></i>
-					</button>
-				`;
+        // Azkar aukeratzeko dropdown-a
+        const quickSelect = document.getElementById('quickAreaSelect');
+        if (quickSelect) {
+            quickSelect.addEventListener('change', function() {
+                if (this.value) {
+                    const activeInput = document.activeElement;
+                    if (activeInput && activeInput.classList.contains('field-area')) {
+                        activeInput.value = this.value;
+                        const event = new Event('input', { bubbles: true });
+                        activeInput.dispatchEvent(event);
+                    }
+                    this.value = '';
+                }
+            });
+        }
 
-				const nameInput = row.querySelector('.field-name');
-				const areaInput = row.querySelector('.field-area');
-				const colorPreview = row.querySelector('.area-color-preview');
-				const deleteBtn = row.querySelector('.btn-delete');
+        localList.forEach((item, index) => {
+            // Kode automatikoa sortu
+            const autoCode = generateAutoCode(index);
+            item.code = autoCode;
+            localList[index] = item;
+            
+            // Kolorea zehaztu
+            let displayColor = '#e2e8f0';
+            let areaName = item.area || '';
+            
+            if (areaName && areaColorMap[areaName]) {
+                displayColor = parseColor(areaColorMap[areaName]);
+            } else if (item.color) {
+                displayColor = parseColor(item.color);
+            }
 
-				const updateRow = () => {
-					const newName = nameInput.value.trim();
-					const newArea = areaInput.value.trim();
-					
-					// Actualizar color basado en el ¨¢rea seleccionada
-					let matchedColor = '#94a3b8';
-					if (newArea && areaColorMap[newArea]) {
-						matchedColor = parseColor(areaColorMap[newArea]);
-					}
-					
-					colorPreview.style.backgroundColor = matchedColor;
-					colorPreview.title = newArea || 'Ez dago eremurik';
-					
-					// Actualizar el modelo
-					localList[index] = {
-						code: autoCode,
-						name: newName,
-						area: newArea,
-						color: matchedColor
-					};
-				};
+            const row = document.createElement('div');
+            row.className = "flex gap-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition items-center";
+            
+            row.innerHTML = `
+                <div class="w-1/4">
+                    <input type="text" 
+                           class="w-full text-xs font-mono font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 outline-none cursor-not-allowed" 
+                           value="${item.code}" 
+                           readonly
+                           title="Kode automatikoa (AE_numeroLETRAS_secuencia)">
+                </div>
+                <div class="w-2/5">
+                    <input type="text" 
+                           class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 field-name" 
+                           value="${item.name || ''}" 
+                           placeholder="Aurre-ezagutzaren izena..."
+                           data-index="${index}"
+                           autocomplete="off">
+                </div>
+                <div class="w-2/5 relative">
+                    <input type="text" 
+                           list="preReqAreasList"
+                           class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 pr-7 field-area" 
+                           value="${areaName}" 
+                           placeholder="Idatzi eremuaren izena..."
+                           autocomplete="off"
+                           data-index="${index}"
+                           id="areaInput_${index}">
+                    
+                    <div class="absolute right-0 top-2.5 w-4 h-4 rounded-full area-color-preview border border-gray-300"
+                         style="background-color: ${displayColor}"
+                         title="${areaName || 'Ez dago eremurik'}"></div>
+                </div>
+                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition btn-delete" 
+                        title="Ezabatu aurre-ezagutza hau"
+                        data-index="${index}">
+                    <i class="fas fa-trash-alt text-sm"></i>
+                </button>
+            `;
 
-				// Event listeners
-				nameInput.addEventListener('input', updateRow);
-				nameInput.addEventListener('blur', updateRow);
-				
-				areaInput.addEventListener('input', updateRow);
-				areaInput.addEventListener('blur', updateRow);
-				areaInput.addEventListener('change', updateRow);
-				
-				// Sugerencias en tiempo real
-				areaInput.addEventListener('input', function(e) {
-					const value = this.value.toLowerCase();
-					if (value && Object.keys(areaColorMap).some(area => 
-						area.toLowerCase().includes(value))) {
-						this.style.borderColor = '#10b981';
-					} else {
-						this.style.borderColor = value ? '#ef4444' : '#d1d5db';
-					}
-					updateRow();
-				});
+            const nameInput = row.querySelector('.field-name');
+            const areaInput = row.querySelector('.field-area');
+            const colorPreview = row.querySelector('.area-color-preview');
+            const deleteBtn = row.querySelector('.btn-delete');
 
-				deleteBtn.addEventListener('click', (e) => {
-					e.stopPropagation();
-					if (localList.length <= 1) {
-						alert("Gutxienez aurre-ezagutza bat egon behar da.");
-						return;
-					}
-					if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
-						localList.splice(index, 1);
-						renderTable();
-					}
-				});
+            const updateRow = () => {
+                const newName = nameInput.value.trim();
+                const newArea = areaInput.value.trim();
+                
+                // Kolorea eguneratu
+                let matchedColor = '#94a3b8';
+                if (newArea && areaColorMap[newArea]) {
+                    matchedColor = parseColor(areaColorMap[newArea]);
+                }
+                
+                colorPreview.style.backgroundColor = matchedColor;
+                colorPreview.title = newArea || 'Ez dago eremurik';
+                
+                // Datuak eguneratu
+                localList[index] = {
+                    code: autoCode,
+                    name: newName,
+                    area: newArea,
+                    color: matchedColor
+                };
+            };
 
-				body.appendChild(row);
-			});
+            // Event listeners
+            nameInput.addEventListener('input', updateRow);
+            nameInput.addEventListener('blur', updateRow);
+            
+            areaInput.addEventListener('input', updateRow);
+            areaInput.addEventListener('blur', updateRow);
+            areaInput.addEventListener('change', updateRow);
+            
+            // Autocomplete
+            areaInput.addEventListener('input', function(e) {
+                const value = this.value.toLowerCase();
+                const hasMatch = sortedAreaNames.some(area => 
+                    area.toLowerCase().includes(value)
+                );
+                
+                if (value && hasMatch) {
+                    this.style.borderColor = '#10b981';
+                } else {
+                    this.style.borderColor = value ? '#ef4444' : '#d1d5db';
+                }
+                updateRow();
+            });
 
-			// A?adir fila vac¨ªa si no hay elementos
-			if (localList.length === 0) {
-				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
-				renderTable();
-				return;
-			}
-		};
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (localList.length <= 1) {
+                    alert("Gutxienez aurre-ezagutza bat egon behar da.");
+                    return;
+                }
+                if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
+                    localList.splice(index, 1);
+                    renderTable();
+                }
+            });
 
-		// Bot¨®n para a?adir nueva fila
-		container.addEventListener('click', (e) => {
-			if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
-				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
-				renderTable();
-				
-				// Enfocar el ¨²ltimo campo de nombre a?adido
-				setTimeout(() => {
-					const lastRow = document.querySelector('#preReqTableBody .field-name:last-child');
-					if (lastRow) lastRow.focus();
-				}, 50);
-			}
-		});
+            body.appendChild(row);
+        });
 
-		// Renderizar inicialmente
-		renderTable();
+        // Fila hutsa gehitu behar bada
+        if (localList.length === 0) {
+            localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
+            renderTable();
+            return;
+        }
+    };
 
-		// ---------------------------------------------------------
-		// 6. CONFIGURAR BOT¨®N GUARDAR
-		// ---------------------------------------------------------
-		const saveBtn = this._setupSaveButtonRaw(modal);
-		saveBtn.onclick = async () => {
-			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-			saveBtn.disabled = true;
-			
-			try {
-				// Filtrar filas vac¨ªas
-				const filteredList = localList.filter(item => item.name && item.name.trim());
-				
-				if (filteredList.length === 0) {
-					alert("Gutxienez aurre-ezagutza bat definitu behar duzu.");
-					saveBtn.innerHTML = 'Gorde Aldaketak';
-					saveBtn.disabled = false;
-					return;
-				}
-				
-				// Actualizar la lista con solo elementos v¨¢lidos
-				this.currentSubject.context.preReq = filteredList;
-				
-				// Guardar tambi¨¦n en formato antiguo para compatibilidad
-				this.currentSubject.context.pre_requisites = filteredList.map(item => item.name);
-				this.currentSubject.preReq = filteredList;
-				
-				// Guardar datos
-				await this.saveData();
-				modal.classList.add('hidden');
-				
-				// Actualizar vista detallada
-				if (window.ui && window.ui.renderSubjectDetail) {
-					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-				}
-				
-				// Mostrar confirmaci¨®n
-				if (this.showNotification) {
-					this.showNotification('Aurre-ezagutzak gorde dira!', 'success');
-				} else {
-					alert('? Aurre-ezagutzak gorde dira!');
-				}
-				
-			} catch (error) {
-				console.error('Errorea gordetzean:', error);
-				alert("Errorea gordetzerakoan: " + error.message);
-			} finally {
-				saveBtn.innerHTML = 'Gorde Aldaketak';
-				saveBtn.disabled = false;
-			}
-		};
+    // Gehitu botoia
+    container.addEventListener('click', (e) => {
+        if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
+            localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
+            renderTable();
+            
+            setTimeout(() => {
+                const lastRow = document.querySelector('#preReqTableBody .field-name:last-child');
+                if (lastRow) lastRow.focus();
+            }, 50);
+        }
+    });
 
-		// Mostrar modal
-		modal.classList.remove('hidden');
-	}
+    // Renderizar
+    renderTable();
+
+    // ---------------------------------------------------------
+    // 6. CONFIGURAR BOTÓN GUARDAR
+    // ---------------------------------------------------------
+    const saveBtn = this._setupSaveButtonRaw(modal);
+    saveBtn.onclick = async () => {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
+        
+        try {
+            // Filtroak
+            const filteredList = localList.filter(item => item.name && item.name.trim());
+            
+            if (filteredList.length === 0) {
+                alert("Gutxienez aurre-ezagutza bat definitu behar duzu.");
+                saveBtn.innerHTML = 'Gorde Aldaketak';
+                saveBtn.disabled = false;
+                return;
+            }
+            
+            // ✨ ALDAKETA: Datuak erroan gorde soilik
+            this.currentSubject.preReq = filteredList;
+            
+            // ✨ OHARRA: context ez da behar, baina mantentzeko kodea
+            if (!this.currentSubject.context) {
+                this.currentSubject.context = {};
+            }
+            // Hemen soilik context-ean ere gorde nahi baduzu:
+            // this.currentSubject.context.preReq = filteredList;
+            
+            // Datuak gorde
+            await this.saveData();
+            modal.classList.add('hidden');
+            
+            // Vista eguneratu
+            if (window.ui && window.ui.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+            
+            // Berri ona
+            if (this.showNotification) {
+                this.showNotification('Aurre-ezagutzak gorde dira!', 'success');
+            } else {
+                alert('✅ Aurre-ezagutzak gorde dira!');
+            }
+            
+        } catch (error) {
+            console.error('Errorea gordetzean:', error);
+            alert("Errorea gordetzerakoan: " + error.message);
+        } finally {
+            saveBtn.innerHTML = 'Gorde Aldaketak';
+            saveBtn.disabled = false;
+        }
+    };
+
+    // Modal erakutsi
+    modal.classList.remove('hidden');
+}
 	
-	openSignActEditor() {
-		if (!this.currentSubject) return;
+openSignActEditor() {
+    if (!this.currentSubject) return;
 
-		// 1. Preparar Modal
-		const modal = document.getElementById('listEditorModal');
-		const container = document.getElementById('listEditorContainer');
-		const titleEl = document.getElementById('listEditorTitle');
-		const inputTop = document.getElementById('newItemInput')?.parentElement;
-		
-		// Ocultar la parte superior antigua y poner t¨ªtulo
-		if (inputTop) inputTop.classList.add('hidden');
-		if (titleEl) titleEl.innerHTML = `<i class="fas fa-star mr-2 text-indigo-500"></i> Jarduera Esanguratsuak`;
+    // 1. Preparar Modal
+    const modal = document.getElementById('listEditorModal');
+    const container = document.getElementById('listEditorContainer');
+    const titleEl = document.getElementById('listEditorTitle');
+    const inputTop = document.getElementById('newItemInput')?.parentElement;
+    
+    // Ocultar la parte superior antigua y poner título
+    if (inputTop) inputTop.classList.add('hidden');
+    if (titleEl) titleEl.innerHTML = `<i class="fas fa-star mr-2 text-indigo-500"></i> Jarduera Esanguratsuak`;
 
-		// 2. Inicializar datos locales (signAct)
-		if (!this.currentSubject.context) this.currentSubject.context = {};
-		if (!this.currentSubject.context.signAct) this.currentSubject.context.signAct = [];
-		const localList = this.currentSubject.context.signAct;
+    // 2. Inicializar datos locales (signAct) - ✨ ALDAKETA: erroan zuzenean
+    // Lehenik erroan bilatu
+    if (!Array.isArray(this.currentSubject.signAct)) {
+        // Fallback: context-ean badaude, erro-ra kopiatu
+        if (this.currentSubject.context && Array.isArray(this.currentSubject.context.signAct)) {
+            this.currentSubject.signAct = [...this.currentSubject.context.signAct];
+        } else {
+            this.currentSubject.signAct = []; // Erroan hasieratu
+        }
+    }
+    const localList = this.currentSubject.signAct; // ✨ context erabili gabe
 
-		// 3. ?? PREPARAR LA INTELIGENCIA (Datos Globales)
-		const globalProjects = this.adminCatalogs.externalProjects || [];
-		
-		// Mapa r¨¢pido: Tipo -> Color (Ej: "Bisita" -> "#ff0000")
-		const typeColorMap = {};
-		const agentsSet = new Set();
-		const typesSet = new Set();
+    // 3. PREPARAR LA INTELIGENCIA (Datos Globales)
+    const globalProjects = this.adminCatalogs.externalProjects || [];
+    
+    // Mapa rápido: Tipo -> Color
+    const typeColorMap = {};
+    const agentsSet = new Set();
+    const typesSet = new Set();
 
-		globalProjects.forEach(p => {
-			if (p.type) {
-				typesSet.add(p.type);
-				// Si este tipo tiene color, lo guardamos en el mapa
-				if (p.color && p.color !== '#94a3b8') {
-					typeColorMap[p.type] = p.color;
-				}
-			}
-			if (p.agent) agentsSet.add(p.agent);
-		});
+    globalProjects.forEach(p => {
+        if (p.type) {
+            typesSet.add(p.type);
+            if (p.color && p.color !== '#94a3b8') {
+                typeColorMap[p.type] = p.color;
+            }
+        }
+        if (p.agent) agentsSet.add(p.agent);
+    });
 
-		const uniqueTypes = [...typesSet].sort();
-		const uniqueAgents = [...agentsSet].sort();
+    const uniqueTypes = [...typesSet].sort();
+    const uniqueAgents = [...agentsSet].sort();
 
-		// Funci¨®n auxiliar para obtener color
-		const getColorForType = (type) => typeColorMap[type] || null;
+    // Función auxiliar para obtener color
+    const getColorForType = (type) => typeColorMap[type] || null;
 
-		// 4. Renderizar Editor
-		const renderTable = () => {
-			container.innerHTML = `
-				<div class="flex justify-between items-center mb-3">
-					<span class="text-[10px] text-gray-400 italic">
-						<i class="fas fa-magic mr-1"></i> Kolorea automatikoki aldatuko da motaren arabera.
-					</span>
-					<button id="btnAddSignAct" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
-						+ Gehitu Jarduera
-					</button>
-				</div>
-				<div id="signActTableBody" class="space-y-3 pb-4 max-h-[60vh] overflow-y-auto pr-2"></div>
-			`;
+    // 4. Renderizar Editor
+    const renderTable = () => {
+        container.innerHTML = `
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-[10px] text-gray-400 italic">
+                    <i class="fas fa-magic mr-1"></i> Kolorea automatikoki aldatuko da motaren arabera.
+                </span>
+                <button id="btnAddSignAct" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
+                    + Gehitu Jarduera
+                </button>
+            </div>
+            <div id="signActTableBody" class="space-y-3 pb-4 max-h-[60vh] overflow-y-auto pr-2"></div>
+        `;
 
-			const body = document.getElementById('signActTableBody');
+        const body = document.getElementById('signActTableBody');
 
-			localList.forEach((item, index) => {
-				// Normalizar datos antiguos si eran strings
-				if (typeof item === 'string') {
-					item = { name: item, agent: '', type: '', color: '#94a3b8' };
-					localList[index] = item;
-				}
+        localList.forEach((item, index) => {
+            // Normalizar datos si eran strings
+            if (typeof item === 'string') {
+                item = { name: item, agent: '', type: '', color: '#94a3b8' };
+                localList[index] = item;
+            }
 
-				// Si el item no tiene color propio (o es el gris por defecto), intentamos deducirlo del tipo
-				let displayColor = item.color;
-				if ((!displayColor || displayColor === '#94a3b8') && item.type) {
-					const suggested = getColorForType(item.type);
-					if (suggested) displayColor = suggested;
-				}
-				// Fallback final
-				if (!displayColor) displayColor = '#94a3b8';
+            // Si el item no tiene color propio, intentamos deducirlo del tipo
+            let displayColor = item.color;
+            if ((!displayColor || displayColor === '#94a3b8') && item.type) {
+                const suggested = getColorForType(item.type);
+                if (suggested) displayColor = suggested;
+            }
+            // Fallback final
+            if (!displayColor) displayColor = '#94a3b8';
 
-				const row = document.createElement('div');
-				row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group hover:border-indigo-300 transition";
-				
-				row.innerHTML = `
-					<div class="flex gap-2">
-						<div class="w-1/3">
-							<label class="block text-[9px] font-bold text-gray-400 uppercase">Agentea</label>
-							<input type="text" list="signActAgentSuggestions" 
-								class="w-full text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-agent" 
-								value="${item.agent || ''}" placeholder="Erakundea...">
-						</div>
-						<div class="w-2/3">
-							<label class="block text-[9px] font-bold text-gray-400 uppercase">Jardueraren Izena</label>
-							<input type="text" 
-								class="w-full text-sm text-gray-800 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-name" 
-								value="${item.name || ''}" placeholder="Jardueraren izena...">
-						</div>
-					</div>
-					
-					<div class="flex gap-2 items-end">
-						<div class="flex-grow">
-							<label class="block text-[9px] font-bold text-gray-400 uppercase">Mota</label>
-							<div class="flex items-center gap-2">
-								<input type="text" list="signActTypeSuggestions" 
-									class="flex-grow text-xs text-gray-500 border-b border-gray-100 focus:border-indigo-500 outline-none bg-transparent py-1 field-type"
-									value="${item.type || ''}" placeholder="Mota...">
-								
-								<div class="w-4 h-4 rounded-full border border-gray-300 shadow-sm type-color-preview transition-colors duration-300"
-									 style="background-color: ${displayColor}"
-									 title="Kolorea"></div>
-							</div>
-						</div>
-						
-						<div class="w-12 text-right">
-							<input type="color" 
-								class="w-8 h-6 p-0 border-0 rounded cursor-pointer field-color" 
-								value="${displayColor}">
-						</div>
-					</div>
+            const row = document.createElement('div');
+            row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group hover:border-indigo-300 transition";
+            
+            row.innerHTML = `
+                <div class="flex gap-2">
+                    <div class="w-1/3">
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Agentea</label>
+                        <input type="text" list="signActAgentSuggestions" 
+                            class="w-full text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-agent" 
+                            value="${item.agent || ''}" placeholder="Erakundea...">
+                    </div>
+                    <div class="w-2/3">
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Jardueraren Izena</label>
+                        <input type="text" 
+                            class="w-full text-sm text-gray-800 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-name" 
+                            value="${item.name || ''}" placeholder="Jardueraren izena...">
+                    </div>
+                </div>
+                
+                <div class="flex gap-2 items-end">
+                    <div class="flex-grow">
+                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Mota</label>
+                        <div class="flex items-center gap-2">
+                            <input type="text" list="signActTypeSuggestions" 
+                                class="flex-grow text-xs text-gray-500 border-b border-gray-100 focus:border-indigo-500 outline-none bg-transparent py-1 field-type"
+                                value="${item.type || ''}" placeholder="Mota...">
+                            
+                            <div class="w-4 h-4 rounded-full border border-gray-300 shadow-sm type-color-preview transition-colors duration-300"
+                                 style="background-color: ${displayColor}"
+                                 title="Kolorea"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="w-12 text-right">
+                        <input type="color" 
+                            class="w-8 h-6 p-0 border-0 rounded cursor-pointer field-color" 
+                            value="${displayColor}">
+                    </div>
+                </div>
 
-					<button class="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition btn-delete">
-						<i class="fas fa-trash"></i>
-					</button>
-				`;
+                <button class="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition btn-delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
 
-				// ?? LOGICA DE ACTUALIZACI¨®N Y COLORES
-				const agentInput = row.querySelector('.field-agent');
-				const nameInput = row.querySelector('.field-name');
-				const typeInput = row.querySelector('.field-type');
-				const colorInput = row.querySelector('.field-color');
-				const colorPreview = row.querySelector('.type-color-preview');
+            // LOGICA DE ACTUALIZACIÓN Y COLORES
+            const agentInput = row.querySelector('.field-agent');
+            const nameInput = row.querySelector('.field-name');
+            const typeInput = row.querySelector('.field-type');
+            const colorInput = row.querySelector('.field-color');
+            const colorPreview = row.querySelector('.type-color-preview');
 
-				const updateModel = () => {
-					localList[index] = {
-						agent: agentInput.value,
-						name: nameInput.value,
-						type: typeInput.value,
-						color: colorInput.value
-					};
-				};
+            const updateModel = () => {
+                localList[index] = {
+                    agent: agentInput.value,
+                    name: nameInput.value,
+                    type: typeInput.value,
+                    color: colorInput.value
+                };
+            };
 
-				// Evento especial para el TIPO:
-				// Al escribir, buscamos si ese tipo tiene color asignado en el mapa global
-				typeInput.addEventListener('input', (e) => {
-					const val = e.target.value;
-					const autoColor = getColorForType(val);
-					
-					if (autoColor) {
-						// Actualizamos visualmente
-						colorInput.value = autoColor;
-						colorPreview.style.backgroundColor = autoColor;
-						// Actualizamos modelo
-						updateModel(); 
-					} else {
-						// Solo actualizamos el texto del modelo, respetamos el color que ya tuviera
-						localList[index].type = val;
-					}
-				});
+            // Evento especial para el TIPO:
+            typeInput.addEventListener('input', (e) => {
+                const val = e.target.value;
+                const autoColor = getColorForType(val);
+                
+                if (autoColor) {
+                    colorInput.value = autoColor;
+                    colorPreview.style.backgroundColor = autoColor;
+                    updateModel();
+                } else {
+                    localList[index].type = val;
+                }
+            });
 
-				// Evento normal para el color (si el usuario lo cambia manualmente)
-				colorInput.addEventListener('input', (e) => {
-					const val = e.target.value;
-					colorPreview.style.backgroundColor = val;
-					updateModel();
-				});
+            // Evento para el color manual
+            colorInput.addEventListener('input', (e) => {
+                const val = e.target.value;
+                colorPreview.style.backgroundColor = val;
+                updateModel();
+            });
 
-				// Resto de eventos
-				[agentInput, nameInput].forEach(inp => inp.addEventListener('input', updateModel));
-				
-				// Eliminar
-				row.querySelector('.btn-delete').addEventListener('click', () => {
-					if(confirm("Ezabatu?")) {
-						localList.splice(index, 1);
-						renderTable();
-					}
-				});
+            // Resto de eventos
+            [agentInput, nameInput].forEach(inp => inp.addEventListener('input', updateModel));
+            
+            // Eliminar
+            row.querySelector('.btn-delete').addEventListener('click', () => {
+                if(confirm("Ziur zaude jarduera hau ezabatu nahi duzula?")) {
+                    localList.splice(index, 1);
+                    renderTable();
+                }
+            });
 
-				body.appendChild(row);
-			});
+            body.appendChild(row);
+        });
 
-			// 5. Crear Datalists (Autocompletado)
-			const createDatalists = () => {
-				['signActTypeSuggestions', 'signActAgentSuggestions'].forEach(id => {
-					if(document.getElementById(id)) document.getElementById(id).remove();
-				});
+        // 5. Crear Datalists (Autocompletado)
+        const createDatalists = () => {
+            ['signActTypeSuggestions', 'signActAgentSuggestions'].forEach(id => {
+                if(document.getElementById(id)) document.getElementById(id).remove();
+            });
 
-				if (uniqueTypes.length) {
-					const dl = document.createElement('datalist');
-					dl.id = 'signActTypeSuggestions';
-					uniqueTypes.forEach(t => {
-						const op = document.createElement('option');
-						op.value = t;
-						// Guardamos el color en dataset por si acaso
-						if(typeColorMap[t]) op.dataset.color = typeColorMap[t]; 
-						dl.appendChild(op);
-					});
-					document.body.appendChild(dl);
-				}
+            if (uniqueTypes.length) {
+                const dl = document.createElement('datalist');
+                dl.id = 'signActTypeSuggestions';
+                uniqueTypes.forEach(t => {
+                    const op = document.createElement('option');
+                    op.value = t;
+                    if(typeColorMap[t]) op.dataset.color = typeColorMap[t]; 
+                    dl.appendChild(op);
+                });
+                document.body.appendChild(dl);
+            }
 
-				if (uniqueAgents.length) {
-					const dl = document.createElement('datalist');
-					dl.id = 'signActAgentSuggestions';
-					uniqueAgents.forEach(a => dl.appendChild(new Option(a)));
-					document.body.appendChild(dl);
-				}
-			};
-			createDatalists();
-		};
+            if (uniqueAgents.length) {
+                const dl = document.createElement('datalist');
+                dl.id = 'signActAgentSuggestions';
+                uniqueAgents.forEach(a => dl.appendChild(new Option(a)));
+                document.body.appendChild(dl);
+            }
+        };
+        createDatalists();
+    };
 
-		// Inicializar eventos de botones principales
-		document.getElementById('listEditorModal').classList.remove('hidden');
-		
-		// Bot¨®n a?adir
-		// Usamos delegaci¨®n o re-renderizado
-		renderTable(); // Primera renderizaci¨®n
-		
-		// Como el bot¨®n de a?adir est¨¢ dentro del innerHTML del container, 
-		// necesitamos a?adir su listener despu¨¦s de renderizar (o usar onclick en el HTML, pero mejor as¨ª:)
-		// Mejor truco: a?adir el listener al container y detectar click
-		container.addEventListener('click', (e) => {
-			if(e.target.id === 'btnAddSignAct') {
-				localList.push({ name: '', agent: '', type: '', color: '#94a3b8' });
-				renderTable();
-			}
-		});
+    // Inicializar modal
+    document.getElementById('listEditorModal').classList.remove('hidden');
+    
+    // Primera renderización
+    renderTable();
+    
+    // Botón añadir (delegación de eventos)
+    container.addEventListener('click', (e) => {
+        if(e.target.id === 'btnAddSignAct' || e.target.closest('#btnAddSignAct')) {
+            localList.push({ name: '', agent: '', type: '', color: '#94a3b8' });
+            renderTable();
+        }
+    });
 
-		// 6. Bot¨®n Guardar
-		const saveBtn = this._setupSaveButtonRaw(modal);
-		saveBtn.onclick = async () => {
-			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-			try {
-				await this.saveData(); // Guarda toda la asignatura
-				modal.classList.add('hidden');
-				if (window.ui && this.currentSubject) {
-					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-				}
-			} catch (e) {
-				console.error(e);
-				alert("Errorea gordetzerakoan.");
-			} finally {
-				saveBtn.innerHTML = 'Gorde Aldaketak';
-			}
-		};
-	}
-
-
-    async saveListEditor() {  // <--- ?F¨ªjate en el 'async' aqu¨ª!
-        if (!this.currentEditingField) return;
+    // 6. Botón Guardar
+    const saveBtn = this._setupSaveButtonRaw(modal);
+    saveBtn.onclick = async () => {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
         
-        const fieldName = this.currentEditingField;
-        const isDegree = this.isEditingDegree; 
+        try {
+            // ✨ ALDAKETA: guardar en erro
+            // Filtroak: bakarrik izena dutenak
+            const filteredList = localList.filter(item => item.name && item.name.trim());
+            this.currentSubject.signAct = filteredList;
+            
+            // ✨ BATERAGARRIKOTASUNA: context-ean ere gorde (beharrezkoa bada)
+            if (!this.currentSubject.context) {
+                this.currentSubject.context = {};
+            }
+            // Kontsultatu ea context-ean mantendu nahi duzun:
+            // this.currentSubject.context.signAct = filteredList;
+            
+            await this.saveData();
+            modal.classList.add('hidden');
+            
+            // Actualizar vista
+            if (window.ui && this.currentSubject) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+            
+            // Mostrar notificación
+            if (this.showNotification) {
+                this.showNotification('Jarduera esanguratsuak gorde dira!', 'success');
+            } else {
+                alert('✅ Jarduera esanguratsuak gorde dira!');
+            }
+            
+        } catch (e) {
+            console.error(e);
+            alert("Errorea gordetzerakoan: " + e.message);
+        } finally {
+            saveBtn.innerHTML = 'Gorde Aldaketak';
+            saveBtn.disabled = false;
+        }
+    };
+}
 
-        console.log(`?? Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
-        
+async saveListEditor() {
+    if (!this.currentEditingField) return;
+    
+    const fieldName = this.currentEditingField;
+    const isDegree = this.isEditingDegree;
+    const modal = document.getElementById('listEditorModal');
+    const saveBtn = modal?.querySelector('#saveListBtn');
+
+    // Deshabilitar botón durante guardado
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
+    }
+
+    console.log(`💾 Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
+    
+    try {
         const inputs = document.querySelectorAll('.list-item-input');
         const newList = Array.from(inputs)
             .map(i => i.value.trim())
             .filter(v => v !== "");
         
-        // 1. ACTUALIZAR EL OBJETO EN MEMORIA
+        // 1. VALIDACIÓN BÁSICA
+        if (newList.length === 0) {
+            throw new Error('Gutxienez elementu bat gehitu behar duzu.');
+        }
+
+        // 2. ACTUALIZAR EL OBJETO EN MEMORIA
         if (isDegree) {
             // Guardar en el objeto Grado
             this.currentDegree[fieldName] = newList;
             
-            // Refrescar Sidebar inmediatamente
-            if (window.ui && window.ui.renderSidebar) {
+            // Refrescar Sidebar
+            if (window.ui?.renderSidebar) {
                 window.ui.renderSidebar(this.currentDegree);
             }
         } else {
             // Guardar en el objeto Asignatura
-            if (!this.currentSubject) return;
+            if (!this.currentSubject) {
+                throw new Error('Ez dago aukeratutako irakasgairik');
+            }
             
-            // Si el campo no existe en 'context', lo creamos o actualizamos
-            // Nota: Aqu¨ª asumo que usas 'context' para las listas nuevas (IDU, ODS...)
-            // Si usas propiedades directas, ajusta esto.
-            const target = this.currentSubject.context ? this.currentSubject.context : this.currentSubject;
-            target[fieldName] = newList;
+            // ✨ ALDAKETA PRINCIPAL: erroan gorde
+            this.currentSubject[fieldName] = newList;
+            
+            // ✨ BATERAGARRIKOTASUNA: context-ean ere (aukerakoa)
+            // Mantener context si otros módulos lo necesitan
+            if (fieldName === 'idu' || fieldName === 'ods' || fieldName === 'external_projects') {
+                if (!this.currentSubject.context) {
+                    this.currentSubject.context = {};
+                }
+                this.currentSubject.context[fieldName] = newList;
+            }
 
             // Refrescar Detalle Asignatura
-            if (window.ui && window.ui.renderSubjectDetail) {
+            if (window.ui?.renderSubjectDetail) {
                 window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
             }
         }
         
-        // 2. GUARDAR EN SUPABASE (BD)
-        // Usamos 'await' para esperar a que se guarde antes de cerrar el modal
-        try {
-            await this.saveData(); 
-            console.log("? Datos guardados correctamente en BD");
-        } catch (e) {
-            console.error("? Error al guardar en BD:", e);
-            // Aqu¨ª podr¨ªas mostrar un aviso al usuario si falla
+        // 3. GUARDAR EN BD
+        await this.saveData();
+        
+        console.log("✅ Datos guardados correctamente");
+        
+        // 4. NOTIFICACIÓN
+        if (this.showNotification) {
+            const fieldNames = {
+                'idu': 'IDU Zerrenda',
+                'ods': 'ODS Zerrenda', 
+                'external_projects': 'Proiektu Kanpoak',
+                'partners': 'Lankideak',
+                'skills': 'Gaitasunak'
+            };
+            
+            const displayName = fieldNames[fieldName] || fieldName;
+            this.showNotification(`${displayName} gorde da!`, 'success');
         }
-
-        // 3. CERRAR MODAL
-        const modal = document.getElementById('listEditorModal');
-        if(modal) modal.classList.add('hidden');
+        
+        // 5. CERRAR MODAL
+        if (modal) {
+            modal.classList.add('hidden');
+            
+            // Opcional: limpiar estado
+            this.currentEditingField = null;
+            this.isEditingDegree = false;
+        }
+        
+    } catch (error) {
+        console.error("❌ Error al guardar:", error);
+        
+        // Mostrar error al usuario
+        if (this.showNotification) {
+            this.showNotification(`Errorea: ${error.message}`, 'error');
+        } else {
+            alert(`❌ Errorea: ${error.message}`);
+        }
+        
+        // No cerrar el modal en caso de error
+        return;
+        
+    } finally {
+        // Restaurar botón
+        if (saveBtn) {
+            saveBtn.innerHTML = 'Gorde Aldaketak';
+            saveBtn.disabled = false;
+        }
     }
+}
 
 // ==========================================
 // GESTI¨®N DE LA VISTA DE PLANIFICACI¨®N (GANTT)
@@ -4352,6 +4510,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
