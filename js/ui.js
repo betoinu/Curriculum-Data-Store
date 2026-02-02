@@ -891,6 +891,35 @@ renderSubjectDetail: async (subject, degree) => {
             }   
         }
         document.getElementById('mainContent')?.scrollTo(0, 0);
+	
+	// KONEXIOA: HTML botoiak -> GradosManager funtzioak
+        const bm = window.gradosManager; 
+        if (bm) {
+            // 1. ODS Botoia
+            const btnOds = document.getElementById('addOdsBtn');
+            if (btnOds) {
+                // Klonatu listener zaharrak garbitzeko
+                const newBtn = btnOds.cloneNode(true);
+                btnOds.parentNode.replaceChild(newBtn, btnOds);
+                // Zure funtzio espezifikoa deitu
+                newBtn.onclick = () => bm.openOdsSelector();
+            }
+
+            // 2. Proiektu Botoia
+            const btnExt = document.getElementById('addExtProyBtn');
+            if (btnExt) {
+                const newBtn = btnExt.cloneNode(true);
+                btnExt.parentNode.replaceChild(newBtn, btnExt);
+                newBtn.onclick = () => bm.openProjectsSelector();
+            }
+
+            // 3. IDU Botoia
+            const btnIdu = document.getElementById('addIduBtn');
+            if (btnIdu) {
+                const newBtn = btnIdu.cloneNode(true);
+                btnIdu.parentNode.replaceChild(newBtn, btnIdu);
+                newBtn.onclick = () => bm.openIduSelector();
+            }
     },
 
 	
@@ -1476,6 +1505,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
