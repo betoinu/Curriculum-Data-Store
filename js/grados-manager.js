@@ -103,94 +103,105 @@ class GradosManager {
 			}
 		}
 
+// ZURE JATORRIZKO loadData() funtzioan ALDATU BEHAR DENA:
+
+// Ordezko kodea grados-manager.js fitxategian:
+
 async loadData() {
-	try {
-		const supabase = getSupabaseInstance();
-		if (!supabase) return;
+    console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
+    
+    try {
+        const supabase = getSupabaseInstance();
+        if (!supabase) return;
 
-		// 1. CARGAR PROYECTOS COMPLETOS
-		const { data: proyectosCompletos, error: errorProyectos } = await supabase
-			.from('admin_external_projects')
-			.select('id, name, type, agent, color, coordinator')
-			.order('name');
-		
-		// 2. CARGAR curriculum_data
-		const { data: curriculumData, error: errorCurriculum } = await supabase
-			.from('curriculum_data')
-			.select('*')
-			.order('created_at', { ascending: false })
-			.limit(1);
+        // 🔥 1. CARGAR CURRICULUM_DATA (sin user_id, solo primera fila)
+        const { data: curriculumData, error: errorCurriculum } = await supabase
+            .from('curriculum_data')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-		if (errorCurriculum) throw errorCurriculum;
+        if (errorCurriculum) {
+            console.error("❌ Error cargando curriculum_data:", errorCurriculum);
+            throw errorCurriculum;
+        }
 
-		if (curriculumData && curriculumData.length > 0) {
-			const row = curriculumData[0];
-			this.currentRowId = row.id;
-			
-			if (row.datos) {
-				this.cachedData = row.datos;
-				
-				// 🔥 3. GEHITU idAsig IRAKASGAI ZAHARRETAN
-				if (this.cachedData.graduak) {
-					this.cachedData.graduak.forEach(grado => {
-						Object.values(grado.year || {}).forEach((asignaturas, yearIndex) => {
-							asignaturas.forEach((asig, asigIndex) => {
-								if (!asig.idAsig) {
-									const gradoCodigo = grado.codigo || 'G';
-									// YearIndex + 1 porque los años empiezan en 1
-									const yearNum = Object.keys(grado.year || {})[yearIndex] || '1';
-									const indice = asigIndex + 1;
-									asig.idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
-								}
-							});
-						});
-					});
-				}
-				
-				// 4. Completar proyectos...
-				if (this.cachedData.proyectosExternos && 
-					proyectosCompletos && 
-					proyectosCompletos.length > 0) {
-					
-					const nuevosProyectos = this.cachedData.proyectosExternos.map(item => {
-						if (typeof item === 'string') {
-							const proyectoCompleto = proyectosCompletos.find(p => p.name === item);
-							return proyectoCompleto || { name: item, agent: 'Desconocido' };
-						}
-						return item;
-					});
-					
-					this.cachedData.proyectosExternos = nuevosProyectos;
-				}
-			}
-		}
+        console.log(`📊 curriculum_data emaitzak: ${curriculumData?.length || 0}`);
 
-		// 🔥 5. Asegurar estructura (GEHITU idAsig hutsik dagoenean)
-		if (!this.cachedData) {
-			this.cachedData = {
-				graduak: [],
-				proyectosExternos: []
-			};
-		}
-		
-		if (!this.cachedData.graduak) {
-			this.cachedData.graduak = [];
-		}
-		
-		if (!this.cachedData.proyectosExternos) {
-			this.cachedData.proyectosExternos = [];
-		}
+        if (curriculumData && curriculumData.length > 0) {
+            const row = curriculumData[0];
+            
+            // 🔥 2. BAD TEST ID? Ezabatu!
+            if (row.id === 'test-1769760197032') {
+                console.warn("⚠️ Test ID encontrado, eliminando...");
+                await supabase
+                    .from('curriculum_data')
+                    .delete()
+                    .eq('id', 'test-1769760197032');
+                
+                // Recargar después de eliminar
+                return this.loadData();
+            }
+            
+            this.currentRowId = row.id;
+            this.cachedData = row.datos;
+            
+            console.log(`✅ Row cargada: ${row.id}`);
+            console.log(`🎓 Graduak cargados: ${this.cachedData.graduak?.length || 0}`);
+            
+            // 🔥 3. GEHITU idAsig existitzen bada
+            if (this.cachedData.graduak) {
+                this.cachedData.graduak.forEach(grado => {
+                    const gradoCodigo = grado.codigo || grado.id || 'G';
+                    
+                    Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
+                        asignaturas.forEach((asig, asigIndex) => {
+                            if (!asig.idAsig) {
+                                const indice = asigIndex + 1;
+                                asig.idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+                            }
+                        });
+                    });
+                });
+            }
+            
+        } else {
+            console.log("ℹ️ No hay datos en curriculum_data");
+            this.cachedData = {
+                graduak: [],
+                proyectosExternos: []
+            };
+        }
 
-		this.populateDegreeSelect();
+        // 🔥 4. Asegurar estructura SIEMPRE
+        if (!this.cachedData) {
+            this.cachedData = {
+                graduak: [],
+                proyectosExternos: []
+            };
+        }
+        
+        if (!this.cachedData.graduak) {
+            this.cachedData.graduak = [];
+        }
+        
+        if (!this.cachedData.proyectosExternos) {
+            this.cachedData.proyectosExternos = [];
+        }
 
-		if (this.cachedData.graduak.length > 0) {
-			const primer = this.cachedData.graduak[0];
-			this.loadDegreeData(primer.codigo || primer.id);
-		}
+        console.log(`📋 Datu-egitura: ${this.cachedData.graduak.length} gradu`);
 
-	} catch (err) {
-		console.error("❌ Error cargando:", err);
-	}
+        // 🔥 5. UI EGUNERATU
+        this.populateDegreeSelect();
+
+    } catch (err) {
+        console.error("❌ Error crítico en loadData:", err);
+        // Fallback seguro
+        this.cachedData = {
+            graduak: [],
+            proyectosExternos: []
+        };
+    }
 }
 	
 async saveData() {
@@ -4274,6 +4285,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
