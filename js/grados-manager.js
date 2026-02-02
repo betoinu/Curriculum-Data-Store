@@ -65,47 +65,43 @@ class GradosManager {
     }
 
     // --- MODIFICACI¨®N 2: Nueva funci¨®n para cargar cat¨¢logos ---
-async loadCatalogs() {
-        console.log("📚 Katalogo guztiak (ODS barne) eguneratzen...");
-        const supabase = this.supabase || window.supabase;
-        
-        try {
-            // HIRU eskaera paraleloan (ODS gehituta!)
-            const [projResult, iduResult, odsResult] = await Promise.all([
-                supabase.from('external_projects').select('*'), // Egiaztatu taula izena
-                supabase.from('idu_guidelines').select('*'),    // Egiaztatu taula izena
-                supabase.from('ods').select('*')                // Egiaztatu taula izena (batzuetan 'sdg')
-            ]);
+	async loadCatalogs() {
+			console.log("?? Cargando catálogos oficiales desde Supabase...");
+			
+			try {
+				// 1. Cargar ODS
+				const { data: odsData, error: odsError } = await this.supabase
+					.from('catalog_ods')
+					.select('*')
+					.order('code', { ascending: true });
+				
+				if (odsError) console.error("Error cargando ODS:", odsError);
+				else this.adminCatalogs.ods = odsData || [];
 
-            // Erroreak banaka kontrolatu (batek huts egiten badu, besteak ez apurtzeko)
-            if (projResult.error) console.warn("⚠️ Proiektuak errorea:", projResult.error.message);
-            if (iduResult.error) console.warn("⚠️ IDU errorea:", iduResult.error.message);
-            if (odsResult.error) console.warn("⚠️ ODS errorea:", odsResult.error.message);
+				// 2. Cargar IDU
+				const { data: iduData, error: iduError } = await this.supabase
+					.from('catalog_idu')
+					.select('*')
+					.order('code', { ascending: true });
 
-            // MEMORIAN GORDE (UI-ak izen hauek espero ditu zehazki)
-            this.adminCatalogs = {
-                externalProjects: projResult.data || [],
-                iduGuidelines: iduResult.data || [],
-                ods: odsResult.data || []  // <--- HAU FALTA ZEN!
-            };
+				if (iduError) console.error("Error cargando IDU:", iduError);
+				else this.adminCatalogs.iduGuidelines = iduData || [];
 
-            // Debug bisuala
-            console.log(`✅ KATALOGOAK KARGATUTA:`);
-            console.log(`   - 🏗️ Proiektuak: ${this.adminCatalogs.externalProjects.length}`);
-            console.log(`   - 📘 IDU Gidak: ${this.adminCatalogs.iduGuidelines.length}`);
-            console.log(`   - 🌍 ODS/SDG: ${this.adminCatalogs.ods.length}`); // Honek 17 izan behar du
+				// 3. Cargar Proyectos Externos (Si ya tienes tabla)
+				const { data: projData, error: projError } = await this.supabase
+					.from('admin_external_projects')
+					.select('*')
+					.order('agent', { ascending: true }); // Ordenar por empresa
 
-            // UI freskatzea behartu (badaezpada modala irekita badago)
-            if (window.ui && typeof window.ui.renderSubjectDetail === 'function' && this.currentSubject) {
-                // Modala irekita badago, behartu berriro pintatzera katalogo berriekin
-                console.log("🔄 UI freskatzen katalogo berriekin...");
-                // window.ui.updateCatalogsInModal(); // Funtzio hau existitzen bada
-            }
+				if (projError) console.warn("Error cargando proyectos:", projError);
+				else this.adminCatalogs.externalProjects = projData || [];
 
-        } catch (error) {
-            console.error("❌ CRITICAL: Katalogoak kargatzean errorea:", error);
-        }
-    }
+				console.log("? Catálogos actualizados:", this.adminCatalogs);
+
+			} catch (err) {
+				console.error("? Error crítico cargando catálogos:", err);
+			}
+		}
 
 async loadData() {
     console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
@@ -4285,6 +4281,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
