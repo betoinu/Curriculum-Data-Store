@@ -548,14 +548,10 @@ renderSubjectDetail: async (subject, degree) => {
             });
 
             // ESTRATEGIA KONBINATUA:
-            // Objektua badugu, mantendu. Baina katalogoan aurkitu badugu,
-            // katalogoaren datuekin "osatu" (fill gaps) falta direnak (kolorea, agentea...).
             if (foundInCatalog) {
                 return {
-                    ...foundInCatalog, // Lehenetsi katalogoa (datu ofizialak: kolorea, izen estandarra...)
-                    ...itemObj,        // Gainidatzi item-aren datu espezifikoekin (badaude)
-                    // Baina ziurtatu kolorea eta agentea katalogoarenak direla lehentasunez,
-                    // itemObj-ak askotan kolore gabe etortzen direlako editoretik.
+                    ...foundInCatalog, // Lehenetsi katalogoa
+                    ...itemObj,        // Gainidatzi item-aren datu espezifikoekin
                     color: foundInCatalog.color || itemObj.color, 
                     agent: foundInCatalog.agent || itemObj.agent,
                     name: foundInCatalog.name || itemObj.name || itemObj.description
@@ -603,7 +599,6 @@ renderSubjectDetail: async (subject, degree) => {
                 preReqContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago aurre-ezagutzarik zehaztuta.</div>';
             } else {
                 list.forEach(item => {
-                    // PreReq ez du katalogorik, logika sinpleagoa
                     const isObj = typeof item === 'object';
                     const name = isObj ? item.name : item;
                     const reqCode = isObj ? (item.preReqCode || item.reqCode || '') : '';
@@ -658,7 +653,8 @@ renderSubjectDetail: async (subject, degree) => {
         const projContainer = document.getElementById('detailExtProy');
         if (projContainer) {
             projContainer.innerHTML = '';
-            const list = subject.extProy || [];
+            // ⚠️ ALDAKETA: Context begiratu lehenengo
+            const list = subject.context?.externalProjects || subject.extProy || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) ? window.gradosManager.adminCatalogs.externalProjects : [];
 
             if (list.length === 0) {
@@ -693,7 +689,8 @@ renderSubjectDetail: async (subject, degree) => {
         const iduContainer = document.getElementById('detailIdujar');
         if (iduContainer) {
             iduContainer.innerHTML = '';
-            const list = subject.idujar || [];
+            // ⚠️ ALDAKETA: Context begiratu lehenengo
+            const list = subject.context?.iduGuidelines || subject.idujar || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.iduGuidelines) ? window.gradosManager.adminCatalogs.iduGuidelines : [];
 
             if (list.length === 0) {
@@ -731,7 +728,8 @@ renderSubjectDetail: async (subject, degree) => {
         const odsContainer = document.getElementById('detailOdsList');
         if (odsContainer) {
             odsContainer.innerHTML = '';
-            const list = subject.ods || [];
+            // ⚠️ ALDAKETA: Context begiratu lehenengo
+            const list = subject.context?.ods || subject.ods || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.ods) ? window.gradosManager.adminCatalogs.ods : [];
             
             const fallbackColors = { 
@@ -891,8 +889,10 @@ renderSubjectDetail: async (subject, degree) => {
             }   
         }
         document.getElementById('mainContent')?.scrollTo(0, 0);
-	
-	// KONEXIOA: HTML botoiak -> GradosManager funtzioak
+    
+        // =========================================================
+        // 11. KONEXIOA: HTML botoiak -> GradosManager funtzioak
+        // =========================================================
         const bm = window.gradosManager; 
         if (bm) {
             // 1. ODS Botoia
@@ -920,6 +920,7 @@ renderSubjectDetail: async (subject, degree) => {
                 btnIdu.parentNode.replaceChild(newBtn, btnIdu);
                 newBtn.onclick = () => bm.openIduSelector();
             }
+        }
     },
 
 	
@@ -1505,6 +1506,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
