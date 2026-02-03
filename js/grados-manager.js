@@ -848,19 +848,45 @@ saveSubjectBasicData() {
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
 openOdsSelector() {
-    // 1. KOPIA BAT EGIN (Utzi sakatzen badu, jatorrizkoa ez ukitzeko)
-    let tempSelection = [...(this.currentSubject.detailODS || [])];
+    console.log("🟢 ODS hautatzailea irekitzen...");
 
+    // 1. HELPERRAK: Datuak garbitzeko (Funtsezkoa konparaketarako)
+    // Honek edozein formatu ("ODS-01", "1", 1, {code: "ODS-01"}) -> 1 bihurtzen du.
+    const getCleanNumber = (val) => {
+        if (!val) return null;
+        // Objektua bada, barruko kodea atera
+        if (typeof val === 'object') {
+            val = val.code || val.odsCode || val.id || '';
+        }
+        // Testua bada, zenbakiak bakarrik utzi
+        const match = String(val).match(/\d+/);
+        return match ? parseInt(match[0], 10) : null;
+    };
+
+    const getImageUrl = (num) => {
+        const n = String(num).padStart(2, '0'); // 1 -> "01", 8 -> "08"
+        return `assets/ods/${n}.png`;
+    };
+
+    // 2. HASIERAKO EGOERA KARGATU
+    // Kopia bat egiten dugu, 'Utzi' ematen badu jatorrizkoa ez ukitzeko.
+    // Ziurtatzen dugu array bat dela.
+    let currentSelection = [...(this.currentSubject.detailODS || this.currentSubject.ods || [])];
+    
+    // Debug: Ikusi zer datorren hasieran
+    console.log("📂 Hasierako ODSak:", currentSelection);
+
+    // 3. MODALA SORTU
     const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm transition-all";
+    modal.className = "fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm transition-all animate-in fade-in";
     
     const content = document.createElement('div');
-    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
+    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden";
     
     content.innerHTML = `
         <div class="p-5 border-b flex justify-between items-center bg-gray-50">
             <div>
-                <h3 class="font-bold text-xl text-gray-800">Hautatu ODSak</h3>
+                <h3 class="font-bold text-xl text-gray-800">Garapen Iraunkorrerako Helburuak</h3>
                 <p class="text-sm text-gray-500">Klikatu gehitzeko edo kentzeko</p>
             </div>
             <button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
@@ -870,7 +896,7 @@ openOdsSelector() {
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="odsGrid"></div>
         </div>
 
-        <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
+        <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <button id="cancelOds" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
             <button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">Ados (Gorde)</button>
         </div>
@@ -882,50 +908,51 @@ openOdsSelector() {
     const grid = content.querySelector('#odsGrid');
     const catalog = this.adminCatalogs.ods || [];
 
-    // Irudiak lortzeko funtzio bera
-    const getOdsImageUrl = (num) => `assets/ods/${String(num).trim()}.png`;
-
+    // 4. GRID-A MARRAZTU
     const renderGrid = () => {
         grid.innerHTML = '';
+        
+        // Katalogoko 17 ODSak zeharkatu
         catalog.forEach(item => {
-            const card = document.createElement('div');
+            const itemNum = getCleanNumber(item); // Katalogoko zenbakia (adib: 8)
             
-            // Konprobatu ea aukeratuta dagoen TEMP zerrendan
-            const isSelected = tempSelection.some(o => o.code === item.code);
-            const num = item.code.replace(/\D/g,''); // Zenbakia atera
+            // 🔥 GAKOA: Konparaketa sendoa
+            // Begiratu ea gure aukeraketan zenbaki hori existitzen den
+            const isSelected = currentSelection.some(sel => getCleanNumber(sel) === itemNum);
 
-            card.className = `relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden ${
+            const card = document.createElement('div');
+            card.className = `relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 ${
                 isSelected 
-                ? 'ring-4 ring-blue-500 shadow-xl transform scale-105 bg-white' 
-                : 'bg-white hover:shadow-lg hover:scale-105 border border-gray-200 opacity-90 hover:opacity-100'
+                ? 'border-blue-600 bg-blue-50 transform scale-105 shadow-lg' 
+                : 'border-transparent bg-white hover:border-gray-300 hover:shadow-md'
             }`;
             
             card.innerHTML = `
-                <div class="w-full aspect-square relative bg-gray-100">
-                    <img src="${getOdsImageUrl(num)}" class="w-full h-full object-cover" loading="lazy">
-                    
+                <div class="w-full aspect-square relative p-2">
+                    <img src="${getImageUrl(itemNum)}" 
+                         class="w-full h-full object-contain filter ${isSelected ? '' : 'grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition'}"
+                         onerror="this.style.display='none'">
+                         
                     ${isSelected ? `
-                        <div class="absolute inset-0 bg-blue-600/20 flex items-center justify-center backdrop-blur-[2px]">
-                            <div class="bg-white rounded-full p-2 text-blue-600 shadow-lg">
-                                <i class="fas fa-check text-2xl font-bold"></i>
-                            </div>
+                        <div class="absolute top-2 right-2 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform scale-110">
+                            <i class="fas fa-check text-xs"></i>
                         </div>
                     ` : ''}
                 </div>
-                <div class="p-3 w-full text-center border-t">
-                    <div class="text-xs font-bold text-gray-500 uppercase">ODS ${num}</div>
-                    <div class="text-xs font-semibold text-gray-800 line-clamp-2 leading-tight mt-1">${item.name}</div>
+                <div class="pb-2 w-full text-center">
+                    <span class="text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-gray-500'}">ODS ${itemNum}</span>
                 </div>
             `;
 
             card.onclick = () => {
-                const exists = tempSelection.some(o => o.code === item.code);
-                if (exists) {
-                    tempSelection = tempSelection.filter(o => o.code !== item.code);
+                if (isSelected) {
+                    // KENDU: Zenbakiaren arabera bilatu eta iragazi
+                    currentSelection = currentSelection.filter(sel => getCleanNumber(sel) !== itemNum);
                 } else {
-                    tempSelection.push(item);
+                    // GEHITU: Objektu osoa gorde (izena eta kodea edukitzeko)
+                    currentSelection.push(item);
                 }
-                renderGrid(); // Grid-a bir-marraztu egoera berriarekin
+                renderGrid(); // Birmarraztu
             };
 
             grid.appendChild(card);
@@ -934,30 +961,36 @@ openOdsSelector() {
 
     renderGrid();
 
-    // BOTOIAK KUDEATU
+    // 5. ITXI ETA GORDE
     const closeModal = () => {
         modal.classList.add('opacity-0');
         setTimeout(() => modal.remove(), 200);
     };
 
     content.querySelector('#closeOdsModal').onclick = closeModal;
-    
-    // Kanzelatu: Ez dugu ezer gordetzen
     content.querySelector('#cancelOds').onclick = closeModal;
 
-    // Ados: Orain bai, 'detailODS' eguneratu eta DBan gorde
     content.querySelector('#finishOds').onclick = () => {
-        this.currentSubject.detailODS = tempSelection;
+        console.log("💾 Gordetzen ODS hauek:", currentSelection);
         
-        // 💾 HEMEN GORDETZEN DU ZUZENEAN
-        if (this.saveSubjectBasicData) this.saveSubjectBasicData();
-        
-        closeModal();
-        
-        // UI eguneratu
+        // 1. Memorian gorde
+        this.currentSubject.detailODS = currentSelection;
+        // Bateragarritasunerako, beste eremuan ere bai
+        this.currentSubject.ods = currentSelection.map(item => item.code); 
+
+        // 2. Datu Basean Gorde
+        if (this.saveSubjectBasicData) {
+            this.saveSubjectBasicData(); // Honek saveData() deituko du barrutik
+        } else {
+            console.error("❌ Ez da aurkitu saveSubjectBasicData funtzioa");
+        }
+
+        // 3. UI Eguneratu berehala (erabiltzaileak aldaketa ikus dezan)
         if (window.ui && window.ui.renderSubjectDetail) {
             window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
         }
+
+        closeModal();
     };
 }
 	
@@ -4524,6 +4557,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
