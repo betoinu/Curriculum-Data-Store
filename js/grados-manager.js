@@ -850,55 +850,59 @@ saveSubjectBasicData() {
 openOdsSelector() {
     console.log("🟢 ODS hautatzailea irekitzen...");
 
-    // 1. HELPERRAK: Datuak garbitzeko (Funtsezkoa konparaketarako)
-    // Honek edozein formatu ("ODS-01", "1", 1, {code: "ODS-01"}) -> 1 bihurtzen du.
+    // 1. HELPERRAK (Zenbakiak garbitzeko eta irudiak lortzeko)
     const getCleanNumber = (val) => {
         if (!val) return null;
-        // Objektua bada, barruko kodea atera
-        if (typeof val === 'object') {
-            val = val.code || val.odsCode || val.id || '';
-        }
-        // Testua bada, zenbakiak bakarrik utzi
-        const match = String(val).match(/\d+/);
+        // Objektua bada, barruko kodea atera, bestela string-a garbitu
+        const str = (typeof val === 'object') ? (val.code || val.odsCode || val.id || '') : String(val);
+        const match = str.match(/\d+/); // Zenbakiak bilatu
         return match ? parseInt(match[0], 10) : null;
     };
 
     const getImageUrl = (num) => {
-        const n = String(num).padStart(2, '0'); // 1 -> "01", 8 -> "08"
+        const n = String(num).padStart(2, '0'); // 1 -> "01", 10 -> "10"
         return `assets/ods/${n}.png`;
     };
 
     // 2. HASIERAKO EGOERA KARGATU
-    // Kopia bat egiten dugu, 'Utzi' ematen badu jatorrizkoa ez ukitzeko.
-    // Ziurtatzen dugu array bat dela.
-    let currentSelection = [...(this.currentSubject.detailODS || this.currentSubject.ods || [])];
-    
-    // Debug: Ikusi zer datorren hasieran
-    console.log("📂 Hasierako ODSak:", currentSelection);
+    // 'currentSelection' arrayan gordeko ditugu aukeratutako objektuak
+    let currentSelection = [];
+    const catalog = this.adminCatalogs.ods || [];
+
+    // Saiatu lehenik detailODS (objektuak), bestela ods (kodeak)
+    if (this.currentSubject.detailODS && Array.isArray(this.currentSubject.detailODS) && this.currentSubject.detailODS.length > 0) {
+        currentSelection = [...this.currentSubject.detailODS];
+    } else if (this.currentSubject.ods && Array.isArray(this.currentSubject.ods)) {
+        // Kodeak badira ("ODS-01"), katalogoarekin gurutzatu objektu osoa lortzeko
+        currentSelection = this.currentSubject.ods.map(code => {
+            const num = getCleanNumber(code);
+            return catalog.find(c => getCleanNumber(c) === num) || { code: code, name: 'Izena ez dago' };
+        });
+    }
 
     // 3. MODALA SORTU
     const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm transition-all animate-in fade-in";
+    modal.className = "fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
     
     const content = document.createElement('div');
-    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden";
+    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden";
     
     content.innerHTML = `
         <div class="p-5 border-b flex justify-between items-center bg-gray-50">
             <div>
                 <h3 class="font-bold text-xl text-gray-800">Garapen Iraunkorrerako Helburuak</h3>
-                <p class="text-sm text-gray-500">Klikatu gehitzeko edo kentzeko</p>
+                <p class="text-sm text-gray-500">Klikatu helburuak gehitzeko edo kentzeko</p>
             </div>
             <button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
         </div>
         
         <div class="p-6 overflow-y-auto bg-gray-100 flex-1">
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="odsGrid"></div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="odsGrid"></div>
         </div>
 
-        <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
             <button id="cancelOds" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
-            <button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">Ados (Gorde)</button>
+            <button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">Gorde Aldaketak</button>
         </div>
     `;
 
@@ -906,62 +910,69 @@ openOdsSelector() {
     document.body.appendChild(modal);
 
     const grid = content.querySelector('#odsGrid');
-    const catalog = this.adminCatalogs.ods || [];
 
-    // 4. GRID-A MARRAZTU
-    const renderGrid = () => {
-        grid.innerHTML = '';
+    // 4. GRID-A MARRAZTU (Behin bakarrik!)
+    catalog.forEach(item => {
+        const itemNum = getCleanNumber(item);
         
-        // Katalogoko 17 ODSak zeharkatu
-        catalog.forEach(item => {
-            const itemNum = getCleanNumber(item); // Katalogoko zenbakia (adib: 8)
-            
-            // 🔥 GAKOA: Konparaketa sendoa
-            // Begiratu ea gure aukeraketan zenbaki hori existitzen den
-            const isSelected = currentSelection.some(sel => getCleanNumber(sel) === itemNum);
+        // Hasieran aukeratuta dago?
+        let isSelected = currentSelection.some(sel => getCleanNumber(sel) === itemNum);
 
-            const card = document.createElement('div');
-            card.className = `relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 ${
-                isSelected 
-                ? 'border-blue-600 bg-blue-50 transform scale-105 shadow-lg' 
-                : 'border-transparent bg-white hover:border-gray-300 hover:shadow-md'
-            }`;
-            
-            card.innerHTML = `
-                <div class="w-full aspect-square relative p-2">
-                    <img src="${getImageUrl(itemNum)}" 
-                         class="w-full h-full object-contain filter ${isSelected ? '' : 'grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 transition'}"
-                         onerror="this.style.display='none'">
-                         
-                    ${isSelected ? `
-                        <div class="absolute top-2 right-2 bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg transform scale-110">
-                            <i class="fas fa-check text-xs"></i>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="pb-2 w-full text-center">
-                    <span class="text-xs font-bold ${isSelected ? 'text-blue-700' : 'text-gray-500'}">ODS ${itemNum}</span>
-                </div>
-            `;
+        const card = document.createElement('div');
+        // Estilo dinamikoak
+        const baseClass = "relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 bg-white h-full";
+        const selectedClass = "border-blue-600 ring-1 ring-blue-600 shadow-md transform scale-[1.02]";
+        const unselectedClass = "border-transparent hover:border-gray-300 hover:shadow-sm opacity-90 hover:opacity-100";
 
-            card.onclick = () => {
-                if (isSelected) {
-                    // KENDU: Zenbakiaren arabera bilatu eta iragazi
-                    currentSelection = currentSelection.filter(sel => getCleanNumber(sel) !== itemNum);
-                } else {
-                    // GEHITU: Objektu osoa gorde (izena eta kodea edukitzeko)
+        card.className = `${baseClass} ${isSelected ? selectedClass : unselectedClass}`;
+        
+        card.innerHTML = `
+            <div class="w-full aspect-square relative p-4 pb-0">
+                <img src="${getImageUrl(itemNum)}" 
+                     class="w-full h-full object-contain drop-shadow-sm transition-all duration-300 ${isSelected ? '' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}"
+                     loading="lazy">
+                
+                <div class="check-icon absolute top-2 right-2 bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg transition-transform duration-200 ${isSelected ? 'scale-100' : 'scale-0'}">
+                    <i class="fas fa-check text-sm"></i>
+                </div>
+            </div>
+            <div class="p-3 w-full text-center flex items-center justify-center grow">
+                <span class="text-xs font-bold leading-tight line-clamp-3 ${isSelected ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'}">
+                    ${item.name || 'Izena falta da'}
+                </span>
+            </div>
+        `;
+
+        // ⚡️ CLICK LOGIKA OPTIMIZATUA (RenderGrid gabe)
+        card.onclick = () => {
+            // Egoera aldatu (Toggle)
+            isSelected = !isSelected;
+
+            if (isSelected) {
+                // Arrayra gehitu
+                if (!currentSelection.some(sel => getCleanNumber(sel) === itemNum)) {
                     currentSelection.push(item);
                 }
-                renderGrid(); // Birmarraztu
-            };
+                // UI Aldatu (DOM zuzenean ukituz)
+                card.className = `${baseClass} ${selectedClass}`;
+                card.querySelector('img').classList.remove('grayscale', 'opacity-60');
+                card.querySelector('.check-icon').classList.replace('scale-0', 'scale-100');
+                card.querySelector('span').classList.replace('text-gray-600', 'text-blue-700');
+            } else {
+                // Arraytik kendu
+                currentSelection = currentSelection.filter(sel => getCleanNumber(sel) !== itemNum);
+                // UI Aldatu
+                card.className = `${baseClass} ${unselectedClass}`;
+                card.querySelector('img').classList.add('grayscale', 'opacity-60');
+                card.querySelector('.check-icon').classList.replace('scale-100', 'scale-0');
+                card.querySelector('span').classList.replace('text-blue-700', 'text-gray-600');
+            }
+        };
 
-            grid.appendChild(card);
-        });
-    };
+        grid.appendChild(card);
+    });
 
-    renderGrid();
-
-    // 5. ITXI ETA GORDE
+    // 5. MODALA ITXI
     const closeModal = () => {
         modal.classList.add('opacity-0');
         setTimeout(() => modal.remove(), 200);
@@ -970,27 +981,41 @@ openOdsSelector() {
     content.querySelector('#closeOdsModal').onclick = closeModal;
     content.querySelector('#cancelOds').onclick = closeModal;
 
-    content.querySelector('#finishOds').onclick = () => {
-        console.log("💾 Gordetzen ODS hauek:", currentSelection);
-        
-        // 1. Memorian gorde
-        this.currentSubject.detailODS = currentSelection;
-        // Bateragarritasunerako, beste eremuan ere bai
-        this.currentSubject.ods = currentSelection.map(item => item.code); 
+    // 6. GORDE (Zure saveData berriarekin lotuta)
+    content.querySelector('#finishOds').onclick = async () => {
+        const btn = content.querySelector('#finishOds');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        btn.disabled = true;
 
-        // 2. Datu Basean Gorde
-        if (this.saveSubjectBasicData) {
-            this.saveSubjectBasicData(); // Honek saveData() deituko du barrutik
-        } else {
-            console.error("❌ Ez da aurkitu saveSubjectBasicData funtzioa");
+        try {
+            console.log("💾 Gordetzen ODS hautaketa:", currentSelection);
+            
+            // Objektu nagusia eguneratu
+            this.currentSubject.detailODS = currentSelection;
+            // Bateragarritasunerako 'ods' arraya ere bete (kodeekin bakarrik)
+            this.currentSubject.ods = currentSelection.map(s => s.code);
+
+            // Zure funtzio berria deitu
+            if (this.saveSubjectBasicData) {
+                await this.saveSubjectBasicData();
+            } else {
+                // Fallback: Zuzenean saveData deitu
+                await this.saveData();
+            }
+
+            closeModal();
+            
+            // UI eguneratu berehala
+            if (window.ui && window.ui.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("Errorea gordetzean: " + error.message);
+            btn.innerHTML = 'Gorde Aldaketak';
+            btn.disabled = false;
         }
-
-        // 3. UI Eguneratu berehala (erabiltzaileak aldaketa ikus dezan)
-        if (window.ui && window.ui.renderSubjectDetail) {
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        }
-
-        closeModal();
     };
 }
 	
@@ -4557,6 +4582,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
