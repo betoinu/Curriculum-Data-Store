@@ -722,14 +722,19 @@ renderSubjectDetail: async (subject, degree) => {
             }
         }
 
-        // =========================================================
-        // 8. ODS (ODS)
+// =========================================================
+        // 8. ODS (ODS) - KONPONDUTA
         // =========================================================
         const odsContainer = document.getElementById('detailOdsList');
         if (odsContainer) {
             odsContainer.innerHTML = '';
-            // ⚠️ ALDAKETA: Context begiratu lehenengo
-            const list = subject.context?.ods || subject.ods || [];
+            
+            // 🔥 ZUZENKETA KRITIKOA: 
+            // Orain lehentasuna 'detailODS'-ek dauka (hor gordetzen dugu).
+            // Atzetik 'ods' uzten dugu badaezpada (bateragarritasunagatik).
+            const list = subject.detailODS || subject.ods || [];
+            
+            // Katalogoa kargatu
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.ods) ? window.gradosManager.adminCatalogs.ods : [];
             
             const fallbackColors = { 
@@ -744,10 +749,14 @@ renderSubjectDetail: async (subject, degree) => {
                 odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
             } else {
                 list.forEach(item => {
-                    const data = resolveData(item, catalog);
+                    // Datuak katalogotik osatu (izena, kolorea...)
+                    const data = typeof resolveData !== 'undefined' 
+                        ? resolveData(item, catalog) 
+                        : (catalog.find(c => c.code === item.code) || item);
                     
                     const rawCode = data.code || data.odsCode || (typeof item === 'string' ? item : '');
-                    const num = rawCode.replace(/ODS-|ods-/gi, '').replace(/^0+/, '').trim(); 
+                    // Zenbakia atera kolorea mapatzeko
+                    const num = rawCode ? rawCode.replace(/ODS-|ods-/gi, '').replace(/^0+/, '').trim() : '?'; 
                     
                     const finalColor = data.color || fallbackColors[num] || '#9ca3af';
 
@@ -756,14 +765,13 @@ renderSubjectDetail: async (subject, degree) => {
                             ${num}
                             <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
                                 <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${num}</div>
-                                <div class="whitespace-normal">${data.name}</div>
+                                <div class="whitespace-normal">${data.name || 'Izena ez da aurkitu'}</div>
                                 <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
                             </div>
                         </div>`;
                 });
             }
         }
-
         // =========================================================
         // 9. IKASKUNTZA EMAITZAK (RA)
         // =========================================================
@@ -1506,6 +1514,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
