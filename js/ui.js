@@ -725,18 +725,28 @@ renderSubjectDetail: async (subject, degree) => {
 // =========================================================
         // 8. ODS (ODS) - KONPONDUTA
         // =========================================================
+// =========================================================
+        // 8. ODS (ODS) - TOKIKO IRUDI OFIZIALEKIN
+        // =========================================================
         const odsContainer = document.getElementById('detailOdsList');
         if (odsContainer) {
             odsContainer.innerHTML = '';
             
-            // 🔥 ZUZENKETA KRITIKOA: 
-            // Orain lehentasuna 'detailODS'-ek dauka (hor gordetzen dugu).
-            // Atzetik 'ods' uzten dugu badaezpada (bateragarritasunagatik).
+            // Datuak berreskuratu (detailODS lehentasuna)
             const list = subject.detailODS || subject.ods || [];
-            
-            // Katalogoa kargatu
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.ods) ? window.gradosManager.adminCatalogs.ods : [];
-            
+
+            // 📂 HEMEN ALDATZEN DA BIDEA
+            const getOdsImageUrl = (num) => {
+                // Ziurtatu zenbakia testua dela eta espaziorik gabe
+                const n = String(num).trim();
+                
+                // Zure irudiak 'assets/ods/' karpetan badaude eta '1.png', '2.png' deitzen badira:
+                return `assets/ods/${n}.png`;
+                
+                // OHARRA: Zure irudiak .jpg badira, aldatu .png hori .jpg-ra
+            };
+
             const fallbackColors = { 
                 '1': '#E5243B', '2': '#DDA63A', '3': '#4C9F38', '4': '#C5192D', 
                 '5': '#FF3A21', '6': '#26BDE2', '7': '#FCC30B', '8': '#A21942', 
@@ -749,20 +759,31 @@ renderSubjectDetail: async (subject, degree) => {
                 odsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da ODSrik zehaztu.</span>';
             } else {
                 list.forEach(item => {
-                    // Datuak katalogotik osatu (izena, kolorea...)
                     const data = typeof resolveData !== 'undefined' 
                         ? resolveData(item, catalog) 
                         : (catalog.find(c => c.code === item.code) || item);
                     
                     const rawCode = data.code || data.odsCode || (typeof item === 'string' ? item : '');
-                    // Zenbakia atera kolorea mapatzeko
+                    // Zenbakia garbitu (01 -> 1 bihurtzeko, zure fitxategia 1.png bada)
                     const num = rawCode ? rawCode.replace(/ODS-|ods-/gi, '').replace(/^0+/, '').trim() : '?'; 
                     
                     const finalColor = data.color || fallbackColors[num] || '#9ca3af';
+                    const imageUrl = getOdsImageUrl(num);
 
                     odsContainer.innerHTML += `
-                        <div class="relative group w-8 h-8 rounded shadow-sm text-white font-bold flex items-center justify-center text-xs cursor-help transition transform hover:scale-110 shrink-0" style="background-color: ${finalColor}">
-                            ${num}
+                        <div class="relative group w-10 h-10 rounded shadow-sm cursor-help transition transform hover:scale-110 shrink-0 bg-white">
+                            
+                            <img src="${imageUrl}" 
+                                 alt="ODS ${num}" 
+                                 class="w-full h-full object-cover rounded"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" 
+                            />
+
+                            <div class="hidden w-full h-full rounded text-white font-bold items-center justify-center text-xs absolute top-0 left-0" 
+                                 style="background-color: ${finalColor}">
+                                ${num}
+                            </div>
+
                             <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999] pointer-events-none">
                                 <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">ODS ${num}</div>
                                 <div class="whitespace-normal">${data.name || 'Izena ez da aurkitu'}</div>
@@ -1514,6 +1535,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
