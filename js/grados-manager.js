@@ -184,30 +184,37 @@ async saveData() {
     
     // 1. HELPERRA: Irakasgaia JSON zuhaitzaren barruan bilatu eta eguneratzeko
     // (Hau ezinbestekoa da Supabasek JSON osoa bloke bakar batean gordetzen duelako)
-    const deepUpdateSubject = (node, targetCode, newData) => {
-        if (!node || typeof node !== 'object') return false;
-        
-        // Aurkitu dugu irakasgaia?
-        if (node.code === targetCode) {
-            Object.assign(node, newData); // Datuak fusionatu
-            return true;
-        }
+const deepUpdateSubject = (node, targetCode, newData) => {
+    if (!node || typeof node !== 'object') return false;
+    
+    // ⭐⭐ ALDATU HAU: Bilaketa hobetu ⭐⭐
+    // Bilaketa hainbat propietaterekin
+    const match = (
+        node.code === targetCode ||          // kodea berdina bada
+        node.idAsig === targetCode ||        // idAsig kodea bada  
+        (node.name && node.name.includes(targetCode)) // izenean kodea badago
+    );
+    
+    if (match) {
+        Object.assign(node, newData); // Datuak fusionatu
+        return true;
+    }
 
-        // Ez bada hau, jarraitu bilatzen beherago
-        let found = false;
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                if (deepUpdateSubject(item, targetCode, newData)) found = true;
-            }
-        } else {
-            for (const key of Object.keys(node)) {
-                if (key !== 'parent' && typeof node[key] === 'object') {
-                    if (deepUpdateSubject(node[key], targetCode, newData)) found = true;
-                }
+    // Jarraitu bilatzen...
+    let found = false;
+    if (Array.isArray(node)) {
+        for (const item of node) {
+            if (deepUpdateSubject(item, targetCode, newData)) found = true;
+        }
+    } else {
+        for (const key of Object.keys(node)) {
+            if (key !== 'parent' && typeof node[key] === 'object') {
+                if (deepUpdateSubject(node[key], targetCode, newData)) found = true;
             }
         }
-        return found;
-    };
+    }
+    return found;
+};
 
     // 2. UI Feedback (Spinnerra jarri)
     if (saveBtn) {
@@ -222,6 +229,7 @@ async saveData() {
         // 3. ID KRITIKOA LORTU
         // loadData-k gordetako UUID erreala erabiltzen dugu.
         const rowId = this.currentRowId;
+		
 
         // Segurtasun kontrola: IDrik ez badago, ezin dugu gorde.
         if (!rowId) {
@@ -235,20 +243,27 @@ async saveData() {
         let dataToSave = this.cachedData || this.curriculumData;
         
         // Ziurtatu uneko irakasgaiaren aldaketak JSON horretan txertatzen direla
-        if (this.currentSubject && this.currentSubject.code) {
-             const changes = {
-                 ods: this.currentSubject.ods,
-                 detailODS: this.currentSubject.detailODS,
-                 updated_at: new Date().toISOString()
-             };
-             
-             // JSON erraldoiaren barruan bilatu eta aldatu
-             const aurkitua = deepUpdateSubject(dataToSave, this.currentSubject.code, changes);
-             
-             if (!aurkitua) {
-                 console.warn(`⚠️ Oharra: '${this.currentSubject.code}' ez da aurkitu jatorrizko JSONean. Gordetzen jarraituko da.`);
-             }
-        }
+
+		// ALDATU HONELA:
+		if (this.currentSubject) {
+		     const changes = {
+		         ods: this.currentSubject.ods,
+		         detailODS: this.currentSubject.detailODS,
+		         extProy: this.currentSubject.extProy,  // ⭐⭐ GEHITU HAU ⭐⭐
+		         updated_at: new Date().toISOString()
+		     };
+		     
+		     // ⭐⭐ ERABILI idAsig LEHENENGO ⭐⭐
+		     const targetId = this.currentSubject.idAsig || this.currentSubject.code;
+		     
+		     const aurkitua = deepUpdateSubject(dataToSave, targetId, changes);
+		     
+		     if (!aurkitua) {
+		         console.warn(`⚠️ '${targetId}' ez da aurkitu. Probatzen: ${this.currentSubject.name}`);
+		         // Bigarren proba izenarekin
+		         deepUpdateSubject(dataToSave, this.currentSubject.name, changes);
+		     }
+		}
 
         // 5. SUPABASE UPDATE
         // Orain bai: ID zuzena (rowId) erabiltzen ari gara.
@@ -4605,6 +4620,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
