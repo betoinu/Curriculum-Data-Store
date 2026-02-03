@@ -846,12 +846,12 @@ saveSubjectBasicData() {
     }
 
     // Helper simple para limpiar bot¨®n guardar
-    _setupSaveButtonRaw(modal) {
+   /* _setupSaveButtonRaw(modal) {
         const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
         const newBtn = oldBtn.cloneNode(true);
         oldBtn.parentNode.replaceChild(newBtn, oldBtn);
         return newBtn;
-    }
+    }*/
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
@@ -2140,7 +2140,7 @@ guardarRAsDesdeEditor() {
 	
 // En grados-manager.js
 
-async saveListEditor() {
+/*async saveListEditor() {
     if (!this.currentEditingField) return;
     
     const fieldName = this.currentEditingField;
@@ -2189,7 +2189,7 @@ async saveListEditor() {
     // 3. CERRAR MODAL
     const modal = document.getElementById('listEditorModal');
     if(modal) modal.classList.add('hidden');
-}
+}*/
 	
 // Funci¨®n auxiliar para no repetir HTML
 	templateRA(codigo, desc, color, etiqueta) {
@@ -3141,7 +3141,7 @@ openSignActEditor() {
     };
 }
 
-async saveListEditor() {
+/*async saveListEditor() {
     if (!this.currentEditingField) return;
     
     const fieldName = this.currentEditingField;
@@ -3249,7 +3249,7 @@ async saveListEditor() {
             saveBtn.disabled = false;
         }
     }
-}
+}*/
 
 // ==========================================
 // GESTI¨®N DE LA VISTA DE PLANIFICACI¨®N (GANTT)
@@ -4605,6 +4605,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
