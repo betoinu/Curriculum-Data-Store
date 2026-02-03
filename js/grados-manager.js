@@ -105,11 +105,18 @@ class GradosManager {
 async loadData() {
     console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
     
+    // 1. HASIERAKETA SEGURUA (Erroreak ekiditeko)
+    this.cachedData = {
+        graduak: [],
+        proyectosExternos: []
+    };
+    this.currentRowId = null;
+
     try {
         const supabase = getSupabaseInstance();
         if (!supabase) return;
 
-        // 🔥 1. CARGAR CURRICULUM_DATA (sin user_id, solo primera fila)
+        // 2. DATUAK ESKATU (Azkeneko erregistroa bakarrik)
         const { data: curriculumData, error: errorCurriculum } = await supabase
             .from('curriculum_data')
             .select('*')
@@ -121,81 +128,52 @@ async loadData() {
             throw errorCurriculum;
         }
 
-        console.log(`📊 curriculum_data emaitzak: ${curriculumData?.length || 0}`);
-
+        // 3. DATUAK PROZESATU
         if (curriculumData && curriculumData.length > 0) {
             const row = curriculumData[0];
-            
-            // 🔥 2. BAD TEST ID? Ezabatu!
-            if (row.id === 'test-1769760197032') {
-                console.warn("⚠️ Test ID encontrado, eliminando...");
-                await supabase
-                    .from('curriculum_data')
-                    .delete()
-                    .eq('id', 'test-1769760197032');
-                
-                // Recargar después de eliminar
-                return this.loadData();
-            }
-            
             this.currentRowId = row.id;
-            this.cachedData = row.datos;
             
-            console.log(`✅ Row cargada: ${row.id}`);
-            console.log(`🎓 Graduak cargados: ${this.cachedData.graduak?.length || 0}`);
+            // Datuak cachean gorde (existitzen ez bada, array hutsak jarri)
+            if (row.datos) {
+                this.cachedData.graduak = row.datos.graduak || [];
+                // Ziurtatu izenak bat datozela zure DBarekin ('extProy' edo 'proyectosExternos')
+                this.cachedData.proyectosExternos = row.datos.proyectosExternos || row.datos.extProy || [];
+            }
+
+            console.log(`✅ Datuak kargatuta. ID: ${row.id}`);
+            console.log(`🎓 Graduak: ${this.cachedData.graduak.length}`);
             
-            // 🔥 3. GEHITU idAsig existitzen bada
-            if (this.cachedData.graduak) {
-                this.cachedData.graduak.forEach(grado => {
-                    const gradoCodigo = grado.codigo || grado.id || 'G';
-                    
-                    Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
+            // 4. SEGURTASUNA: idAsig sortu falta bada (Legacy code support)
+            this.cachedData.graduak.forEach(grado => {
+                const gradoCodigo = grado.codigo || grado.id || 'G';
+                Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
+                    if (Array.isArray(asignaturas)) {
                         asignaturas.forEach((asig, asigIndex) => {
                             if (!asig.idAsig) {
-                                const indice = asigIndex + 1;
-                                asig.idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+                                asig.idAsig = `${gradoCodigo}_${yearNum}_${String(asigIndex + 1).padStart(3, '0')}`;
                             }
                         });
-                    });
+                    }
                 });
-            }
+            });
             
         } else {
-            console.log("ℹ️ No hay datos en curriculum_data");
-            this.cachedData = {
-                graduak: [],
-                proyectosExternos: []
-            };
+            console.log("ℹ️ Ez dago daturik Supabase-n. Hutsetik hasiko gara.");
         }
 
-        // 🔥 4. Asegurar estructura SIEMPRE
-        if (!this.cachedData) {
-            this.cachedData = {
-                graduak: [],
-                proyectosExternos: []
-            };
-        }
-        
-        if (!this.cachedData.graduak) {
-            this.cachedData.graduak = [];
-        }
-        
-        if (!this.cachedData.proyectosExternos) {
-            this.cachedData.proyectosExternos = [];
-        }
-
-        console.log(`📋 Datu-egitura: ${this.cachedData.graduak.length} gradu`);
-
-        // 🔥 5. UI EGUNERATU
+        // 5. UI EGUNERATU
+        // Orain selektorea beteko da, baina "Hautatu gradua..." markatuta geratuko da
         this.populateDegreeSelect();
 
+        // Aukerakoa: Formularioa garbitu (aurreko saioetako datuak ez ikusteko)
+        if (this.clearForm) {
+            this.clearForm();
+        }
+
     } catch (err) {
-        console.error("❌ Error crítico en loadData:", err);
-        // Fallback seguro
-        this.cachedData = {
-            graduak: [],
-            proyectosExternos: []
-        };
+        console.error("❌ Erroa loadData funtzioan:", err);
+        // Errorea egonda ere, saiatu selektorea marrazten (hutsik bada ere)
+        this.populateDegreeSelect();
     }
 }
 	
@@ -748,25 +726,55 @@ saveSubjectBasicData() {
 }
 
     // --- UTILS ---
-    populateDegreeSelect() {
-        const select = document.getElementById('degreeSelect');
-        if (!select || !this.cachedData.graduak) return;
+    //populateDegreeSelect() {
+    //    const select = document.getElementById('degreeSelect');
+    //    if (!select || !this.cachedData.graduak) return;
         
-        select.innerHTML = '';
-        this.cachedData.graduak.forEach(g => {
-            const op = document.createElement('option');
-            op.value = g.codigo || g.id;
-            op.textContent = g.selectedDegree;
-            select.appendChild(op);
-        });
+   //     select.innerHTML = '';
+    //    this.cachedData.graduak.forEach(g => {
+    //        const op = document.createElement('option');
+    //        op.value = g.codigo || g.id;
+   //         op.textContent = g.selectedDegree;
+   //         select.appendChild(op);
+   //     });
         
         // Opci贸n para crear nuevo
-        const createOp = document.createElement('option');
-        createOp.value = "NEW_DEGREE";
-        createOp.textContent = "+ Gradu Berria...";
-        select.appendChild(createOp);
-    }
- 
+   //     const createOp = document.createElement('option');
+   //     createOp.value = "NEW_DEGREE";
+  //      createOp.textContent = "+ Gradu Berria...";
+  //      select.appendChild(createOp);
+   // }
+ populateDegreeSelect() {
+    const select = document.getElementById('degreeSelect');
+    // Hemen zure datu errealak erabiltzen ari gara:
+    if (!select || !this.cachedData.graduak) return;
+    
+    select.innerHTML = '';
+
+    // 1. LEHENETSITAKO AUKERA (Placeholder)
+    // 'disabled' jartzen dugu, behin zabalduta ezin dadin berriro hautatu
+    const defaultOp = document.createElement('option');
+    defaultOp.value = "";
+    defaultOp.textContent = "Hautatu gradua...";
+    defaultOp.disabled = true; 
+    defaultOp.selected = true; // Hau da gakoa: hasieran hau egotea markatuta
+    select.appendChild(defaultOp);
+
+    // 2. GRADU BERRIA (+ Gradu Berria...)
+    const createOp = document.createElement('option');
+    createOp.value = "NEW_DEGREE";
+    createOp.textContent = "+ Gradu Berria...";
+    select.appendChild(createOp);
+
+    // 3. ZURE DATU ERREALAK KARGATU
+    this.cachedData.graduak.forEach(g => {
+        const op = document.createElement('option');
+        op.value = g.codigo || g.id;
+        // Zure datuen izena erabiltzen du:
+        op.textContent = g.selectedDegree || g.name || "Izenik gabea";
+        select.appendChild(op);
+    });
+}
     
     selectDegree(e) {
         const val = (e.target && e.target.value) ? e.target.value : e;
