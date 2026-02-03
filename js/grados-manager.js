@@ -921,8 +921,9 @@ saveSubjectBasicData() {
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
 openOdsSelector() {
-    // ZUZENKETA: 'ods' propietatea zuzenean
-    const currentList = this.currentSubject.ods || [];
+    // 1. ZUZENKETA: Orain 'detailODS' irakurtzen du, ez 'ods'
+    // 'ods' katalogoa da, 'detailODS' irakasgaiaren hautaketa da.
+    const currentList = this.currentSubject.detailODS || [];
 
     const modal = document.createElement('div');
     modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
@@ -932,7 +933,7 @@ openOdsSelector() {
     
     content.innerHTML = `
         <div class="p-4 border-b flex justify-between items-center bg-gray-50">
-            <h3 class="font-bold text-lg text-gray-800">Hautatu ODSak</h3>
+            <h3 class="font-bold text-lg text-gray-800">Hautatu ODSak (detailODS)</h3>
             <button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times"></i></button>
         </div>
         <div class="p-6 overflow-y-auto grid grid-cols-2 md:grid-cols-4 gap-4" id="odsGrid"></div>
@@ -945,12 +946,15 @@ openOdsSelector() {
     document.body.appendChild(modal);
 
     const grid = content.querySelector('#odsGrid');
+    // Katalogoa 'ods' da (Adminetik datorrena), hori ondo dago
     const catalog = this.adminCatalogs.ods || [];
 
     catalog.forEach(item => {
         const card = document.createElement('div');
-        // 'ods' zerrendan bilatu
+        // Konparatu katalogoa 'detailODS' zerrendarekin
         const isSelected = currentList.some(o => o.code === item.code);
+
+        const color = item.color || '#9ca3af';
 
         card.className = `cursor-pointer p-4 rounded-xl border-2 transition-all hover:scale-105 flex flex-col items-center text-center gap-2 ${
             isSelected 
@@ -958,8 +962,6 @@ openOdsSelector() {
             : 'border-gray-200 hover:border-blue-300 bg-white'
         }`;
         
-        const color = item.color || '#9ca3af';
-
         card.innerHTML = `
             <div class="w-12 h-12 rounded-lg text-white font-bold flex items-center justify-center text-lg shadow-md mb-2" style="background-color: ${color}">
                 ${item.code.replace(/\D/g,'')}
@@ -969,24 +971,33 @@ openOdsSelector() {
         `;
 
         card.onclick = () => {
-            let list = this.currentSubject.ods || [];
+            // Kontuz hemen erreferentziarekin, kopia bat egin segurtasunagatik
+            let list = [...(this.currentSubject.detailODS || [])];
             
             const exists = list.some(o => o.code === item.code);
 
             if (exists) {
-                // KENDU
                 list = list.filter(o => o.code !== item.code);
             } else {
-                // GEHITU
                 list.push(item);
             }
 
-            // GORDE 'ods' aldagaian
-            this.currentSubject.ods = list;
+            // 2. ZUZENKETA: Emaitza 'detailODS'-en gorde
+            this.currentSubject.detailODS = list;
 
+            // 3. ZUZENKETA KRITIKOA: GORDE DATU BASEAN
+            // Hemen zure gordetzeko funtzioa deitu behar duzu "egonkortzeko"
+            if (this.saveSubjectBasicData) {
+                 this.saveSubjectBasicData(); 
+            } else {
+                 console.warn("⚠️ Ez da aurkitu saveSubjectBasicData funtzioa!");
+            }
+
+            // Modala kendu eta berriro ireki (UI freskatzeko)
             modal.remove();
             this.openOdsSelector();
             
+            // Pantaila nagusia eguneratu
             if (window.ui && window.ui.renderSubjectDetail) {
                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
             }
@@ -998,6 +1009,7 @@ openOdsSelector() {
     content.querySelector('#closeOdsModal').onclick = () => modal.remove();
     content.querySelector('#finishOds').onclick = () => {
         modal.remove();
+        // Hemen ere ziurtatu dezakegu renderizatzea
         if (window.ui && window.ui.renderSubjectDetail) {
             window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
         }
@@ -1606,7 +1618,6 @@ openIduSelector() {
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
 openProjectsSelector() {
-    // ZUZENKETA: 'extProy' propietatea zuzenean
     const currentList = this.currentSubject.extProy || [];
 
     const modal = document.createElement('div');
@@ -1630,11 +1641,10 @@ openProjectsSelector() {
     document.body.appendChild(modal);
 
     const grid = content.querySelector('#prGrid');
-    const catalog = this.adminCatalogs.externalProjects || []; // Katalogoak bere horretan jarraitzen du
+    const catalog = this.adminCatalogs.externalProjects || [];
 
     catalog.forEach(item => {
         const card = document.createElement('div');
-        // 'extProy' zerrendan bilatu
         const isSelected = currentList.some(o => o.code === item.code || o.id === item.id);
 
         card.className = `cursor-pointer p-3 rounded-lg border-l-4 shadow-sm transition flex items-center gap-3 ${
@@ -1654,21 +1664,23 @@ openProjectsSelector() {
         `;
 
         card.onclick = () => {
-            let list = this.currentSubject.extProy || [];
+            let list = [...(this.currentSubject.extProy || [])];
             
             const exists = list.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
 
             if (exists) {
-                // KENDU
                 list = list.filter(o => (o.code && o.code !== item.code) || (o.id && o.id !== item.id));
             } else {
-                // GEHITU
                 list.push(item);
             }
 
-            // GORDE 'extProy' aldagaian
             this.currentSubject.extProy = list;
             
+            // ZUZENKETA: GORDE SUPABASE-N BERTAN
+            if (this.saveSubjectBasicData) {
+                this.saveSubjectBasicData();
+            }
+
             modal.remove();
             this.openProjectsSelector();
              if (window.ui && window.ui.renderSubjectDetail) {
@@ -4518,6 +4530,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
