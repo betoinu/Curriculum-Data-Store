@@ -178,88 +178,102 @@ async loadData() {
 }
 	
 async saveData() {
+    console.log("💾 Gordetzen hasten...");
     const supabase = window.supabase;
-    
-    // --- 1. UI Feedback: Botoiak desgaitu (Spinnerra) ---
     const saveBtn = document.getElementById('saveSubjectBtn');
-    const saveListBtn = document.getElementById('saveListBtn');
     
-    const disableSaveButtons = () => {
-        if (saveBtn) {
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-            saveBtn.disabled = true;
+    // 1. HELPERRA: Irakasgaia JSON zuhaitzaren barruan bilatu eta eguneratzeko
+    // (Hau ezinbestekoa da Supabasek JSON osoa bloke bakar batean gordetzen duelako)
+    const deepUpdateSubject = (node, targetCode, newData) => {
+        if (!node || typeof node !== 'object') return false;
+        
+        // Aurkitu dugu irakasgaia?
+        if (node.code === targetCode) {
+            Object.assign(node, newData); // Datuak fusionatu
+            return true;
         }
-        if (saveListBtn) {
-            saveListBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-            saveListBtn.disabled = true;
-        }
-    };
-    
-    const enableSaveButtons = (success = true) => {
-        const btnText = 'Gorde Aldaketak';
-        if (saveBtn) {
-            if (success) {
-                saveBtn.innerHTML = '<i class="fas fa-check"></i> Gordeta!';
-                saveBtn.classList.replace('bg-blue-600', 'bg-green-600');
-                saveBtn.classList.replace('hover:bg-blue-700', 'hover:bg-green-700');
-                
-                setTimeout(() => {
-                    saveBtn.innerHTML = btnText;
-                    saveBtn.classList.replace('bg-green-600', 'bg-blue-600');
-                    saveBtn.classList.replace('hover:bg-green-700', 'hover:bg-blue-700');
-                    saveBtn.disabled = false;
-                }, 2000);
-            } else {
-                saveBtn.innerHTML = btnText;
-                saveBtn.disabled = false;
+
+        // Ez bada hau, jarraitu bilatzen beherago
+        let found = false;
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                if (deepUpdateSubject(item, targetCode, newData)) found = true;
+            }
+        } else {
+            for (const key of Object.keys(node)) {
+                if (key !== 'parent' && typeof node[key] === 'object') {
+                    if (deepUpdateSubject(node[key], targetCode, newData)) found = true;
+                }
             }
         }
-        if (saveListBtn) {
-            saveListBtn.innerHTML = btnText;
-            saveListBtn.disabled = false;
-        }
+        return found;
     };
 
-    disableSaveButtons();
+    // 2. UI Feedback (Spinnerra jarri)
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
+    }
 
     try {
-        // --- 2. Erabiltzailea egiaztatu ---
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Saioa iraungita edo ez da hasi.");
+        if (!user) throw new Error("Saioa hasi behar da datuak gordetzeko.");
 
-        // --- 3. Datu nagusiak prestatu ---
-        // 'curriculum_data' taulan gordeko dugu dena JSON bakar batean.
-        // Honek saihesten du 'subjects' taula ez egotearen errorea.
-        const dataToSave = this.cachedData || this.curriculumData;
+        // 3. ID KRITIKOA LORTU
+        // loadData-k gordetako UUID erreala erabiltzen dugu.
+        const rowId = this.currentRowId;
 
-        if (!dataToSave) {
-            throw new Error("Ez dago daturik gordetzeko memorian.");
-        }
-
-        console.log("💾 Curriculum datuak gordetzen (JSON)...");
-
-        // Zein lerro eguneratu? (Lehentasuna: kargatu dugun IDa, bestela User ID)
-        const rowId = this.currentRowId; 
-
+        // Segurtasun kontrola: IDrik ez badago, ezin dugu gorde.
         if (!rowId) {
-            throw new Error("Ez da aurkitu errenkada IDrik (currentRowId) gordetzeko.");
+            throw new Error("Errore larria: Ez da kargatu datu-baseko IDa (currentRowId). Freskatu orria mesedez.");
         }
 
-        // --- 4. SUPABASE UPDATE ---
+        console.log(`📝 ID honekin gordetzen (UUID): ${rowId}`);
+
+        // 4. DATUAK PRESTATU
+        // Memorian daukagun JSON osoa hartu
+        let dataToSave = this.cachedData || this.curriculumData;
+        
+        // Ziurtatu uneko irakasgaiaren aldaketak JSON horretan txertatzen direla
+        if (this.currentSubject && this.currentSubject.code) {
+             const changes = {
+                 ods: this.currentSubject.ods,
+                 detailODS: this.currentSubject.detailODS,
+                 updated_at: new Date().toISOString()
+             };
+             
+             // JSON erraldoiaren barruan bilatu eta aldatu
+             const aurkitua = deepUpdateSubject(dataToSave, this.currentSubject.code, changes);
+             
+             if (!aurkitua) {
+                 console.warn(`⚠️ Oharra: '${this.currentSubject.code}' ez da aurkitu jatorrizko JSONean. Gordetzen jarraituko da.`);
+             }
+        }
+
+        // 5. SUPABASE UPDATE
+        // Orain bai: ID zuzena (rowId) erabiltzen ari gara.
         const { error } = await supabase
             .from('curriculum_data')
             .update({ 
                 datos: dataToSave,
                 last_updated: new Date().toISOString()
             })
-            .eq('id', rowId); // ID zehatza erabili
+            .eq('id', rowId); // <--- GAKOA HEMEN DAGO
 
         if (error) throw error;
 
-        console.log("✅ Datuak ondo gorde dira curriculum_data taulan!");
-
-        // --- 5. UI Feedback: Arrakasta ---
-        enableSaveButtons(true);
+        // 6. ARRAKASTA
+        console.log("✅ Datuak ondo gorde dira zerbitzarian.");
+        
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-check"></i> Ondo gorde da!';
+            saveBtn.classList.replace('bg-blue-600', 'bg-green-600');
+            setTimeout(() => {
+                saveBtn.innerHTML = 'Gorde Aldaketak';
+                saveBtn.classList.replace('bg-green-600', 'bg-blue-600');
+                saveBtn.disabled = false;
+            }, 2000);
+        }
         
         if (window.ui && window.ui.showNotification) {
             window.ui.showNotification("Aldaketak ondo gorde dira", "success");
@@ -267,23 +281,17 @@ async saveData() {
 
     } catch (err) {
         console.error("❌ Errorea gordetzean:", err);
+        const msg = err.message || "Errore ezezaguna";
         
-        // UI Feedback: Errorea
-        enableSaveButtons(false);
+        if (window.ui && window.ui.showNotification) {
+             window.ui.showNotification("Errorea: " + msg, "error");
+        } else {
+             alert("Errorea gordetzean: " + msg);
+        }
         
         if (saveBtn) {
-            saveBtn.innerHTML = '<i class="fas fa-times"></i> Errorea';
-            saveBtn.classList.add('bg-red-600');
-            setTimeout(() => {
-                saveBtn.innerHTML = 'Gorde Aldaketak';
-                saveBtn.classList.remove('bg-red-600');
-            }, 3000);
-        }
-
-        if (window.ui && window.ui.showNotification) {
-            window.ui.showNotification(`Errorea: ${err.message}`, "error");
-        } else {
-            alert("❌ Errorea gordetzean: " + err.message);
+            saveBtn.innerHTML = 'Saiatu berriro';
+            saveBtn.disabled = false;
         }
     }
 }
@@ -4597,6 +4605,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
