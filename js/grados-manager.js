@@ -250,8 +250,7 @@ async saveData() {
             .from('curriculum_data')
             .update({ 
                 datos: dataToSave,
-                last_updated: new Date().toISOString(),
-                updated_at: new Date().toISOString() // Badaezpada biak
+                last_updated: new Date().toISOString()
             })
             .eq('id', rowId); // ID zehatza erabili
 
@@ -4525,6 +4524,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
