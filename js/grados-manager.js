@@ -177,182 +177,153 @@ async loadData() {
     }
 }
 	
+// HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
 async saveData() {
     console.log("💾 Gordetzen hasten...");
     const supabase = window.supabase;
     const saveBtn = document.getElementById('saveSubjectBtn');
     
-    // 1. HELPERRA: Irakasgaia JSON zuhaitzaren barruan bilatu eta eguneratzeko
-    // (Zuzenduta 4 gradu guztietan bilatzeko)
-    const deepUpdateSubject = (node, targetCode, newData) => {
-        if (!node || typeof node !== 'object') return false;
-        
-        // Bilaketa hainbat propietaterekin
-        const match = (
-            node.code === targetCode ||          // kodea berdina bada
-            node.idAsig === targetCode ||        // idAsig kodea bada  
-            (node.name && node.name.includes(targetCode)) // izenean kodea badago
-        );
-        
-        if (match) {
-            console.log(`✅ Aurkitua: "${node.name || node.code}" (${targetCode})`);
-            Object.assign(node, newData); // Datuak fusionatu
-            return true;
-        }
+    if (!this.currentSubject || !this.currentSubject.idAsig) {
+        console.error("❌ Ez dago irakasgairik hautatuta edo IDrik gabe.");
+        return;
+    }
 
-        // Jarraitu bilatzen...
-        let found = false;
-        if (Array.isArray(node)) {
-            for (const item of node) {
-                if (deepUpdateSubject(item, targetCode, newData)) found = true;
-            }
-        } else {
-            for (const key of Object.keys(node)) {
-                if (key !== 'parent' && typeof node[key] === 'object') {
-                    if (deepUpdateSubject(node[key], targetCode, newData)) found = true;
-                }
-            }
-        }
-        return found;
-    };
+    // 1. DATUAK UI-TIK HARTU (GARRANTSUENA!)
+    const uiData = this.currentSubject;
+    const targetId = uiData.idAsig;
+    
+    console.log("📊 UI-tik hartutako datuak:", {
+        detailODS: uiData.detailODS?.length || 0,
+        ods: uiData.ods?.length || 0,
+        idujar: uiData.idujar?.length || 0,
+        extProy: uiData.extProy?.length || 0,
+        signAct: uiData.signAct?.length || 0
+    });
 
-    // 2. Gradu guztietan bilatzeko funtzio berria
-    const updateSubjectInAllDegrees = (dataToSave, targetCode, changes) => {
-        if (!dataToSave || !dataToSave.graduak || !Array.isArray(dataToSave.graduak)) {
-            console.warn("⚠️ Ez dago 'graduak' arrayrik");
-            return false;
-        }
-        
-        let updated = false;
-        console.log(`🔍 Bilatzen '${targetCode}' ${dataToSave.graduak.length} graduetan...`);
-        
-        // Gradu guztietatik pasa
-        for (let i = 0; i < dataToSave.graduak.length; i++) {
-            const gradua = dataToSave.graduak[i];
-            
-            // Gradu bakoitzaren urteetatik pasa
-            if (gradua.year && typeof gradua.year === 'object') {
-                const urteak = Object.values(gradua.year);
-                
-                for (const urteaArray of urteak) {
-                    if (Array.isArray(urteaArray)) {
-                        if (deepUpdateSubject(urteaArray, targetCode, changes)) {
-                            console.log(`✅ Aurkitua eta eguneratua gradua[${i}]-n`);
-                            updated = true;
+    // 2. JSON FITXATEGIKO IRAKASGAIA BILATU SINKRONIZAZIOARAKO
+    let jsonSubject = null;
+    let foundInGradu = -1;
+    let foundInYear = null;
+    let subjectIndex = -1;
+    
+    this.cachedData?.graduak?.forEach((gradua, gIndex) => {
+        if (gradua.year) {
+            Object.entries(gradua.year).forEach(([yearKey, urtea]) => {
+                if (Array.isArray(urtea)) {
+                    urtea.forEach((irakasgaia, iIndex) => {
+                        if (irakasgaia.idAsig === targetId || irakasgaia.code === targetId) {
+                            jsonSubject = irakasgaia;
+                            foundInGradu = gIndex;
+                            foundInYear = yearKey;
+                            subjectIndex = iIndex;
                         }
-                    }
+                    });
                 }
-            }
-            
-            // Zuzenean graduaren barruan ere bilatu (segurtasun gisa)
-            if (deepUpdateSubject(gradua, targetCode, changes)) {
-                console.log(`✅ Aurkitua graduaren barruan (${i})`);
-                updated = true;
-            }
+            });
         }
+    });
+
+    // 3. JSON FITXATEGIA EGUNERATU UI DATUEKIN
+    if (jsonSubject) {
+        console.log("🔄 JSON fitxategia eguneratzen UI datuekin...");
         
-        // Orain bada, datuen erroan ere bilatu (kasu batzuetan irakasgaiak kanpoan egon daitezke)
-        if (!updated) {
-            console.log("⚠️ Ez da graduen artean aurkitu, datu osoetan bilatzen...");
-            updated = deepUpdateSubject(dataToSave, targetCode, changes);
-        }
+        // ODS datuak sinkronizatu
+        jsonSubject.ods = uiData.ods || [];
+        jsonSubject.detailODS = uiData.detailODS || [];
+        jsonSubject.idujar = uiData.idujar || [];
+        jsonSubject.extProy = uiData.extProy || [];
+        jsonSubject.signAct = uiData.signAct || [];
+        jsonSubject.updated_at = new Date().toISOString();
         
-        return updated;
+        console.log("✅ JSON sinkronizatua. Orain:", {
+            detailODS: jsonSubject.detailODS?.length || 0,
+            ods: jsonSubject.ods?.length || 0
+        });
+    }
+
+    // 4. PREPARATU ALDAKETAK SUPABASE-RA BIDALTZEKO
+    const changes = {
+        ods: uiData.ods || [],
+        detailODS: uiData.detailODS || [],
+        idujar: uiData.idujar || [],
+        extProy: uiData.extProy || [],
+        signAct: uiData.signAct || [],
+        updated_at: new Date().toISOString()
     };
 
-    // 3. UI Feedback (Spinnerra jarri)
-    if (saveBtn) {
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        saveBtn.disabled = true;
-    }
-
+    // 5. SUPABASE-RA BIDALI
+    if (saveBtn) saveBtn.disabled = true;
+    
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Saioa hasi behar da datuak gordetzeko.");
+        console.log("🚀 Supabase-ra bidaltzen...", { targetId });
+        
+        const { data, error } = await supabase
+            .from('asignatures')
+            .update(changes)
+            .eq('idAsig', targetId);
 
-        // 4. ID KRITIKOA LORTU
-        const rowId = this.currentRowId;
-
-        // Segurtasun kontrola: IDrik ez badago, ezin dugu gorde.
-        if (!rowId) {
-            throw new Error("Errore larria: Ez da kargatu datu-baseko IDa (currentRowId). Freskatu orria mesedez.");
+        if (error) {
+            console.error("❌ Supabase errorea:", error);
+            alert(`Errorea gordetzean: ${error.message}`);
+            return;
         }
 
-        console.log(`📝 ID honekin gordetzen (UUID): ${rowId}`);
+        console.log("✅ Supabase-an gordeta:", data);
 
-        // 5. DATUAK PRESTATU
-        let dataToSave = this.cachedData || this.curriculumData;
-        
-        // 6. IRAKASGAIA EGUNERATU 4 GRADU GUZTIETAN
-        if (this.currentSubject) {
-            const changes = {
-                ods: this.currentSubject.ods,
-                detailODS: this.currentSubject.detailODS,
-                extProy: this.currentSubject.extProy,
-                updated_at: new Date().toISOString()
+        // 6. CACHE-A EGUNERATU
+        this.currentSubject = {
+            ...this.currentSubject,
+            ...changes,
+            updated_at: changes.updated_at
+        };
+
+        // 7. SINKRONIZAZIO OSOA: LocalStorage-AN ERE EGUNERATU
+        if (foundInGradu !== -1 && foundInYear && subjectIndex !== -1) {
+            // CachedData eguneratu
+            this.cachedData.graduak[foundInGradu].year[foundInYear][subjectIndex] = {
+                ...this.cachedData.graduak[foundInGradu].year[foundInYear][subjectIndex],
+                ...changes
             };
-            
-            // Lehenengo idAsig-arekin saiatu
-            const targetId = this.currentSubject.idAsig || this.currentSubject.code;
-            
-            console.log(`🎯 Irakasgaia eguneratzen: ${targetId} (${this.currentSubject.name})`);
-            console.log(`📊 Gradu kopurua: ${dataToSave.graduak?.length || 0}`);
-            
-            const aurkitua = updateSubjectInAllDegrees(dataToSave, targetId, changes);
-            
-            if (!aurkitua) {
-                console.warn(`⚠️ '${targetId}' ez da aurkitu 4 graduetako inongo irakasgaian.`);
-                console.warn("Proba alternatiboak:");
-                console.warn("1. Izenarekin bilatzen: ", this.currentSubject.name);
-                updateSubjectInAllDegrees(dataToSave, this.currentSubject.name, changes);
-            } else {
-                console.log("✅ Irakasgaia ondo eguneratua gradu guztietan.");
-            }
+
+            // LocalStorage eguneratu
+            localStorage.setItem('gradosData', JSON.stringify(this.cachedData));
+            console.log("💾 LocalStorage eguneratu da.");
         }
 
-        // 7. SUPABASE UPDATE
-        const { error } = await supabase
-            .from('curriculum_data')
-            .update({ 
-                datos: dataToSave,
-                last_updated: new Date().toISOString()
-            })
-            .eq('id', rowId);
+        // 8. UI-AN ARRASTOA EGIN
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed; top: 20px; right: 20px; 
+            background: #10B981; color: white; padding: 15px 20px;
+            border-radius: 8px; z-index: 10000; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = '✅ Datuak ondo gorde dira!';
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
 
-        if (error) throw error;
+        // 9. GORDEKETA LOG-ERA GEHITU
+        console.log("📝 GORDEKETA LOG:", {
+            irakasgaia: uiData.name || uiData.code,
+            idAsig: targetId,
+            detailODS: changes.detailODS.length,
+            ods: changes.ods.length,
+            denbora: new Date().toLocaleTimeString()
+        });
 
-        // 8. ARRAKASTA
-        console.log("✅ Datuak ondo gorde dira zerbitzarian.");
-        
-        if (saveBtn) {
-            saveBtn.innerHTML = '<i class="fas fa-check"></i> Ondo gorde da!';
-            saveBtn.classList.replace('bg-blue-600', 'bg-green-600');
-            setTimeout(() => {
-                saveBtn.innerHTML = 'Gorde Aldaketak';
-                saveBtn.classList.replace('bg-green-600', 'bg-blue-600');
-                saveBtn.disabled = false;
-            }, 2000);
-        }
-        
-        if (window.ui && window.ui.showNotification) {
-            window.ui.showNotification("Aldaketak ondo gorde dira", "success");
-        }
-
-    } catch (err) {
-        console.error("❌ Errorea gordetzean:", err);
-        const msg = err.message || "Errore ezezaguna";
-        
-        if (window.ui && window.ui.showNotification) {
-             window.ui.showNotification("Errorea: " + msg, "error");
-        } else {
-             alert("Errorea gordetzean: " + msg);
-        }
-        
-        if (saveBtn) {
-            saveBtn.innerHTML = 'Saiatu berriro';
-            saveBtn.disabled = false;
-        }
+    } catch (error) {
+        console.error("❌ Salbuespena gordetzean:", error);
+        alert('Errorea gordetzean. Saiatu berriro.');
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
+
+    console.log("🎉 saveData() prozesua amaitu da.");
 }
 	
 	// --- CARGA DE GRADO ESPECÃFICO ---
@@ -4664,6 +4635,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
