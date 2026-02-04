@@ -188,7 +188,7 @@ async saveData() {
         return;
     }
 
-    // 1. DATUAK UI-TIK HARTU (GARRANTSUENA!)
+    // 1. DATUAK UI-TIK HARTU
     const uiData = this.currentSubject;
     const targetId = uiData.idAsig;
     
@@ -200,7 +200,7 @@ async saveData() {
         signAct: uiData.signAct?.length || 0
     });
 
-    // 2. JSON FITXATEGIKO IRAKASGAIA BILATU SINKRONIZAZIOARAKO
+    // 2. JSON FITXATEGIA EGUNERATU UI DATUEKIN
     let jsonSubject = null;
     let foundInGradu = -1;
     let foundInYear = null;
@@ -223,11 +223,10 @@ async saveData() {
         }
     });
 
-    // 3. JSON FITXATEGIA EGUNERATU UI DATUEKIN
+    // 3. JSON FITXATEGIA EGUNERATU
     if (jsonSubject) {
         console.log("🔄 JSON fitxategia eguneratzen UI datuekin...");
         
-        // ODS datuak sinkronizatu
         jsonSubject.ods = uiData.ods || [];
         jsonSubject.detailODS = uiData.detailODS || [];
         jsonSubject.idujar = uiData.idujar || [];
@@ -235,32 +234,28 @@ async saveData() {
         jsonSubject.signAct = uiData.signAct || [];
         jsonSubject.updated_at = new Date().toISOString();
         
-        console.log("✅ JSON sinkronizatua. Orain:", {
-            detailODS: jsonSubject.detailODS?.length || 0,
-            ods: jsonSubject.ods?.length || 0
-        });
+        console.log("✅ JSON sinkronizatua.");
     }
 
-    // 4. PREPARATU ALDAKETAK SUPABASE-RA BIDALTZEKO
-    const changes = {
-        ods: uiData.ods || [],
-        detailODS: uiData.detailODS || [],
-        idujar: uiData.idujar || [],
-        extProy: uiData.extProy || [],
-        signAct: uiData.signAct || [],
-        updated_at: new Date().toISOString()
-    };
-
-    // 5. SUPABASE-RA BIDALI
+    // 4. GORDE CURRICULUM_DATA TAULARA (JSON OSOA)
     if (saveBtn) saveBtn.disabled = true;
     
     try {
-        console.log("🚀 Supabase-ra bidaltzen...", { targetId });
+        console.log("🚀 curriculum_data taulan gordetzen...", { 
+            curriculum_id: this.currentRowId,  // "ASG-025" (erabiltzaile IDa)
+            irakasgai_kopurua: this.cachedData?.graduak?.reduce((total, grad) => 
+                total + Object.values(grad.year || {}).reduce((sum, urtea) => 
+                    sum + (Array.isArray(urtea) ? urtea.length : 0), 0), 0)
+        });
         
+        // 🔥 KONPONKETA NAGUSIA: curriculum_data erabili, ez asignatures
         const { data, error } = await supabase
-            .from('asignatures')
-            .update(changes)
-            .eq('idAsig', targetId);
+            .from('curriculum_data')  // ✅ TAULA EGOKIA!
+            .update({
+                datos: this.cachedData,  // JSON FITXATEGI OSOA
+                last_updated: new Date().toISOString()
+            })
+            .eq('id', this.currentRowId);  // "ASG-025" (erabiltzaile IDa)
 
         if (error) {
             console.error("❌ Supabase errorea:", error);
@@ -268,29 +263,31 @@ async saveData() {
             return;
         }
 
-        console.log("✅ Supabase-an gordeta:", data);
+        console.log("✅ curriculum_data-n gordeta:", data);
 
-        // 6. CACHE-A EGUNERATU
+        // 5. CACHE-A EGUNERATU
         this.currentSubject = {
             ...this.currentSubject,
-            ...changes,
-            updated_at: changes.updated_at
+            updated_at: new Date().toISOString()
         };
 
-        // 7. SINKRONIZAZIO OSOA: LocalStorage-AN ERE EGUNERATU
+        // 6. LOCALSTORAGE EGUNERATU
         if (foundInGradu !== -1 && foundInYear && subjectIndex !== -1) {
-            // CachedData eguneratu
             this.cachedData.graduak[foundInGradu].year[foundInYear][subjectIndex] = {
                 ...this.cachedData.graduak[foundInGradu].year[foundInYear][subjectIndex],
-                ...changes
+                ods: uiData.ods || [],
+                detailODS: uiData.detailODS || [],
+                idujar: uiData.idujar || [],
+                extProy: uiData.extProy || [],
+                signAct: uiData.signAct || [],
+                updated_at: new Date().toISOString()
             };
 
-            // LocalStorage eguneratu
             localStorage.setItem('gradosData', JSON.stringify(this.cachedData));
             console.log("💾 LocalStorage eguneratu da.");
         }
 
-        // 8. UI-AN ARRASTOA EGIN
+        // 7. UI FEEDBACK
         const toast = document.createElement('div');
         toast.style.cssText = `
             position: fixed; top: 20px; right: 20px; 
@@ -307,12 +304,12 @@ async saveData() {
             setTimeout(() => toast.remove(), 300);
         }, 3000);
 
-        // 9. GORDEKETA LOG-ERA GEHITU
+        // 8. LOG
         console.log("📝 GORDEKETA LOG:", {
             irakasgaia: uiData.name || uiData.code,
             idAsig: targetId,
-            detailODS: changes.detailODS.length,
-            ods: changes.ods.length,
+            detailODS: uiData.detailODS?.length || 0,
+            ods: uiData.ods?.length || 0,
             denbora: new Date().toLocaleTimeString()
         });
 
@@ -4635,6 +4632,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
