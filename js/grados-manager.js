@@ -183,40 +183,84 @@ async saveData() {
     const saveBtn = document.getElementById('saveSubjectBtn');
     
     // 1. HELPERRA: Irakasgaia JSON zuhaitzaren barruan bilatu eta eguneratzeko
-    // (Hau ezinbestekoa da Supabasek JSON osoa bloke bakar batean gordetzen duelako)
-const deepUpdateSubject = (node, targetCode, newData) => {
-    if (!node || typeof node !== 'object') return false;
-    
-    // ⭐⭐ ALDATU HAU: Bilaketa hobetu ⭐⭐
-    // Bilaketa hainbat propietaterekin
-    const match = (
-        node.code === targetCode ||          // kodea berdina bada
-        node.idAsig === targetCode ||        // idAsig kodea bada  
-        (node.name && node.name.includes(targetCode)) // izenean kodea badago
-    );
-    
-    if (match) {
-        Object.assign(node, newData); // Datuak fusionatu
-        return true;
-    }
-
-    // Jarraitu bilatzen...
-    let found = false;
-    if (Array.isArray(node)) {
-        for (const item of node) {
-            if (deepUpdateSubject(item, targetCode, newData)) found = true;
+    // (Zuzenduta 4 gradu guztietan bilatzeko)
+    const deepUpdateSubject = (node, targetCode, newData) => {
+        if (!node || typeof node !== 'object') return false;
+        
+        // Bilaketa hainbat propietaterekin
+        const match = (
+            node.code === targetCode ||          // kodea berdina bada
+            node.idAsig === targetCode ||        // idAsig kodea bada  
+            (node.name && node.name.includes(targetCode)) // izenean kodea badago
+        );
+        
+        if (match) {
+            console.log(`✅ Aurkitua: "${node.name || node.code}" (${targetCode})`);
+            Object.assign(node, newData); // Datuak fusionatu
+            return true;
         }
-    } else {
-        for (const key of Object.keys(node)) {
-            if (key !== 'parent' && typeof node[key] === 'object') {
-                if (deepUpdateSubject(node[key], targetCode, newData)) found = true;
+
+        // Jarraitu bilatzen...
+        let found = false;
+        if (Array.isArray(node)) {
+            for (const item of node) {
+                if (deepUpdateSubject(item, targetCode, newData)) found = true;
+            }
+        } else {
+            for (const key of Object.keys(node)) {
+                if (key !== 'parent' && typeof node[key] === 'object') {
+                    if (deepUpdateSubject(node[key], targetCode, newData)) found = true;
+                }
             }
         }
-    }
-    return found;
-};
+        return found;
+    };
 
-    // 2. UI Feedback (Spinnerra jarri)
+    // 2. Gradu guztietan bilatzeko funtzio berria
+    const updateSubjectInAllDegrees = (dataToSave, targetCode, changes) => {
+        if (!dataToSave || !dataToSave.graduak || !Array.isArray(dataToSave.graduak)) {
+            console.warn("⚠️ Ez dago 'graduak' arrayrik");
+            return false;
+        }
+        
+        let updated = false;
+        console.log(`🔍 Bilatzen '${targetCode}' ${dataToSave.graduak.length} graduetan...`);
+        
+        // Gradu guztietatik pasa
+        for (let i = 0; i < dataToSave.graduak.length; i++) {
+            const gradua = dataToSave.graduak[i];
+            
+            // Gradu bakoitzaren urteetatik pasa
+            if (gradua.year && typeof gradua.year === 'object') {
+                const urteak = Object.values(gradua.year);
+                
+                for (const urteaArray of urteak) {
+                    if (Array.isArray(urteaArray)) {
+                        if (deepUpdateSubject(urteaArray, targetCode, changes)) {
+                            console.log(`✅ Aurkitua eta eguneratua gradua[${i}]-n`);
+                            updated = true;
+                        }
+                    }
+                }
+            }
+            
+            // Zuzenean graduaren barruan ere bilatu (segurtasun gisa)
+            if (deepUpdateSubject(gradua, targetCode, changes)) {
+                console.log(`✅ Aurkitua graduaren barruan (${i})`);
+                updated = true;
+            }
+        }
+        
+        // Orain bada, datuen erroan ere bilatu (kasu batzuetan irakasgaiak kanpoan egon daitezke)
+        if (!updated) {
+            console.log("⚠️ Ez da graduen artean aurkitu, datu osoetan bilatzen...");
+            updated = deepUpdateSubject(dataToSave, targetCode, changes);
+        }
+        
+        return updated;
+    };
+
+    // 3. UI Feedback (Spinnerra jarri)
     if (saveBtn) {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
         saveBtn.disabled = true;
@@ -226,10 +270,8 @@ const deepUpdateSubject = (node, targetCode, newData) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Saioa hasi behar da datuak gordetzeko.");
 
-        // 3. ID KRITIKOA LORTU
-        // loadData-k gordetako UUID erreala erabiltzen dugu.
+        // 4. ID KRITIKOA LORTU
         const rowId = this.currentRowId;
-		
 
         // Segurtasun kontrola: IDrik ez badago, ezin dugu gorde.
         if (!rowId) {
@@ -238,46 +280,48 @@ const deepUpdateSubject = (node, targetCode, newData) => {
 
         console.log(`📝 ID honekin gordetzen (UUID): ${rowId}`);
 
-        // 4. DATUAK PRESTATU
-        // Memorian daukagun JSON osoa hartu
+        // 5. DATUAK PRESTATU
         let dataToSave = this.cachedData || this.curriculumData;
         
-        // Ziurtatu uneko irakasgaiaren aldaketak JSON horretan txertatzen direla
+        // 6. IRAKASGAIA EGUNERATU 4 GRADU GUZTIETAN
+        if (this.currentSubject) {
+            const changes = {
+                ods: this.currentSubject.ods,
+                detailODS: this.currentSubject.detailODS,
+                extProy: this.currentSubject.extProy,
+                updated_at: new Date().toISOString()
+            };
+            
+            // Lehenengo idAsig-arekin saiatu
+            const targetId = this.currentSubject.idAsig || this.currentSubject.code;
+            
+            console.log(`🎯 Irakasgaia eguneratzen: ${targetId} (${this.currentSubject.name})`);
+            console.log(`📊 Gradu kopurua: ${dataToSave.graduak?.length || 0}`);
+            
+            const aurkitua = updateSubjectInAllDegrees(dataToSave, targetId, changes);
+            
+            if (!aurkitua) {
+                console.warn(`⚠️ '${targetId}' ez da aurkitu 4 graduetako inongo irakasgaian.`);
+                console.warn("Proba alternatiboak:");
+                console.warn("1. Izenarekin bilatzen: ", this.currentSubject.name);
+                updateSubjectInAllDegrees(dataToSave, this.currentSubject.name, changes);
+            } else {
+                console.log("✅ Irakasgaia ondo eguneratua gradu guztietan.");
+            }
+        }
 
-		// ALDATU HONELA:
-		if (this.currentSubject) {
-		     const changes = {
-		         ods: this.currentSubject.ods,
-		         detailODS: this.currentSubject.detailODS,
-		         extProy: this.currentSubject.extProy,  // ⭐⭐ GEHITU HAU ⭐⭐
-		         updated_at: new Date().toISOString()
-		     };
-		     
-		     // ⭐⭐ ERABILI idAsig LEHENENGO ⭐⭐
-		     const targetId = this.currentSubject.idAsig || this.currentSubject.code;
-		     
-		     const aurkitua = deepUpdateSubject(dataToSave, targetId, changes);
-		     
-		     if (!aurkitua) {
-		         console.warn(`⚠️ '${targetId}' ez da aurkitu. Probatzen: ${this.currentSubject.name}`);
-		         // Bigarren proba izenarekin
-		         deepUpdateSubject(dataToSave, this.currentSubject.name, changes);
-		     }
-		}
-
-        // 5. SUPABASE UPDATE
-        // Orain bai: ID zuzena (rowId) erabiltzen ari gara.
+        // 7. SUPABASE UPDATE
         const { error } = await supabase
             .from('curriculum_data')
             .update({ 
                 datos: dataToSave,
                 last_updated: new Date().toISOString()
             })
-            .eq('id', rowId); // <--- GAKOA HEMEN DAGO
+            .eq('id', rowId);
 
         if (error) throw error;
 
-        // 6. ARRAKASTA
+        // 8. ARRAKASTA
         console.log("✅ Datuak ondo gorde dira zerbitzarian.");
         
         if (saveBtn) {
@@ -4620,6 +4664,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
