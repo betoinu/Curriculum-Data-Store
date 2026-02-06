@@ -916,192 +916,179 @@ class GradosManager {
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
-	openOdsSelector() {
-		console.log("🟢 ODS hautatzailea irekitzen (Bertsio Sendoa)...");
+openOdsSelector(subject) {
+        console.log("🟢 ODS hautatzailea (Irudiak + IDak)...", subject.subjectTitle);
 
-		// 1. GARBITASUNA: Ezabatu aurreko leihoak (baldin badaude)
-		document.querySelectorAll('.ods-modal-overlay').forEach(m => {
-			m.style.opacity = '0';
-			setTimeout(() => m.remove(), 100);
-		});
+        // 1. GARBITASUNA
+        document.querySelectorAll('.ods-modal-overlay').forEach(m => {
+            m.style.opacity = '0';
+            setTimeout(() => m.remove(), 100);
+        });
 
-		// 2. HELPERRAK
-		const getCleanNumber = (val) => {
-			if (!val) return null;
-			const str = (typeof val === 'object') ? (val.code || val.odsCode || val.id || '') : String(val);
-			const match = String(str).match(/\d+/);
-			return match ? parseInt(match[0], 10) : null;
-		};
+        // 2. HELPERRAK (Irudiak lortzeko)
+        const getCleanNumber = (str) => {
+            if (!str) return null;
+            const match = String(str).match(/\d+/);
+            return match ? parseInt(match[0], 10) : null;
+        };
 
-		const getImageUrl = (num) => {
-			if (!num) return '';
-			const n = String(num).padStart(2, '0');
-			return `assets/ods/${n}.png`;
-		};
+        const getImageUrl = (num) => {
+            if (!num) return '';
+            const n = String(num).padStart(2, '0');
+            return `assets/ods/${n}.png`; // Zure irudien bidea
+        };
 
-		// 3. EGOERA KARGATU
-		let currentSelection = [];
-		if (this.currentSubject.detailODS && Array.isArray(this.currentSubject.detailODS)) {
-			currentSelection = [...this.currentSubject.detailODS];
-		} else if (this.currentSubject.ods && Array.isArray(this.currentSubject.ods)) {
-			const catalog = this.adminCatalogs.ods || [];
-			currentSelection = this.currentSubject.ods.map(code => {
-				const num = getCleanNumber(code);
-				return catalog.find(c => getCleanNumber(c) === num) || { code: code, name: '...' };
-			});
-		}
+        // 3. DATUAK PRESTATU
+        const masterList = this.adminCatalogs.odsList || [];
+        
+        if (!subject.content) subject.content = {};
+        const currentSelection = subject.content.detailODS || [];
+        
+        // Set bat sortu IDekin (SQL logika segurua)
+        const selectedIds = new Set(currentSelection.map(s => Number(s.id)));
 
-		// 4. UI SORTU
-		const modal = document.createElement('div');
-		// ⭐ GARRANTZITSUA: 'ods-modal-overlay' klasea gehitu dugu hemen, bestela hasierako garbitzeak ez du funtzionatuko
-		modal.className = "ods-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
-		
-		const content = document.createElement('div');
-		content.className = "bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden";
-		
-		content.innerHTML = `
-			<div class="p-5 border-b flex justify-between items-center bg-gray-50">
-				<div>
-					<h3 class="font-bold text-xl text-gray-800">Garapen Iraunkorrerako Helburuak</h3>
-					<p class="text-sm text-gray-500">Aukeratu irakasgaiari dagozkionak</p>
-				</div>
-				<button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
-			</div>
-			
-			<div class="p-6 overflow-y-auto bg-gray-100 flex-1">
-				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="odsGrid"></div>
-			</div>
+        // 4. UI SORTU (Zure diseinuarekin)
+        const modal = document.createElement('div');
+        modal.className = "ods-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
+        
+        const content = document.createElement('div');
+        content.className = "bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden";
+        
+        content.innerHTML = `
+            <div class="p-5 border-b flex justify-between items-center bg-gray-50">
+                <div>
+                    <h3 class="font-bold text-xl text-gray-800">Garapen Iraunkorrerako Helburuak</h3>
+                    <p class="text-sm text-gray-500">Aukeratu <strong>${subject.subjectTitle}</strong> irakasgaiari dagozkionak</p>
+                </div>
+                <button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto bg-gray-100 flex-1">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="odsGrid"></div>
+            </div>
 
-			<div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
-				<button id="cancelOds" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
-				<button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">Gorde Aldaketak</button>
-			</div>
-		`;
+            <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
+                <button id="cancelOds" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
+                <button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">
+                    Gorde Aldaketak
+                </button>
+            </div>
+        `;
 
-		modal.appendChild(content);
-		document.body.appendChild(modal);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
 
-		// 5. GRID-A MARRAZTU
-		const grid = content.querySelector('#odsGrid');
-		const catalog = this.adminCatalogs.ods || [];
+        // 5. GRID-A MARRAZTU (Irudiekin)
+        const grid = content.querySelector('#odsGrid');
 
-		catalog.forEach(item => {
-			const itemNum = getCleanNumber(item);
-			let isSelected = currentSelection.some(sel => getCleanNumber(sel) === itemNum);
-			
-			const card = document.createElement('div');
-			const baseClass = "relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 bg-white h-full";
-			const selectedClass = "border-blue-600 ring-1 ring-blue-600 shadow-md transform scale-[1.02]";
-			const unselectedClass = "border-transparent hover:border-gray-300 hover:shadow-sm opacity-90 hover:opacity-100";
+        masterList.forEach(ods => {
+            const odsId = Number(ods.id);
+            const odsNum = getCleanNumber(ods.code); // Irudia bilatzeko zenbakia
+            
+            // Renderizazio funtzioa egoera eguneratzeko
+            const renderCard = () => {
+                const isSelected = selectedIds.has(odsId);
+                
+                const card = document.createElement('div');
+                const baseClass = "relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 bg-white h-full";
+                const selectedClass = "border-blue-600 ring-1 ring-blue-600 shadow-md transform scale-[1.02]";
+                const unselectedClass = "border-transparent hover:border-gray-300 hover:shadow-sm opacity-90 hover:opacity-100";
 
-			card.className = `${baseClass} ${isSelected ? selectedClass : unselectedClass}`;
-			
-			card.innerHTML = `
-				<div class="w-full aspect-square relative p-4 pb-0">
-					<img src="${getImageUrl(itemNum)}" class="w-full h-full object-contain drop-shadow-sm transition-all duration-300 ${isSelected ? '' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}" loading="lazy">
-					<div class="check-icon absolute top-2 right-2 bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg transition-transform duration-200 ${isSelected ? 'scale-100' : 'scale-0'}">
-						<i class="fas fa-check text-sm"></i>
-					</div>
-				</div>
-				<div class="p-3 w-full text-center flex items-center justify-center grow">
-					<span class="text-xs font-bold leading-tight line-clamp-3 ${isSelected ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'}">${item.name || '...'}</span>
-				</div>
-			`;
+                card.className = `${baseClass} ${isSelected ? selectedClass : unselectedClass}`;
+                
+                card.innerHTML = `
+                    <div class="w-full aspect-square relative p-4 pb-0">
+                        <img src="${getImageUrl(odsNum)}" 
+                             class="w-full h-full object-contain drop-shadow-sm transition-all duration-300 ${isSelected ? '' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}" 
+                             loading="lazy"
+                             onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center font-bold text-4xl text-gray-300\'>${odsNum}</div>'"> <div class="check-icon absolute top-2 right-2 bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg transition-transform duration-200 ${isSelected ? 'scale-100' : 'scale-0'}">
+                            <i class="fas fa-check text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="p-3 w-full text-center flex items-center justify-center grow">
+                        <span class="text-xs font-bold leading-tight line-clamp-3 ${isSelected ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'}">
+                            ${ods.name || '...'}
+                        </span>
+                    </div>
+                `;
 
-			card.onclick = () => {
-				isSelected = !isSelected;
-				if (isSelected) {
-					if (!currentSelection.some(sel => getCleanNumber(sel) === itemNum)) currentSelection.push(item);
-					card.className = `${baseClass} ${selectedClass}`;
-					card.querySelector('img').classList.remove('grayscale', 'opacity-60');
-					card.querySelector('.check-icon').classList.replace('scale-0', 'scale-100');
-					card.querySelector('span').classList.replace('text-gray-600', 'text-blue-700');
-				} else {
-					currentSelection = currentSelection.filter(sel => getCleanNumber(sel) !== itemNum);
-					card.className = `${baseClass} ${unselectedClass}`;
-					card.querySelector('img').classList.add('grayscale', 'opacity-60');
-					card.querySelector('.check-icon').classList.replace('scale-100', 'scale-0');
-					card.querySelector('span').classList.replace('text-blue-700', 'text-gray-600');
-				}
-			};
-			grid.appendChild(card);
-		});
+                card.onclick = () => {
+                    if (selectedIds.has(odsId)) {
+                        selectedIds.delete(odsId);
+                    } else {
+                        selectedIds.add(odsId);
+                    }
+                    // Txartela bir-marraztu egoera berriarekin
+                    // (Edo klaseak aldatu, baina bir-marraztea seguruagoa da DOM elementuarentzat hemen)
+                    card.replaceWith(renderCard());
+                    
+                    // Botoia eguneratu
+                    const btn = content.querySelector('#finishOds');
+                    btn.innerHTML = `Gorde (${selectedIds.size})`;
+                };
+                return card;
+            };
 
-		// 6. ITXIERA KUDEAKETA (Segurua)
-		let isClosing = false;
-		const closeModal = () => {
-			if (isClosing) return;
-			isClosing = true;
-			modal.style.opacity = '0';
-			modal.style.pointerEvents = 'none';
-			setTimeout(() => {
-				if (modal.parentNode) modal.parentNode.removeChild(modal);
-				isClosing = false;
-			}, 300);
-		};
+            grid.appendChild(renderCard());
+        });
 
-		content.querySelector('#closeOdsModal').onclick = closeModal;
-		content.querySelector('#cancelOds').onclick = closeModal;
+        // 6. ITXIERA KUDEAKETA
+        const closeModal = () => {
+            modal.style.opacity = '0';
+            setTimeout(() => {
+                if (modal.parentNode) modal.parentNode.removeChild(modal);
+            }, 300);
+        };
 
-		// 7. GORDE (Sinkronizazio Aurreratua)
-		content.querySelector('#finishOds').onclick = async () => {
-			// A) Klik bikoitza saihestu (Debounce)
-			if (this._isSavingOds) {
-				console.log("⏳ Itxaron, gordetzen ari da...");
-				return;
-			}
-			
-			const btn = content.querySelector('#finishOds');
-			const originalHtml = btn.innerHTML;
-			btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-			btn.disabled = true;
-			this._isSavingOds = true;
+        content.querySelector('#closeOdsModal').onclick = closeModal;
+        content.querySelector('#cancelOds').onclick = closeModal;
 
-			try {
-				// B) Datuak prestatu
-				this.currentSubject.detailODS = [...currentSelection];
-				this.currentSubject.ods = currentSelection.map(s => s.code);
-				this.currentSubject.updated_at = new Date().toISOString();
+        // 7. GORDE (SQL/ID Logika mantenduz)
+        content.querySelector('#finishOds').onclick = async () => {
+            const btn = content.querySelector('#finishOds');
+            if (btn.disabled) return;
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+            btn.disabled = true;
 
-				// C) SINKRONIZAZIOA (Pakete nagusiarekin)
-				if (this.curriculumData && this.curriculumData.subjects) {
-					const index = this.curriculumData.subjects.findIndex(s => s.code === this.currentSubject.code);
-					if (index !== -1) {
-						// Objektua erabat ordezkatu bertsio berriarekin
-						this.curriculumData.subjects[index] = { ...this.currentSubject };
-					}
-				}
-				// Gauza bera cachearekin
-				if (this.cachedData && this.cachedData.subjects) {
-					const index = this.cachedData.subjects.findIndex(s => s.code === this.currentSubject.code);
-					if (index !== -1) {
-						this.cachedData.subjects[index] = { ...this.currentSubject };
-					}
-				}
+            try {
+                // A) Array berria sortu Masterretik (IDak errespetatuz)
+                const newDetailODS = masterList
+                    .filter(ods => selectedIds.has(Number(ods.id)))
+                    .map(ods => ({
+                        id: ods.id,
+                        code: ods.code, // Estandarizatua
+                        name: ods.name,
+                        color: ods.color,
+                        odsCode: ods.code // Zure sisteman biak erabiltzen badira
+                    }));
 
-				// D) Supabasera bidali
-				if (this.saveSubjectBasicData) {
-					await this.saveSubjectBasicData();
-				} else {
-					await this.saveData();
-				}
+                // B) Objektu lokala eguneratu
+                subject.content.detailODS = newDetailODS;
 
-				// E) UI Eguneratu eta Itxi
-				if (window.ui && window.ui.renderSubjectDetail) {
-					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-				}
-				closeModal();
+                // C) Supabase eguneratu
+                const { error } = await this.supabase
+                    .from('subjects')
+                    .update({ content: subject.content })
+                    .eq('id', subject.id);
 
-			} catch (error) {
-				console.error("❌ Errorea gordetzean:", error);
-				alert("Errorea: " + error.message);
-				btn.innerHTML = originalHtml;
-				btn.disabled = false;
-			} finally {
-				this._isSavingOds = false;
-			}
-		};
-	}
+                if (error) throw error;
+
+                // D) UI Eguneratu (Beharrezkoa bada)
+                if (typeof this.refreshSubjectView === 'function') {
+                    this.refreshSubjectView(subject);
+                }
+
+                closeModal();
+
+            } catch (error) {
+                console.error("❌ Errorea gordetzean:", error);
+                alert("Errorea: " + error.message);
+                btn.innerHTML = 'Saiatu berriro';
+                btn.disabled = false;
+            }
+        };
+    }
 	
 	// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO IDU (Para el Sidebar - Master)
     openIduCatalogEditor() {
@@ -4808,4 +4795,5 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
