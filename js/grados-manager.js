@@ -3860,60 +3860,98 @@ class GradosManager {
         }
     }
 
-	deleteSubjectArea() {
-		if (!this.currentDegree || !this.editingAreaOldName) return;
+// ==========================================
+    // 1. AREAK EZABATU (JSON update en SQL)
+    // ==========================================
+    async deleteSubjectArea() {
+        if (!this.currentDegree || !this.editingAreaOldName) return;
 
-			// --- BABESA: Zeharkakoa ezin da ezabatu ---
-			if (this.editingAreaOldName === "ZEHARKAKO KONPETENTZIAK") {
-				alert("Eremu hau derrigorrezkoa da sisteman eta ezin da ezabatu.");
-				return;
-			}
+        // --- BABESA: Zeharkakoa ezin da ezabatu ---
+        if (this.editingAreaOldName === "ZEHARKAKO KONPETENTZIAK") {
+            alert("Eremu hau derrigorrezkoa da sisteman eta ezin da ezabatu.");
+            return;
+        }
 
-        const confirmMessage = `Ziur zaude '${this.editingAreaOldName}' eremua ezabatu nahi duzula?...`;
-		
+        const confirmMessage = `Ziur zaude '${this.editingAreaOldName}' eremua ezabatu nahi duzula? \n\nKontuz: Eremu hau erabiltzen duten irakasgaiak 'Eremu gabe' geratuko dira.`;
+        
         if (confirm(confirmMessage)) {
-            // Filtrar para quitar el ¨¢rea actual
-            this.currentDegree.subjectAreas = this.currentDegree.subjectAreas.filter(a => a.name !== this.editingAreaOldName);
-            
-            // Guardar en base de datos
-            this.saveData();
-            
-            // Cerrar modal y refrescar interfaz
-            document.getElementById('areaModal').style.display = 'none';
-            if (window.ui) {
-                window.ui.renderSidebar(this.currentDegree);
-                // Si est¨¢s en la vista de a?o, refrescar para que se quiten los colores viejos
-                if (this.currentYear) window.ui.renderYearView(this.currentDegree, this.currentYear);
+            try {
+                // 1. Memorian ezabatu
+                this.currentDegree.subjectAreas = this.currentDegree.subjectAreas.filter(a => a.name !== this.editingAreaOldName);
+                
+                // 2. SQL-n eguneratu (Gradua taula)
+                const { error } = await this.supabase
+                    .from('graduak')
+                    .update({ subjectAreas: this.currentDegree.subjectAreas })
+                    .eq('idDegree', this.currentDegree.idDegree);
+
+                if (error) throw error;
+
+                console.log("✅ Area ezabatuta eta gorde da.");
+
+                // 3. UI Eguneratu
+                document.getElementById('areaModal').style.display = 'none';
+                
+                if (window.ui) {
+                    window.ui.renderSidebar(this.currentDegree);
+                    // Bista freskatu kolore zaharrak desagertu daitezen
+                    if (this.currentYear) this.selectYear(this.currentYear);
+                }
+
+            } catch (err) {
+                console.error("❌ Errorea area ezabatzean:", err);
+                alert("Errorea gertatu da area ezabatzean.");
             }
         }
     }
 
-
-// ==========================================
-    // IRAKASGAIAK EZABATU (DELETE SUBJECT)
     // ==========================================
+    // 2. IRAKASGAIAK EZABATU (SQL DELETE)
+    // ==========================================
+    // ⚠️ ADI: Orain 'idAsig' jasotzen du, ez 'index'
+    async deleteSubject(idAsig) {
+        if (!this.currentDegree) return;
 
-	deleteSubject(yearKey, subjectIndex) {
-        if (!this.currentDegree || !this.currentDegree.year) return;
+        // Bilatu irakasgaia memorian izena erakusteko
+        const subject = (this.currentDegree.subjects || []).find(s => s.idAsig === idAsig);
+        const subjName = subject ? (subject.subjectTitle || subject.name) : "Irakasgaia";
 
-        // ZUZENKETA: Zuzenean Array-a hartu (.subjects gabe)
-        const subjectsList = this.currentDegree.year[yearKey];
+        if (confirm(`Ziur zaude '${subjName}' ezabatu nahi duzula?\n\nEkintza hau ezin da desegin.`)) {
+            try {
+                // 1. SQL DELETE (Datu-basetik ezabatu)
+                const { error } = await this.supabase
+                    .from('irakasgaiak')
+                    .delete()
+                    .eq('idAsig', idAsig);
 
-        if (!subjectsList || !subjectsList[subjectIndex]) {
-            console.error("Ez da irakasgaia aurkitu.");
-            return;
-        }
+                if (error) throw error;
 
-        const subjName = subjectsList[subjectIndex].subjectTitle || "Irakasgaia";
-        
-        if (confirm(`Ziur zaude '${subjName}' ezabatu nahi duzula?`)) {
-            // Ezabatu
-            subjectsList.splice(subjectIndex, 1);
-            
-            // Gorde eta Eguneratu
-            this.saveData();
-            if (window.ui && window.ui.renderYearView) {
-                window.ui.renderYearView(this.currentDegree, yearKey);
+                // 2. MEMORIA EGUNERATU (Array-tik kendu)
+                if (this.currentDegree.subjects) {
+                    this.currentDegree.subjects = this.currentDegree.subjects.filter(s => s.idAsig !== idAsig);
+                }
+
+                console.log(`🗑️ Irakasgaia ezabatuta: ${idAsig}`);
+
+                // 3. UI EGUNERATU
+                // Oraindik urte horretan bagaude, bista freskatu
+                if (this.currentYear) {
+                    this.selectYear(this.currentYear);
+                }
+                
+                // Xehetasun bista irekita bazegoen eta irakasgai bera bada, itxi
+                const detailView = document.getElementById('subjectDetailView');
+                if (detailView && !detailView.classList.contains('hidden')) {
+                    if (this.currentSubject && this.currentSubject.idAsig === idAsig) {
+                        detailView.classList.add('hidden');
+                        document.getElementById('yearView').classList.remove('hidden');
+                        this.currentSubject = null;
+                    }
+                }
+
+            } catch (err) {
+                console.error("❌ Errorea irakasgaia ezabatzean:", err);
+                alert("Errorea: Ezin izan da irakasgaia ezabatu.");
             }
         }
     }
@@ -4554,6 +4592,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
