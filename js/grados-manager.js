@@ -71,32 +71,89 @@ class GradosManager {
     }
 
     // --- MODIFICACI¨®N 1: El m¨¦todo initialize ---
-	async initialize(user) {
-        console.log("🚀 GradosManager abiarazten (SQL modua)...");
+// ✅ Funtzio honek dena egiten du (ez da loadData edo loadCatalogs behar)
+    async initialize(user) {
+        console.log("🚀 Sistema abiarazten (SQL Modua)...");
         this.currentUser = user;
-        
+
         try {
-            // Aseguramos la instancia de Supabase
+            // 1. Supabase lortu
+            // ------------------------------------------------
+            // Zure inportazioaren arabera egokitu, baina normalean:
+            const { getSupabaseInstance } = await import('./config.js');
             this.supabase = getSupabaseInstance();
-            if (!this.supabase) {
-                throw new Error("Supabase ez da kargatu GradosManager baino lehen.");
-            }
 
-            // Inyectar modales (hau mantendu zure kode zaharretik badaukazu)
-            if (this.injectAreaModal) this.injectAreaModal(); 
+            if (!this.supabase) throw new Error("Supabase ez da aurkitu.");
 
-            // PASO CLAVE: Cargar los catálogos en paralelo
-            await this.loadCatalogs();
-
-            // Cargar los grados (Graduak bakarrik, irakasgaiak gero kargatuko dira)
-            await this.loadData();
+            // 2. DATU GUZTIAK PARALELOAN KARGATU
+            // ------------------------------------------------
+            // Hemen konpondu dugu 'codigo' vs 'name' errorea.
+            // Dena batera eskatzen dugu azkarrago joateko.
             
-            console.log("✅ GradosManager prest.");
+            const [graduakRes, odsRes, iduRes, projRes] = await Promise.all([
+                // A) Graduak
+                this.supabase
+                    .from('graduak')
+                    .select('*')
+                    .order('selectedDegree', { ascending: true }), // Edo 'name'
+
+                // B) ODS Katalogoa ('name' erabiliz)
+                this.supabase
+                    .from('catalog_ods')
+                    .select('*')
+                    .order('name', { ascending: true }),
+
+                // C) IDU Katalogoa ('name' erabiliz)
+                this.supabase
+                    .from('catalog_idu')
+                    .select('*')
+                    .order('name', { ascending: true }),
+
+                // D) Proiektuak ('name' erabiliz)
+                this.supabase
+                    .from('admin_external_projects')
+                    .select('*')
+                    .order('name', { ascending: true })
+            ]);
+
+            // 3. ERROREAK EGIAZTATU
+            // ------------------------------------------------
+            if (graduakRes.error) throw new Error("Graduak errorea: " + graduakRes.error.message);
+            if (odsRes.error) throw new Error("ODS errorea: " + odsRes.error.message);
+            if (iduRes.error) throw new Error("IDU errorea: " + iduRes.error.message);
+            // Proiektuak batzuetan hutsik egon daitezke, ez da larria.
+
+            // 4. MEMORIAN GORDE
+            // ------------------------------------------------
+            this.degrees = graduakRes.data || [];
+            
+            this.adminCatalogs = {
+                odsList: odsRes.data || [],
+                iduGuidelines: iduRes.data || [],
+                externalProjects: projRes.data || []
+            };
+
+            console.log(`✅ Kargatuta: ${this.degrees.length} gradu eta katalogoak.`);
+
+            // 5. UI EGUNERATU
+            // ------------------------------------------------
+            // Graduen selektorea bete
+            if (window.ui && window.ui.renderDegreeSelector) {
+                window.ui.renderDegreeSelector(this.degrees);
+            }
+            
+            // Area modala injektatu (beharrezkoa bada)
+            if (this.injectAreaModal) this.injectAreaModal();
+
             return true;
 
         } catch (error) {
-            console.error("❌ Errorea GradosManager abiaraztean:", error);
-            alert("Errorea datuak kargatzean. Freskatu orrialdea mesedez.");
+            console.error("❌ Errorea initialize-n:", error);
+            if (window.ui && window.ui.showError) {
+                window.ui.showError(error);
+            } else {
+                alert("Errorea abiaraztean: " + error.message);
+            }
             return false;
         }
     }
@@ -4688,6 +4745,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
