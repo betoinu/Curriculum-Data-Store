@@ -344,82 +344,93 @@ export const ui = {
 
 		// --- 2. VISTA DE AÑO ---
 renderYearView: (degree, yearNum) => {
-		document.getElementById('emptyState')?.classList.add('hidden');
-		document.getElementById('subjectDetailView')?.classList.add('hidden');
-		document.getElementById('yearView')?.classList.remove('hidden');
+        console.log(`🎨 UI: ${yearNum}. maila marrazten...`);
 
-		// Izenburu orokorra eguneratu
-		const pageTitle = document.getElementById('yearTitle');
-		if (pageTitle) pageTitle.textContent = `${yearNum}. Maila`;
+        // 1. PANELAK KUDEATU (Ziurtatu yearView bakarrik dagoela ikusgai)
+        // Ezkutatu beste guztiak
+        ['emptyState', 'subjectDetailView'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
 
-		const container = document.getElementById('subjectsGrid');
-		if (!container) return;
-		container.innerHTML = '';
+        // Erakutsi gurea
+        const viewContainer = document.getElementById('yearView');
+        if (viewContainer) {
+            viewContainer.classList.remove('hidden');
+            // Beste estilo batzuk garbitu badaezpada
+            viewContainer.style.display = 'block'; 
+        } else {
+            console.error("❌ 'yearView' edukiontzia ez da aurkitu HTMLan!");
+            return;
+        }
 
-		// 1. ZUZENKETA: Datuen egitura (Array zuzena da)
-		const subjects = (degree.year && degree.year[yearNum]) ? degree.year[yearNum] : [];
+        // Izenburua eguneratu
+        const pageTitle = document.getElementById('yearTitle');
+        if (pageTitle) pageTitle.textContent = `${yearNum}. Maila - ${degree.selectedDegree || degree.name}`;
 
-		// 2. RENDERIZATU
-		subjects.forEach((subj, index) => {
-			const areaColor = ui.getAreaColor(subj.subjectArea, degree);
-			const code = subj.subjectCode || subj.code || '---';
-			const subjTitle = subj.subjectTitle || subj.name || 'Izena gabe'; // Aldagaiaren izena aldatu dut gatazkarik ez egoteko
-			const credits = subj.subjectCredits || subj.credits || 0;
-			const type = subj.tipo || subj.subjectType || '';
-			
-			const card = document.createElement('div');
-			// 'group' klasea garrantzitsua da zakarrontzia hover egitean agertzeko
-			card.className = 'group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 cursor-pointer border-l-4 h-full flex flex-col justify-between relative';
-			card.style.borderLeftColor = areaColor;
-			
-			card.innerHTML = `
-				<div class="h-full flex flex-col">
-					<div class="flex justify-between items-start mb-3">
-						<span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
-						
-                        <div class="flex items-center gap-2">
-                            <button onclick="event.stopPropagation(); window.gradosManager.deleteSubject('${yearNum}', ${index})" 
-                                    class="text-gray-300 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100" 
-                                    aria-label="Ezabatu irakasgaia">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
+        // 2. GRID EDUKIONTZIA LORTU
+        const container = document.getElementById('subjectsGrid');
+        if (!container) {
+            console.error("❌ 'subjectsGrid' ez da aurkitu!");
+            return;
+        }
+        container.innerHTML = ''; // Garbitu aurrekoa
 
-                            <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center flex-shrink-0" style="background-color: ${areaColor}">${credits} EC</span>
-                        </div>
-					</div>
-					
-					<h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2 flex-grow min-h-[2.5rem]">${subjTitle}</h3>
-					
-					<div class="mt-auto">
-						<p class="text-xs text-gray-400 truncate mb-2">
-							${subj.subjectArea || 'Eremu gabe'}
-						</p>
-						${type ? `
-						<div class="flex items-center text-[11px] text-gray-500 bg-gray-50 px-2 py-1 rounded w-full">
-							<i class="fas fa-tag mr-2 text-indigo-400 text-[10px] flex-shrink-0"></i>
-							<span class="truncate">${type}</span>
-						</div>
-						` : ''}
-					</div>
-				</div>
-			`;
-			
-			card.onclick = (e) => {
-				e.preventDefault();
-				if (window.gradosManager) window.gradosManager.selectSubject(subj);
-			};
-			container.appendChild(card);
-		});
+        // 3. DATUAK IRAGAZI (HEMEN ZEN ARAZOA)
+        // String-era bihurtzen dugu bi aldeetan, erroreak saihesteko (1 vs "1")
+        const subjects = (degree.subjects || []).filter(s => String(s.year) === String(yearNum));
 
-		if (subjects.length === 0) {
-			container.innerHTML = `
-				<div class="col-span-full text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-					<i class="fas fa-book-open text-gray-300 text-4xl mb-3"></i>
-					<p class="text-gray-500">Ez dago irakasgairik maila honetan.</p>
-					<p class="text-xs text-gray-400">Erabili goiko "+" botoia berri bat gehitzeko.</p>
-				</div>`;
-		}
-	},
+        console.log(`📊 ${subjects.length} irakasgai aurkitu dira ${yearNum}. mailarako.`);
+
+        if (subjects.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-10 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                    <p class="text-gray-500 text-lg">Ez dago irakasgairik ${yearNum}. mailan.</p>
+                </div>`;
+            return;
+        }
+
+        // 4. TXARTELAK SORTU
+        subjects.forEach((subj) => {
+            // Segurtasuna balioekin
+            const areaColor = ui.getAreaColor ? ui.getAreaColor(subj.subjectArea, degree) : '#ccc';
+            const code = subj.subjectCode || subj.code || '---';
+            const subjTitle = subj.subjectTitle || subj.name || 'Izena gabe'; 
+            const credits = subj.subjectCredits || subj.credits || 0;
+            const type = subj.tipo || subj.subjectType || '';
+            const id = subj.idAsig || subj.id;
+
+            const card = document.createElement('div');
+            // Zure klaseak mantendu ditut
+            card.className = 'group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 cursor-pointer border-l-4 h-full flex flex-col justify-between relative';
+            card.style.borderLeftColor = areaColor;
+            
+            card.innerHTML = `
+                <div class="h-full flex flex-col">
+                    <div class="flex justify-between items-start mb-3">
+                        <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
+                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">${credits} EC</span>
+                    </div>
+                    
+                    <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
+                    
+                    <div class="mt-auto pt-2 border-t border-gray-50">
+                        <p class="text-xs text-gray-400 truncate">${subj.subjectArea || 'Eremu gabe'}</p>
+                    </div>
+                </div>
+            `;
+            
+            // Klik egitean xehetasunak
+            card.onclick = (e) => {
+                e.preventDefault();
+                console.log("Klik irakasgaian:", id);
+                if (window.gradosManager && window.gradosManager.selectSubject) {
+                    window.gradosManager.selectSubject(subj);
+                }
+            };
+            container.appendChild(card);
+        });
+    },
 
 	
 	// ✅ MANTÉN ESTA FUNCIÓN IGUAL - NO LA CAMBIES
@@ -1522,6 +1533,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
