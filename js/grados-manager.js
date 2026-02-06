@@ -2,416 +2,351 @@
 import { getSupabaseInstance } from './config.js';
 
 class GradosManager {
-    constructor() {
+	constructor() {
+        // 1. EGOERA (STATE) HASIERAKETA
+        // ----------------------------------------------------
         this.currentUser = null;
-        this.currentDegree = null;
-        this.currentSubject = null;
-        this.currentYear = null;
-        this.cachedData = null;
-        this.currentRowId = 'id_user';
-        this.dataColumnName = 'datos';
-        this.editingAreaOldName = null; 
+        this.degrees = [];          // Gradu guztien zerrenda (graduak taulatik)
+        this.currentDegree = null;  // Uneko gradua (graduak taulako errenkada + JSONak)
+        this.currentSubject = null; // Uneko irakasgaia (irakasgaiak taulako errenkada)
         
-        // --- PROPIEDAD PARA LOS CAT¨¢LOGOS ---
+        // 2. KATALOGO OROKORRAK (Beste tauletatik datozenak)
+        // ----------------------------------------------------
         this.adminCatalogs = {
-            iduGuidelines: [],
-            externalProjects: []
+            iduGuidelines: [],      // catalog_idu
+            odsList: [],            // catalog_ods
+            externalProjects: []    // admin_external_projects
         };
 
-        this.subjectPrimaryFields = [
-            'subjectCode',      
-            'subjectTitle',     
-            'subjectArea',
-            'subjectCredits',
-            'subjectType',
-            'zhRAs',
-            'currentOfficialRAs',
-            'subjectCritEval',
-            'unitateak',
-            'ganttPlanifikazioa',
-            'matrizAsignatura'
+        // 3. IRAKASGAIEN MAPAKETA (Data Mapping)
+        // ----------------------------------------------------
+        // Zerrenda honek definitzen du zein datu doazen 'irakasgaiak' taulako
+        // ZUTABE propiotara. Hauek EZ dira JSONean bikoiztu behar (nahiz eta lehen egon).
+        this.subjectDirectDbFields = [
+            'id',               // UUID (PK)
+            'idAsig',           // Kode bakarra (Unique)
+            'subjectTitle',     // Izena
+            'subjectCode',      // Kode laburra
+            'subjectCredits',   // Zenbakia (Numeric)
+            'subjectType',      // Mota
+            'language',         // Hizkuntza
+            'semester',         // Seihilekoa / Urtekoa
+            'year',             // Maila (Integer)
+            'idDegree',         // FK Graduarekin lotura
+            'subjectArea',      // Eremua (Testua) - Orain zutabe independentea
+            'coordinator_id'    // Irakasle arduraduna
         ];
-    
-        this.subjectDynamicFields = [
-            'idujar',           
-            'preReq',           
-            'extProy',          
-            'signAct',          
-            'ods'       
+
+        // Zerrenda honek definitzen du zein datu sartu behar diren 'content'
+        // JSONB zutabearen barruan. Hauek egitura konplexuak dira.
+        this.subjectJsonContentFields = [
+            'unitateak',            // Array (Unitate didaktikoak)
+            'ganttPlanifikazioa',   // Objektua
+            'matrizAsignatura',     // Objektua (rasVsUnidades, etc.)
+            'currentOfficialRAs',   // Array
+            'subjectCritEval',      // Array
+            'idujar',               // Array (IDU)
+            'preReq',               // Array
+            'extProy',              // Array
+            'signAct',              // Array
+            'ods'                   // Array
+        ];
+
+        // 4. GRADUEN MAPAKETA
+        // ----------------------------------------------------
+        // Graduak taulak 3 JSON zutabe espezifiko ditu, ez 'content' generiko bat.
+        // Beraz, horiek banaka identifikatu behar ditugu gordetzerakoan.
+        this.degreeJsonColumns = [
+            'matrices',       // jsonb
+            'competencies',   // jsonb
+            'subjectAreas'    // jsonb (Array)
+        ];
+        
+        // Graduaren zutabe arruntak (testua)
+        this.degreeDirectFields = [
+            'idDegree',       // PK
+            'selectedDegree', // Izena
+            'codigo'          // Beste kode bat badaezpada
         ];
     }
 
     // --- MODIFICACI¨®N 1: El m¨¦todo initialize ---
-    async initialize(user) {
-        console.log("?? Inicializando GradosManager...");
+	async initialize(user) {
+        console.log("🚀 GradosManager abiarazten (SQL modua)...");
         this.currentUser = user;
         
-        // Aseguramos la instancia de Supabase
-        this.supabase = getSupabaseInstance();
-		
-		if (!this.supabase) {
-			throw new Error("Supabase debe estar inicializado antes de GradosManager");
+        try {
+            // Aseguramos la instancia de Supabase
+            this.supabase = getSupabaseInstance();
+            if (!this.supabase) {
+                throw new Error("Supabase ez da kargatu GradosManager baino lehen.");
+            }
+
+            // Inyectar modales (hau mantendu zure kode zaharretik badaukazu)
+            if (this.injectAreaModal) this.injectAreaModal(); 
+
+            // PASO CLAVE: Cargar los catálogos en paralelo
+            await this.loadCatalogs();
+
+            // Cargar los grados (Graduak bakarrik, irakasgaiak gero kargatuko dira)
+            await this.loadData();
+            
+            console.log("✅ GradosManager prest.");
+            return true;
+
+        } catch (error) {
+            console.error("❌ Errorea GradosManager abiaraztean:", error);
+            alert("Errorea datuak kargatzean. Freskatu orrialdea mesedez.");
+            return false;
         }
-
-        // Inyectar modales
-        this.injectAreaModal(); 
-
-        // PASO CLAVE: Cargar los cat¨¢logos (Proyectos, IDU) ANTES que los datos
-        await this.loadCatalogs();
-
-        // Cargar los datos del grado
-        await this.loadData();
     }
-
+	
+	
     // --- MODIFICACI¨®N 2: Nueva funci¨®n para cargar cat¨¢logos ---
 	async loadCatalogs() {
-			console.log("?? Cargando catálogos oficiales desde Supabase...");
-			
-			try {
-				// 1. Cargar ODS
-				const { data: odsData, error: odsError } = await this.supabase
-					.from('catalog_ods')
-					.select('*')
-					.order('code', { ascending: true });
-				
-				if (odsError) console.error("Error cargando ODS:", odsError);
-				else this.adminCatalogs.ods = odsData || [];
-
-				// 2. Cargar IDU
-				const { data: iduData, error: iduError } = await this.supabase
-					.from('catalog_idu')
-					.select('*')
-					.order('code', { ascending: true });
-
-				if (iduError) console.error("Error cargando IDU:", iduError);
-				else this.adminCatalogs.iduGuidelines = iduData || [];
-
-				// 3. Cargar Proyectos Externos (Si ya tienes tabla)
-				const { data: projData, error: projError } = await this.supabase
-					.from('admin_external_projects')
-					.select('*')
-					.order('agent', { ascending: true }); // Ordenar por empresa
-
-				if (projError) console.warn("Error cargando proyectos:", projError);
-				else this.adminCatalogs.externalProjects = projData || [];
-
-				console.log("? Catálogos actualizados:", this.adminCatalogs);
-
-			} catch (err) {
-				console.error("? Error crítico cargando catálogos:", err);
-			}
-		}
-
-async loadData() {
-    console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
-    
-    // 1. HASIERAKETA SEGURUA (Erroreak ekiditeko)
-    this.cachedData = {
-        graduak: [],
-        proyectosExternos: []
-    };
-    this.currentRowId = null;
-
-    try {
-        const supabase = getSupabaseInstance();
-        if (!supabase) return;
-
-        // 2. DATUAK ESKATU (Azkeneko erregistroa bakarrik)
-        const { data: curriculumData, error: errorCurriculum } = await supabase
-            .from('curriculum_data')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-        if (errorCurriculum) {
-            console.error("❌ Error cargando curriculum_data:", errorCurriculum);
-            throw errorCurriculum;
-        }
-
-        // 3. DATUAK PROZESATU
-        if (curriculumData && curriculumData.length > 0) {
-            const row = curriculumData[0];
-            this.currentRowId = row.id;
-            
-            // Datuak cachean gorde (existitzen ez bada, array hutsak jarri)
-            if (row.datos) {
-                this.cachedData.graduak = row.datos.graduak || [];
-                // Ziurtatu izenak bat datozela zure DBarekin ('extProy' edo 'proyectosExternos')
-                this.cachedData.proyectosExternos = row.datos.proyectosExternos || row.datos.extProy || [];
-            }
-
-            console.log(`✅ Datuak kargatuta. ID: ${row.id}`);
-            console.log(`🎓 Graduak: ${this.cachedData.graduak.length}`);
-            
-            // 4. SEGURTASUNA: idAsig sortu falta bada (Legacy code support)
-            this.cachedData.graduak.forEach(grado => {
-                const gradoCodigo = grado.codigo || grado.id || 'G';
-                Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
-                    if (Array.isArray(asignaturas)) {
-                        asignaturas.forEach((asig, asigIndex) => {
-                            if (!asig.idAsig) {
-                                asig.idAsig = `${gradoCodigo}_${yearNum}_${String(asigIndex + 1).padStart(3, '0')}`;
-                            }
-                        });
-                    }
-                });
-            });
-            
-        } else {
-            console.log("ℹ️ Ez dago daturik Supabase-n. Hutsetik hasiko gara.");
-        }
-
-        // 5. UI EGUNERATU
-        // Orain selektorea beteko da, baina "Hautatu gradua..." markatuta geratuko da
-        this.populateDegreeSelect();
-
-        // Aukerakoa: Formularioa garbitu (aurreko saioetako datuak ez ikusteko)
-        if (this.clearForm) {
-            this.clearForm();
-        }
-
-    } catch (err) {
-        console.error("❌ Erroa loadData funtzioan:", err);
-        // Errorea egonda ere, saiatu selektorea marrazten (hutsik bada ere)
-        this.populateDegreeSelect();
-    }
-}
-	
-// HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
-async saveData() {
-    console.log("💾 Gordetzen hasten...");
-    const supabase = window.supabase;
-    const saveBtn = document.getElementById('saveSubjectBtn');
-    
-    if (!this.currentSubject || !this.currentSubject.idAsig) {
-        console.error("❌ Ez dago irakasgairik hautatuta edo IDrik gabe.");
-        return;
-    }
-
-    // 1. DATUAK UI-TIK HARTU
-    const uiData = this.currentSubject;
-    const targetId = uiData.idAsig;
-    
-    console.log("📊 UI-tik hartutako datuak:", {
-        detailODS: uiData.detailODS?.length || 0,
-        ods: uiData.ods?.length || 0,
-        idujar: uiData.idujar?.length || 0,
-        extProy: uiData.extProy?.length || 0,
-        signAct: uiData.signAct?.length || 0
-    });
-
-    // 2. JSON FITXATEGIA EGUNERATU UI DATUEKIN
-    let jsonSubject = null;
-    let foundInGradu = -1;
-    let foundInYear = null;
-    let subjectIndex = -1;
-    
-    this.cachedData?.graduak?.forEach((gradua, gIndex) => {
-        if (gradua.year) {
-            Object.entries(gradua.year).forEach(([yearKey, urtea]) => {
-                if (Array.isArray(urtea)) {
-                    urtea.forEach((irakasgaia, iIndex) => {
-                        if (irakasgaia.idAsig === targetId || irakasgaia.code === targetId) {
-                            jsonSubject = irakasgaia;
-                            foundInGradu = gIndex;
-                            foundInYear = yearKey;
-                            subjectIndex = iIndex;
-                        }
-                    });
-                }
-            });
-        }
-    });
-
-    // 3. JSON FITXATEGIA EGUNERATU
-    if (jsonSubject) {
-        console.log("🔄 JSON fitxategia eguneratzen UI datuekin...");
+        console.log("📚 Katalogoak kargatzen...");
         
-        jsonSubject.ods = uiData.ods || [];
-        jsonSubject.detailODS = uiData.detailODS || [];
-        jsonSubject.idujar = uiData.idujar || [];
-        jsonSubject.extProy = uiData.extProy || [];
-        jsonSubject.signAct = uiData.signAct || [];
-        jsonSubject.updated_at = new Date().toISOString();
-        
-        console.log("✅ JSON sinkronizatua.");
-    }
+        // Hiru kontsulta independente jaurti batera
+        const [iduRes, odsRes, extProjectsRes] = await Promise.all([
+            this.supabase.from('catalog_idu').select('*').order('codigo', { ascending: true }),
+            this.supabase.from('catalog_ods').select('*').order('codigo', { ascending: true }),
+            this.supabase.from('admin_external_projects').select('*').order('name', { ascending: true })
+        ]);
 
-    // 4. GORDE CURRICULUM_DATA TAULARA (JSON OSOA)
-    if (saveBtn) saveBtn.disabled = true;
-    
-    try {
-        console.log("🚀 curriculum_data taulan gordetzen...", { 
-            curriculum_id: this.currentRowId,  // "ASG-025" (erabiltzaile IDa)
-            irakasgai_kopurua: this.cachedData?.graduak?.reduce((total, grad) => 
-                total + Object.values(grad.year || {}).reduce((sum, urtea) => 
-                    sum + (Array.isArray(urtea) ? urtea.length : 0), 0), 0)
-        });
-        
-        // 🔥 KONPONKETA NAGUSIA: curriculum_data erabili, ez asignatures
-        const { data, error } = await supabase
-            .from('curriculum_data')  // ✅ TAULA EGOKIA!
-            .update({
-                datos: this.cachedData,  // JSON FITXATEGI OSOA
-                last_updated: new Date().toISOString()
-            })
-            .eq('id', this.currentRowId);  // "ASG-025" (erabiltzaile IDa)
+        // Erroreak egiaztatu
+        if (iduRes.error) throw new Error(`IDU errorea: ${iduRes.error.message}`);
+        if (odsRes.error) throw new Error(`ODS errorea: ${odsRes.error.message}`);
+        if (extProjectsRes.error) throw new Error(`Proj errorea: ${extProjectsRes.error.message}`);
 
-        if (error) {
-            console.error("❌ Supabase errorea:", error);
-            alert(`Errorea gordetzean: ${error.message}`);
-            return;
-        }
-
-        console.log("✅ curriculum_data-n gordeta:", data);
-
-        // 5. CACHE-A EGUNERATU
-        this.currentSubject = {
-            ...this.currentSubject,
-            updated_at: new Date().toISOString()
+        // Emaitzak gorde constructor-ean definitutako egituran
+        this.adminCatalogs = {
+            iduGuidelines: iduRes.data || [],
+            odsList: odsRes.data || [],
+            externalProjects: extProjectsRes.data || []
         };
-
-        // 6. LOCALSTORAGE EGUNERATU
-        if (foundInGradu !== -1 && foundInYear && subjectIndex !== -1) {
-            this.cachedData.graduak[foundInGradu].year[foundInYear][subjectIndex] = {
-                ...this.cachedData.graduak[foundInGradu].year[foundInYear][subjectIndex],
-                ods: uiData.ods || [],
-                detailODS: uiData.detailODS || [],
-                idujar: uiData.idujar || [],
-                extProy: uiData.extProy || [],
-                signAct: uiData.signAct || [],
-                updated_at: new Date().toISOString()
-            };
-
-            localStorage.setItem('gradosData', JSON.stringify(this.cachedData));
-            console.log("💾 LocalStorage eguneratu da.");
-        }
-
-        // 7. UI FEEDBACK
-        const toast = document.createElement('div');
-        toast.style.cssText = `
-            position: fixed; top: 20px; right: 20px; 
-            background: #10B981; color: white; padding: 15px 20px;
-            border-radius: 8px; z-index: 10000; font-weight: bold;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: slideIn 0.3s ease;
-        `;
-        toast.textContent = '✅ Datuak ondo gorde dira!';
-        document.body.appendChild(toast);
         
-        setTimeout(() => {
-            toast.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-
-        // 8. LOG
-        console.log("📝 GORDEKETA LOG:", {
-            irakasgaia: uiData.name || uiData.code,
-            idAsig: targetId,
-            detailODS: uiData.detailODS?.length || 0,
-            ods: uiData.ods?.length || 0,
-            denbora: new Date().toLocaleTimeString()
-        });
-
-    } catch (error) {
-        console.error("❌ Salbuespena gordetzean:", error);
-        alert('Errorea gordetzean. Saiatu berriro.');
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
-    }
-
-    console.log("🎉 saveData() prozesua amaitu da.");
-}
-	
-	// --- CARGA DE GRADO ESPECÃFICO ---
-async loadDegreeData(id) {
-        // 1. Bilatu gradua katxean
-        const degree = this.cachedData.graduak.find(g => g.codigo === id || g.id === id);
-        if (!degree) return;
-        
-        this.currentDegree = degree;
-
-        // --- KATALOGOEKIN KONEXIOA (ODS, IDU, Proiektuak) ---
-        
-        // A. ODS
-        if (!this.currentDegree.ods || this.currentDegree.ods.length === 0) {
-            if (this.adminCatalogs && this.adminCatalogs.ods) {
-                this.currentDegree.ods = this.adminCatalogs.ods.map(item => `${item.code} - ${item.name}`);
-            } else {
-                this.currentDegree.ods = [];
-            }
-        }
-
-        // B. IDU
-        if (!this.currentDegree.idu || this.currentDegree.idu.length === 0) {
-            if (this.adminCatalogs && this.adminCatalogs.iduGuidelines) {
-                this.currentDegree.idu = this.adminCatalogs.iduGuidelines.map(item => `${item.code} ${item.name}`);
-            } else {
-                this.currentDegree.idu = [];
-            }
-        }
-
-        // C. KANPO PROIEKTUAK
-        if (!this.currentDegree.external_projects || this.currentDegree.external_projects.length === 0) {
-            if (this.adminCatalogs && this.adminCatalogs.externalProjects) {
-                this.currentDegree.external_projects = this.adminCatalogs.externalProjects.map(item => item.name);
-            } else {
-                this.currentDegree.external_projects = [];
-            }
-        }
-
-        // 2. Oinarrizko egitura ziurtatu
-        this.currentDegree.year = this.currentDegree.year || {};
-        this.currentDegree.subjectAreas = this.currentDegree.subjectAreas || [];
-
-        // --- BERRIKUNTZA: ZEHARKAKO EREMUA DERRIGORTU (Blended) ---
-        // Honek ziurtatzen du "ZEHARKAKO KONPETENTZIAK (Blended)" eremua beti existitzen dela zerrendan.
-        // Sidebarra marraztu aurretik egiten dugu.
-        const blendedName = "ZEHARKAKO KONPETENTZIAK";
-        if (!this.currentDegree.subjectAreas.find(a => a.name === blendedName)) {
-            this.currentDegree.subjectAreas.unshift({ 
-                name: blendedName, 
-                color: "#475569" // Slate-600 (Gris ilun neutroa)
-            });
-            console.log("?? Zeharkako eremua automatikoki sortu da.");
-        }
-
-        // 3. UI Eguneraketak (Interfazea)
-        const selectEl = document.getElementById('degreeSelect');
-        if (selectEl) selectEl.value = id;
-        
-        if (window.ui && window.ui.renderSidebar) {
-            // Lehenengo Sidebarra marraztu (Blended eremu berria barne)
-            window.ui.renderSidebar(this.currentDegree);
-            
-            // ONDOREN: Konpetentzien zerrenda txikia eguneratu Sidebarrean
-            // renderSidebar exekutatu ondoren egin behar da HTML elementuak (ul) existitu daitezen
-            if (typeof this.updateSidebarCompetenciesList === 'function') {
-                this.updateSidebarCompetenciesList();
-            }
-
-            this.selectYear("1");
-        }
+        console.log(`📚 Katalogoak OK: ${this.adminCatalogs.iduGuidelines.length} IDU, ${this.adminCatalogs.odsList.length} ODS.`);
     }
 	
-	// En GradosManager class, despu¨¦s del constructor
-	getZhFromCatalog(zhCode) {
-		if (!this.currentDegree?.zhCatalog) return null;
-		return this.currentDegree.zhCatalog.find(zh => zh.code === zhCode);
+	async loadData() {
+		console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
+		
+		// 1. HASIERAKETA SEGURUA (Erroreak ekiditeko)
+		this.cachedData = {
+			graduak: [],
+			proyectosExternos: []
+		};
+		this.currentRowId = null;
+
+		try {
+			const supabase = getSupabaseInstance();
+			if (!supabase) return;
+
+			// 2. DATUAK ESKATU (Azkeneko erregistroa bakarrik)
+			const { data: curriculumData, error: errorCurriculum } = await supabase
+				.from('curriculum_data')
+				.select('*')
+				.order('created_at', { ascending: false })
+				.limit(1);
+
+			if (errorCurriculum) {
+				console.error("❌ Error cargando curriculum_data:", errorCurriculum);
+				throw errorCurriculum;
+			}
+
+			// 3. DATUAK PROZESATU
+			if (curriculumData && curriculumData.length > 0) {
+				const row = curriculumData[0];
+				this.currentRowId = row.id;
+				
+				// Datuak cachean gorde (existitzen ez bada, array hutsak jarri)
+				if (row.datos) {
+					this.cachedData.graduak = row.datos.graduak || [];
+					// Ziurtatu izenak bat datozela zure DBarekin ('extProy' edo 'proyectosExternos')
+					this.cachedData.proyectosExternos = row.datos.proyectosExternos || row.datos.extProy || [];
+				}
+
+				console.log(`✅ Datuak kargatuta. ID: ${row.id}`);
+				console.log(`🎓 Graduak: ${this.cachedData.graduak.length}`);
+				
+				// 4. SEGURTASUNA: idAsig sortu falta bada (Legacy code support)
+				this.cachedData.graduak.forEach(grado => {
+					const gradoCodigo = grado.codigo || grado.id || 'G';
+					Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
+						if (Array.isArray(asignaturas)) {
+							asignaturas.forEach((asig, asigIndex) => {
+								if (!asig.idAsig) {
+									asig.idAsig = `${gradoCodigo}_${yearNum}_${String(asigIndex + 1).padStart(3, '0')}`;
+								}
+							});
+						}
+					});
+				});
+				
+			} else {
+				console.log("ℹ️ Ez dago daturik Supabase-n. Hutsetik hasiko gara.");
+			}
+
+			// 5. UI EGUNERATU
+			// Orain selektorea beteko da, baina "Hautatu gradua..." markatuta geratuko da
+			this.populateDegreeSelect();
+
+			// Aukerakoa: Formularioa garbitu (aurreko saioetako datuak ez ikusteko)
+			if (this.clearForm) {
+				this.clearForm();
+			}
+
+		} catch (err) {
+			console.error("❌ Erroa loadData funtzioan:", err);
+			// Errorea egonda ere, saiatu selektorea marrazten (hutsik bada ere)
+			this.populateDegreeSelect();
+		}
 	}
 	
+// HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
+	async saveSubject(subjectData) {
+        console.log("💾 SQLan Gordetzen:", subjectData.subjectTitle);
+        const saveBtn = document.getElementById('saveSubjectBtn');
+        if (saveBtn) saveBtn.disabled = true;
 
-getFullZhDescription(zhItem) {
-    // 1. Prioridad: Descripci¨®n espec¨ªfica de la asignatura
-    const localDesc = zhItem.zhDesc || zhItem.raDesc || zhItem.desc;
-    if (localDesc) return localDesc;
-    
-    // 2. Fallback: Buscar en el cat¨¢logo global por c¨®digo
-    const codeToSearch = zhItem.zhCode || zhItem.code || zhItem.raCode;
-    const catalogZh = this.currentDegree?.zhCatalog?.find(z => (z.zhCode || z.code) === codeToSearch);
-    
-    return catalogZh?.zhDesc || catalogZh?.desc || 'Deskribapenik gabe';
-}
+        try {
+            // 1. ZUTABEAK PRESTATU (Constructor-ean definitutakoak)
+            const dbPayload = {};    
+            const jsonPayload = {};  
+
+            // Eremu bakoitza bere lekura bidali
+            Object.keys(subjectData).forEach(key => {
+                // Eremu teknikoak saltatu
+                if (['id', 'created_at', 'updated_at'].includes(key)) return;
+
+                // 'subjectDirectDbFields' zure constructor-ean definituta egon behar da!
+                if (this.subjectDirectDbFields && this.subjectDirectDbFields.includes(key)) {
+                    dbPayload[key] = subjectData[key];
+                } else {
+                    jsonPayload[key] = subjectData[key];
+                }
+            });
+
+            // JSON edukia 'content' zutabean sartu
+            dbPayload.content = jsonPayload;
+            
+            // Segurtasuna: IDak
+            if (!dbPayload.idDegree && this.currentDegree) {
+                dbPayload.idDegree = this.currentDegree.idDegree;
+            }
+            // Zure kode zaharrak 'idAsig' edo 'code' erabili dezake. Ziurtatu idAsig dela.
+            if (!dbPayload.idAsig && subjectData.code) {
+                dbPayload.idAsig = subjectData.code;
+            }
+
+            console.log("📤 Bidaltzen den payload:", dbPayload);
+
+            // 2. SUPABASE DEITU (Upsert)
+            const { data, error } = await this.supabase
+                .from('irakasgaiak')
+                .upsert(dbPayload, { onConflict: 'idAsig' }) // Gako nagusia
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            console.log("✅ DBan eguneratua. ID:", data.id);
+
+            // 3. MEMORIA EGUNERATU (Pantaila ez freskatzeko)
+            // SQLtik datorren data eta bidali dugun JSONa batu
+            const mergedSubject = { 
+                ...jsonPayload, 
+                ...data, 
+                content: undefined // Garbitu, ez bikoizteko
+            };
+
+            // Eguneratu uneko irakasgaia
+            this.currentSubject = mergedSubject;
+            
+            // Eguneratu zerrenda nagusia (degrees array-a)
+            if (this.currentDegree && this.currentDegree.subjects) {
+                const index = this.currentDegree.subjects.findIndex(s => s.idAsig === mergedSubject.idAsig);
+                if (index >= 0) {
+                    this.currentDegree.subjects[index] = mergedSubject;
+                } else {
+                    this.currentDegree.subjects.push(mergedSubject);
+                }
+            }
+
+            // 4. UI EGUNERATU (Xehetasunak)
+            if (window.ui && window.ui.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+
+            // 5. FEEDBACK (Toast mezua)
+            this.showToast('✅ Datuak ondo gorde dira!');
+            
+            return true;
+
+        } catch (err) {
+            console.error("❌ Errorea SQL gordetzean:", err);
+            alert("Errorea gordetzean: " + err.message);
+            return false;
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+        }
+    }
+	
+	// --- CARGA DE GRADO ESPECÃFICO ---
+	async loadDegreeData(degreeId) {
+        console.log("⏳ Datuak kargatzen...");
+
+        // 1. GRADUA AURKITU (Hau lehen bezala, memoriatik)
+        // Orain 'this.degrees' erabiltzen dugu (initialize-n kargatu duguna)
+        this.currentDegree = this.degrees.find(d => d.idDegree === degreeId || d.id === degreeId);
+
+        if (!this.currentDegree) return;
+
+        try {
+            // 2. IRAKASGAIAK JEITSI (Hau da BERRIA)
+            // Itxaron egin behar dugu (await) Supabasek erantzun arte
+            const { data: subjects, error } = await this.supabase
+                .from('irakasgaiak')
+                .select('*')
+                .eq('idDegree', this.currentDegree.idDegree)
+                .order('year', { ascending: true })
+                .order('subjectTitle', { ascending: true });
+
+            if (error) throw error;
+
+            // 3. DATUAK BATU (SQL + JSON)
+            // Zure aplikazioak datuak objektu bakar batean espero ditu
+            this.currentDegree.subjects = subjects.map(s => ({
+                ...s,          // SQL zutabeak (id, title...)
+                ...(s.content || {}) // JSON barrukoak (unitateak, gantt...)
+            }));
+
+            // 4. UI EGUNERATU (Zure funtzio zaharra)
+            this.renderDegreeView();
+
+        } catch (err) {
+            console.error("❌ Errorea:", err);
+            alert("Ezin izan dira irakasgaiak kargatu.");
+        }
+    }	
+	// En GradosManager class, despu¨¦s del constructor
+	/*getZhFromCatalog(zhCode) {
+		if (!this.currentDegree?.zhCatalog) return null;
+		return this.currentDegree.zhCatalog.find(zh => zh.code === zhCode);
+	}*/
+	
+
+	/*getFullZhDescription(zhItem) {
+		// 1. Prioridad: Descripci¨®n espec¨ªfica de la asignatura
+		const localDesc = zhItem.zhDesc || zhItem.raDesc || zhItem.desc;
+		if (localDesc) return localDesc;
+		
+		// 2. Fallback: Buscar en el cat¨¢logo global por c¨®digo
+		const codeToSearch = zhItem.zhCode || zhItem.code || zhItem.raCode;
+		const catalogZh = this.currentDegree?.zhCatalog?.find(z => (z.zhCode || z.code) === codeToSearch);
+		
+		return catalogZh?.zhDesc || catalogZh?.desc || 'Deskribapenik gabe';
+	}*/
 
 
 // ? VERSI¨®N CORRECTA PARA CLASE (Sin ': function')
@@ -500,268 +435,330 @@ getFullZhDescription(zhItem) {
 	}
 
     // --- CREACIÃ“N DE ASIGNATURA (NUEVA FUNCIÃ“N) ---
-crearNuevaAsignatura(yearNum) {
-	if (!this.currentDegree) {
-		alert("Mesedez, hautatu gradu bat lehenago.");
-		return;
-	}
-	
-	// 1. Inicializar estructura si no existe
-	if (!this.currentDegree.year) this.currentDegree.year = {};
-	if (!this.currentDegree.year[yearNum]) this.currentDegree.year[yearNum] = [];
+	async crearNuevaAsignatura(yearNum) {
+        if (!this.currentDegree) {
+            alert("Mesedez, hautatu gradu bat lehenago.");
+            return;
+        }
 
-	// 🔥 2. Crear idAsig (Grado_Año_Índice)
-	const gradoCodigo = this.currentDegree.codigo || 'G';
-	const indice = this.currentDegree.year[yearNum].length + 1;
-	const idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+        // 1. Kalkulatu hurrengo kodea (Array laua iragaziz)
+        // Lehen: this.currentDegree.year[yearNum].length
+        // Orain: this.currentDegree.subjects iragazi
+        const subjectsInYear = (this.currentDegree.subjects || []).filter(s => s.year === yearNum);
+        const indice = subjectsInYear.length + 1;
+        
+        const gradoCodigo = this.currentDegree.codigo || 'G';
+        const idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
 
-	// 3. Crear el objeto completo
-	const nuevoId = `ASG-${Date.now()}`;
-	const newSubj = {
-		id: nuevoId,
-		idAsig: idAsig, // 🔥 GEHITU HAU BAKARRIK
-		code: 'NEW',
-		subjectCode: 'NEW',
-		name: 'Irakasgai Berria',
-		subjectTitle: 'Irakasgai Berria',
-		subjectArea: '',
-		subjectCredits: 6,
-		credits: 6,
-		year: yearNum,
-		degreeCode: this.currentDegree.codigo || '',
-		subjectType: [],
-		currentOfficialRAs: [],
-		zhRAs: [],
-		preReq: [],
-		idujar: [],
-		unitateak: [],
-		ods: []
-	};
+        // 2. Objektua sortu
+        const newSubj = {
+            idAsig: idAsig, // Gako nagusia
+            subjectTitle: 'Irakasgai Berria',
+            subjectCode: 'NEW',
+            year: yearNum,
+            subjectCredits: 6,
+            subjectType: 'Oinarrizkoa',
+            idDegree: this.currentDegree.idDegree, // Lotura
 
-	// 4. Persistencia y Navegación (KODE BERDINA)
-	this.currentDegree.year[yearNum].push(newSubj);
-	this.saveData();
-	
-	// 5. UI (KODE BERDINA)
-	this.selectYear(yearNum); 
-	this.selectSubject(newSubj); 
-	
-	setTimeout(() => {
-		if (this.openEditSubjectModal) {
-			this.openEditSubjectModal();
-		} else if (window.gradosManager.openEditSubjectModal) {
-			window.gradosManager.openEditSubjectModal();
-		}
-	}, 150);
-}
+            // JSON eremuak hutsik
+            unitateak: [],
+            ods: [],
+            idujar: [],
+            extProy: [],
+            currentOfficialRAs: []
+        };
+
+        // 3. GORDE (Zure saveData berriak dena egingo du: DB + Memoria)
+        await this.saveData(newSubj);
+        
+        // 4. UI EGUNERATU (Zuk zenuen bezala)
+        this.selectYear(yearNum);
+        this.selectSubject(newSubj);
+        
+        setTimeout(() => {
+            this.openEditSubjectModal();
+        }, 150);
+    }
 	
 	openEditSubjectModal() {
-			if (!this.currentSubject) return;
-			const subj = this.currentSubject;
-			
-			// 1. Cargar datos b¨¢sicos
-			const codeInput = document.getElementById('subject_edit_code'); 
-			const nameInput = document.getElementById('subject_edit_name');
-			const areaSelect = document.getElementById('subject_edit_area');
-			const typeSelect = document.getElementById('subject_edit_type');
-			
-	// --- Relleno de Tipos (INSTANT¨¢NEO) ---
-			if (typeSelect) {
-				typeSelect.innerHTML = '';
-				
-				// Llamada directa a la funci¨®n corregida de arriba
-				const dbTypes = this.loadUniqueSubjectTypes();
-				
-				// Opci¨®n por defecto
-				const defaultOpt = document.createElement('option');
-				defaultOpt.value = "";
-				defaultOpt.textContent = "-- Hautatu --";
-				typeSelect.appendChild(defaultOpt);
+        if (!this.currentSubject) return;
+        const subj = this.currentSubject;
+        
+        // 1. ELEMENTUAK HAURTADU (Zure ID originalak)
+        const codeInput = document.getElementById('subject_edit_code'); 
+        const nameInput = document.getElementById('subject_edit_name');
+        const areaSelect = document.getElementById('subject_edit_area');
+        const typeSelect = document.getElementById('subject_edit_type');
+        
+        // Balioak bete
+        if(codeInput) codeInput.value = subj.idAsig || subj.subjectCode || '';
+        if(nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
+        
+        // 2. MOTAK (Types)
+        if (typeSelect) {
+            typeSelect.innerHTML = '';
+            // Memoriatik motak kargatu
+            const dbTypes = this.loadUniqueSubjectTypes();
+            
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = "";
+            defaultOpt.textContent = "-- Hautatu --";
+            typeSelect.appendChild(defaultOpt);
 
-				// Rellenar opciones
-				dbTypes.forEach(tipo => {
-					const opt = document.createElement('option');
-					opt.value = tipo;
-					opt.textContent = tipo;
-					typeSelect.appendChild(opt);
-				});
+            dbTypes.forEach(tipo => {
+                const opt = document.createElement('option');
+                opt.value = tipo;
+                opt.textContent = tipo;
+                typeSelect.appendChild(opt);
+            });
 
-				// Seleccionar valor actual
-				const val = subj.tipo || subj.subjectType || subj.type || '';
-				typeSelect.value = val;
-			}			
-			
-			
-			if(codeInput) codeInput.value = subj.subjectCode || subj.code || '';
-			if(nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
-			if(typeSelect) typeSelect.value = subj.tipo || subj.subjectType || subj.type || '';
-			
-			// Cargar ¨¢reas
-			if (areaSelect && this.currentDegree) {
-				areaSelect.innerHTML = '<option value="">-- Hautatu --</option>';
-				(this.currentDegree.subjectAreas || []).forEach(area => {
-					const opt = document.createElement('option');
-					opt.value = area.name;
-					opt.textContent = area.name;
-					if (area.name === subj.subjectArea) opt.selected = true;
-					areaSelect.appendChild(opt);
-				});
-			}
+            typeSelect.value = subj.subjectType || subj.tipo || '';
+        }
 
-			// --- 2. RENDERIZAR SELECTORES USANDO UI.JS ---
-			// Verificamos que ui exista
-			if (window.ui && window.ui.renderChecklistSelector) {
-				
-				// Inicializamos contexto si no existe
-				const ctx = subj.context || {}; 
+        // 3. AREAK (Areas)
+        if (areaSelect && this.currentDegree) {
+            areaSelect.innerHTML = '<option value="">-- Hautatu --</option>';
+            // Area zerrenda graduan bertan dago
+            const areas = this.currentDegree.subjectAreas || [];
+            
+            areas.forEach(area => {
+                const opt = document.createElement('option');
+                const areaName = typeof area === 'object' ? area.name : area;
+                opt.value = areaName;
+                opt.textContent = areaName;
+                if (areaName === subj.subjectArea) opt.selected = true;
+                areaSelect.appendChild(opt);
+            });
+        }
 
-				// A. IDU Jarraibideak
-				window.ui.renderChecklistSelector(
-					'editIduContainer',           // ID contenedor
-					this.currentDegree.idu,       // Lista Maestra (Grado)
-					ctx.idu,                      // Seleccionados (Asignatura)
-					'idu_chk'                     // Name del input
-				);
+        // 4. KATALOGOAK (Checklist-ak)
+        // window.ui erabiltzen jarraitzen dugu.
+        // Datuak 'this.adminCatalogs'-etik pasatzen dizkiogu (initialize-n kargatuta daude)
+        if (window.ui && window.ui.renderChecklistSelector) {
+            
+            // A. IDU
+            window.ui.renderChecklistSelector(
+                'editIduContainer', 
+                this.adminCatalogs.iduGuidelines || [], // <-- ALDAKETA TXIKIA: Hemen daude datuak orain
+                subj.idujar || [], 
+                'idu_chk'
+            );
 
-				// B. ODS - GHJ
-				window.ui.renderChecklistSelector(
-					'editOdsContainer',
-					this.currentDegree.ods,
-					ctx.ods,
-					'ods_chk'
-				);
+            // B. ODS
+            window.ui.renderChecklistSelector(
+                'editOdsContainer',
+                this.adminCatalogs.odsList || [], // <-- ALDAKETA TXIKIA
+                subj.ods || [],
+                'ods_chk'
+            );
 
-				// C. Kanpo Proiektuak
-				window.ui.renderChecklistSelector(
-					'editExtProyContainer',
-					this.currentDegree.external_projects,
-					ctx.external_projects,
-					'ext_chk'
-				);
-			}
+            // C. PROIEKTUAK
+            window.ui.renderChecklistSelector(
+                'editExtProyContainer',
+                this.adminCatalogs.externalProjects || [], // <-- ALDAKETA TXIKIA
+                subj.extProy || [],
+                'ext_chk'
+            );
+        }
 
-			// Mostrar Modal
-			const modal = document.getElementById('editSubjectModal');
-			if (modal) modal.classList.remove('hidden');
-		}
-
-	// EN GRADOS-MANAGER.JS
-saveSubjectBasicData() {
-    console.log("📝 Datu basikoak eguneratzen...");
-    if (!this.currentSubject) return;
-
-    // 1. Input-ak irakurri (bakarrik existitzen direnak)
-    const codeInput = document.getElementById('subject_edit_code');
-    const nameInput = document.getElementById('subject_edit_name');
-    const areaSelect = document.getElementById('subject_edit_area');
-    const typeSelect = document.getElementById('subject_edit_type');
-    
-    // Balioak eguneratu memorian
-    if (codeInput) {
-        this.currentSubject.code = codeInput.value.trim();
-        // Bateragarritasunerako, biak mantendu
-        this.currentSubject.subjectCode = codeInput.value.trim(); 
+        // 5. ERAKUTSI
+        const modal = document.getElementById('editSubjectModal');
+        if (modal) modal.classList.remove('hidden');
     }
-    if (nameInput) {
-        this.currentSubject.name = nameInput.value.trim();
-        this.currentSubject.subjectTitle = nameInput.value.trim();
-    }
-    if (areaSelect) {
-        this.currentSubject.subjectArea = areaSelect.value;
-    }
-    if (typeSelect) {
-        this.currentSubject.subjectType = typeSelect.value;
-        this.currentSubject.tipo = typeSelect.value;
-    }            
-
-    // ⚠️ GARRANTZITSUA: Kendu dugu 'checkbox' irakurketa zaharra.
-    // Orain ODSak eta Proiektuak beren modaletan gordetzen dira zuzenean.
-    // Hemen horiek irakurtzen saiatzeak datuak ezabatuko lituzke.
-
-    // 2. Datu basean gorde
-    if (this.saveData) { 
-        this.saveData(); 
-    }
-
-    // 3. Modala itxi
-    const modal = document.getElementById('editSubjectModal');
-    if (modal) {
-        // Tailwind/CSS klasea erabiliz ezkutatu
-        modal.classList.add('hidden');
-        modal.classList.remove('flex'); // Badaezpada flex bada
-    }
-
-    // 4. BISTA EGUNERATU
-    
-    // A) Xehetasunen bista
-    if (window.ui && window.ui.renderSubjectDetail) {
-        window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-    }
-
-    // B) Urteko bista (txartelaren izena/kolorea aldatu bada)
-    if (window.ui && window.ui.renderYearView && this.currentDegree) {
-        // currentYear string moduan pasatu behar da batzuetan
-        const yearStr = this.currentYear ? String(this.currentYear) : "1";
-        window.ui.renderYearView(this.currentDegree, yearStr);
-    }
-}
 	
- populateDegreeSelect() {
-    const select = document.getElementById('degreeSelect');
-    // Hemen zure datu errealak erabiltzen ari gara:
-    if (!select || !this.cachedData.graduak) return;
-    
-    select.innerHTML = '';
+	// EN GRADOS-MANAGER.JS
+	async saveSubjectBasicData() {
+        console.log("📝 Datu basikoak eguneratzen (SQL Modua)...");
+        
+        if (!this.currentSubject) {
+            console.error("Ez dago irakasgairik aukeratuta");
+            return;
+        }
 
-    // 1. LEHENETSITAKO AUKERA (Placeholder)
-    // 'disabled' jartzen dugu, behin zabalduta ezin dadin berriro hautatu
-    const defaultOp = document.createElement('option');
-    defaultOp.value = "";
-    defaultOp.textContent = "Hautatu gradua...";
-    defaultOp.disabled = true; 
-    defaultOp.selected = true; // Hau da gakoa: hasieran hau egotea markatuta
-    select.appendChild(defaultOp);
+        // 1. FORMULARIOKO INPUT-AK IRAKURRI
+        // Ziurtatu zure HTMLan ID hauek daudela. 
+        // Bestela aldatu IDak behean, zure HTMLaren arabera.
+        
+        const codeInput = document.getElementById('subject_edit_code') || document.getElementById('editSubjectCode');
+        const nameInput = document.getElementById('subject_edit_name') || document.getElementById('editSubjectTitle');
+        const areaSelect = document.getElementById('subject_edit_area') || document.getElementById('editSubjectArea');
+        const typeSelect = document.getElementById('subject_edit_type') || document.getElementById('editSubjectType');
+        const creditsInput = document.getElementById('editSubjectCredits'); // Hau berria izan daiteke
+        
+        // 2. MEMORIAKO OBJEKTUA EGUNERATU
+        // Kopia bat egiten dugu segurtasunagatik
+        const updatedSubject = { ...this.currentSubject };
 
-    // 2. GRADU BERRIA (+ Gradu Berria...)
-    const createOp = document.createElement('option');
-    createOp.value = "NEW_DEGREE";
-    createOp.textContent = "+ Gradu Berria...";
-    select.appendChild(createOp);
+        if (codeInput) updatedSubject.idAsig = codeInput.value.trim(); // SQLn idAsig da gakoa
+        if (nameInput) updatedSubject.subjectTitle = nameInput.value.trim();
+        if (areaSelect) updatedSubject.subjectArea = areaSelect.value;
+        if (typeSelect) updatedSubject.subjectType = typeSelect.value;
+        if (creditsInput) updatedSubject.subjectCredits = parseFloat(creditsInput.value);
 
-    // 3. ZURE DATU ERREALAK KARGATU
-    this.cachedData.graduak.forEach(g => {
-        const op = document.createElement('option');
-        op.value = g.codigo || g.id;
-        // Zure datuen izena erabiltzen du:
-        op.textContent = g.selectedDegree || g.name || "Izenik gabea";
-        select.appendChild(op);
-    });
-}
-    
-    selectDegree(e) {
-        const val = (e.target && e.target.value) ? e.target.value : e;
-        if (val === "NEW_DEGREE") {
-            this.createNewDegree();
-        } else {
-            this.loadDegreeData(val);
+        // ODS, IDU, Proiektuak... horiek jada memorian daude (currentSubject),
+        // ez ditugu inputetatik irakurri behar (ondo diozun bezala).
+
+        // 3. DATU BASEAN GORDE (SQL FUNTZIO BERRIA)
+        const success = await this.saveSubject(updatedSubject);
+
+        if (success) {
+            // 4. ARRAKASTA BADA, MODALA ITXI
+            const modal = document.getElementById('editSubjectModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            
+            // 5. URTEKO BISTA EGUNERATU (Izena/Kolorea aldatu bada)
+            if (window.ui && window.ui.renderYearView && this.currentDegree) {
+                const yearStr = this.currentYear ? String(this.currentYear) : "1";
+                window.ui.renderYearView(this.currentDegree, yearStr);
+            }
         }
     }
-    
-    createNewDegree() { 
+	
+// 1. POPULATE (Zerrenda marraztu) - HAU ONDO DAGO
+    populateDegreeSelect() {
+        const select = document.getElementById('degreeSelect');
+        if (!select || !this.degrees) return;
+        
+        select.innerHTML = '';
+
+        // Default option
+        const defaultOp = document.createElement('option');
+        defaultOp.value = "";
+        defaultOp.textContent = "Hautatu gradua...";
+        defaultOp.disabled = true;
+        if (!this.currentDegree) defaultOp.selected = true;
+        select.appendChild(defaultOp);
+
+        // New Degree option (Admin)
+        if (this.currentUser && this.currentUser.role === 'admin') {
+            const createOp = document.createElement('option');
+            createOp.value = "NEW_DEGREE";
+            createOp.textContent = "➕ Gradu Berria Sortu...";
+            createOp.style.fontWeight = "bold";
+            createOp.style.color = "blue";
+            select.appendChild(createOp);
+        }
+
+        // Real Degrees
+        this.degrees.forEach(g => {
+            const op = document.createElement('option');
+            op.value = g.idDegree; 
+            op.textContent = g.selectedDegree || g.name || "Izenik gabea";
+            if (this.currentDegree && this.currentDegree.idDegree === g.idDegree) {
+                op.selected = true;
+            }
+            select.appendChild(op);
+        });
+    }
+
+    // 2. SELECT (Aukeraketa kudeatu) - HAU DA ZUZENA (LoadData barruan duena)
+    async selectDegree(e) {
+        const val = (e.target && e.target.value) ? e.target.value : e;
+        
+        // A) GRADU BERRIA
+        if (val === "NEW_DEGREE") {
+            this.createNewDegree(); 
+            return;
+        }
+
+        // B) GRADUA KARGATU (SQLtik zuzenean)
+        console.log(`⏳ Gradua kargatzen: ${val}...`);
+        
+        this.currentDegree = this.degrees.find(d => d.idDegree === val || d.id === val);
+        
+        if (!this.currentDegree) {
+            console.error("Gradua ez da aurkitu.");
+            return;
+        }
+
+        try {
+            // HEMEN dago gakoa: 'loadDegreeData' deitu beharrean, 
+            // kodea hemen bertan daukagu.
+            const { data: subjects, error } = await this.supabase
+                .from('irakasgaiak')
+                .select('*')
+                .eq('idDegree', this.currentDegree.idDegree)
+                .order('year', { ascending: true })
+                .order('subjectTitle', { ascending: true });
+
+            if (error) throw error;
+
+            // Datuak fusionatu
+            this.currentDegree.subjects = subjects.map(s => ({
+                ...s,
+                ...(s.content || {}) 
+            }));
+
+            // UI marraztu
+            this.renderDegreeView(); 
+
+        } catch (err) {
+            console.error("❌ Errorea irakasgaiak kargatzean:", err);
+        }
+    } 
+
+	
+	async createNewDegree() {
+        // 1. Admin dela ziurtatu
+        /* if (!this.currentUser || this.currentUser.role !== 'admin') {
+            alert("Ez daukazu baimenik graduak sortzeko.");
+            this.populateDegreeSelect(); // Select-a reset
+            return;
+        }
+        */
+
         const name = prompt("Sartu gradu berriaren izena:");
-        if (name) {
-            const newId = "G-" + Date.now();
-            const newD = {
-                id: newId, codigo: newId, selectedDegree: name,
-                year: {}, subjectAreas: []
+        if (!name) {
+            this.populateDegreeSelect(); // Utzi ezean, reset
+            return;
+        }
+
+        try {
+            // 2. ID berria sortu
+            // UUID bat izan daiteke, edo zuk erabiltzen zenuen 'G-timestamp' formatua
+            const newId = "G-" + Date.now(); 
+
+            // 3. OBJEKTUA PRESTATU (SQL Zutabeak)
+            const newDegreePayload = {
+                "idDegree": newId,
+                "selectedDegree": name,
+                "codigo": newId,
+                // Hasieratu JSON eremuak hutsik, errorea eman ez dezaten
+                "matrices": {},
+                "competencies": {},
+                "subjectAreas": [] 
             };
-            this.cachedData.graduak.push(newD);
-            this.saveData();
-            this.populateDegreeSelect();
-            this.loadDegreeData(newId);
-        } else {
-            // Reset select
-            document.getElementById('degreeSelect').value = this.currentDegree.id;
+
+            // 4. SQL INSERT (Supabase)
+            const { error } = await this.supabase
+                .from('graduak')
+                .insert(newDegreePayload);
+
+            if (error) throw error;
+
+            console.log("✅ Gradu berria sortuta:", name);
+
+            // 5. MEMORIA EGUNERATU
+            // Ez dugu orrialdea birkargatu behar, zerrenda lokala eguneratu baizik
+            this.degrees.push(newDegreePayload);
+            
+            // 6. UI EGUNERATU
+            this.populateDegreeSelect(); // Berriro marraztu (berria barne)
+            
+            // 7. AUTOMATIKOKI HAUTATU
+            // Select-aren balioa aldatu eta kargatu
+            const select = document.getElementById('degreeSelect');
+            if (select) select.value = newId;
+            
+            await this.loadDegreeDetails(newId); // Kargatu (hutsik egongo da noski)
+
+        } catch (err) {
+            console.error("❌ Errorea gradu berria sortzean:", err);
+            alert("Errorea gertatu da gradua sortzean. Begiratu kontsola.");
+            this.populateDegreeSelect(); // Reset
         }
     }
 
@@ -872,202 +869,195 @@ saveSubjectBasicData() {
         modal.classList.remove('hidden');
     }
 
-    // Helper simple para limpiar bot¨®n guardar
-   /* _setupSaveButtonRaw(modal) {
-        const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
-        const newBtn = oldBtn.cloneNode(true);
-        oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-        return newBtn;
-    }*/
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
-openOdsSelector() {
-    console.log("🟢 ODS hautatzailea irekitzen (Bertsio Sendoa)...");
+	openOdsSelector() {
+		console.log("🟢 ODS hautatzailea irekitzen (Bertsio Sendoa)...");
 
-    // 1. GARBITASUNA: Ezabatu aurreko leihoak (baldin badaude)
-    document.querySelectorAll('.ods-modal-overlay').forEach(m => {
-        m.style.opacity = '0';
-        setTimeout(() => m.remove(), 100);
-    });
+		// 1. GARBITASUNA: Ezabatu aurreko leihoak (baldin badaude)
+		document.querySelectorAll('.ods-modal-overlay').forEach(m => {
+			m.style.opacity = '0';
+			setTimeout(() => m.remove(), 100);
+		});
 
-    // 2. HELPERRAK
-    const getCleanNumber = (val) => {
-        if (!val) return null;
-        const str = (typeof val === 'object') ? (val.code || val.odsCode || val.id || '') : String(val);
-        const match = String(str).match(/\d+/);
-        return match ? parseInt(match[0], 10) : null;
-    };
+		// 2. HELPERRAK
+		const getCleanNumber = (val) => {
+			if (!val) return null;
+			const str = (typeof val === 'object') ? (val.code || val.odsCode || val.id || '') : String(val);
+			const match = String(str).match(/\d+/);
+			return match ? parseInt(match[0], 10) : null;
+		};
 
-    const getImageUrl = (num) => {
-        if (!num) return '';
-        const n = String(num).padStart(2, '0');
-        return `assets/ods/${n}.png`;
-    };
+		const getImageUrl = (num) => {
+			if (!num) return '';
+			const n = String(num).padStart(2, '0');
+			return `assets/ods/${n}.png`;
+		};
 
-    // 3. EGOERA KARGATU
-    let currentSelection = [];
-    if (this.currentSubject.detailODS && Array.isArray(this.currentSubject.detailODS)) {
-        currentSelection = [...this.currentSubject.detailODS];
-    } else if (this.currentSubject.ods && Array.isArray(this.currentSubject.ods)) {
-        const catalog = this.adminCatalogs.ods || [];
-        currentSelection = this.currentSubject.ods.map(code => {
-            const num = getCleanNumber(code);
-            return catalog.find(c => getCleanNumber(c) === num) || { code: code, name: '...' };
-        });
-    }
+		// 3. EGOERA KARGATU
+		let currentSelection = [];
+		if (this.currentSubject.detailODS && Array.isArray(this.currentSubject.detailODS)) {
+			currentSelection = [...this.currentSubject.detailODS];
+		} else if (this.currentSubject.ods && Array.isArray(this.currentSubject.ods)) {
+			const catalog = this.adminCatalogs.ods || [];
+			currentSelection = this.currentSubject.ods.map(code => {
+				const num = getCleanNumber(code);
+				return catalog.find(c => getCleanNumber(c) === num) || { code: code, name: '...' };
+			});
+		}
 
-    // 4. UI SORTU
-    const modal = document.createElement('div');
-    // ⭐ GARRANTZITSUA: 'ods-modal-overlay' klasea gehitu dugu hemen, bestela hasierako garbitzeak ez du funtzionatuko
-    modal.className = "ods-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
-    
-    const content = document.createElement('div');
-    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden";
-    
-    content.innerHTML = `
-        <div class="p-5 border-b flex justify-between items-center bg-gray-50">
-            <div>
-                <h3 class="font-bold text-xl text-gray-800">Garapen Iraunkorrerako Helburuak</h3>
-                <p class="text-sm text-gray-500">Aukeratu irakasgaiari dagozkionak</p>
-            </div>
-            <button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
-        </div>
-        
-        <div class="p-6 overflow-y-auto bg-gray-100 flex-1">
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="odsGrid"></div>
-        </div>
+		// 4. UI SORTU
+		const modal = document.createElement('div');
+		// ⭐ GARRANTZITSUA: 'ods-modal-overlay' klasea gehitu dugu hemen, bestela hasierako garbitzeak ez du funtzionatuko
+		modal.className = "ods-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
+		
+		const content = document.createElement('div');
+		content.className = "bg-white rounded-xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden";
+		
+		content.innerHTML = `
+			<div class="p-5 border-b flex justify-between items-center bg-gray-50">
+				<div>
+					<h3 class="font-bold text-xl text-gray-800">Garapen Iraunkorrerako Helburuak</h3>
+					<p class="text-sm text-gray-500">Aukeratu irakasgaiari dagozkionak</p>
+				</div>
+				<button id="closeOdsModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
+			</div>
+			
+			<div class="p-6 overflow-y-auto bg-gray-100 flex-1">
+				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4" id="odsGrid"></div>
+			</div>
 
-        <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
-            <button id="cancelOds" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
-            <button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">Gorde Aldaketak</button>
-        </div>
-    `;
+			<div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
+				<button id="cancelOds" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
+				<button id="finishOds" class="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 font-bold shadow-md transform active:scale-95 transition">Gorde Aldaketak</button>
+			</div>
+		`;
 
-    modal.appendChild(content);
-    document.body.appendChild(modal);
+		modal.appendChild(content);
+		document.body.appendChild(modal);
 
-    // 5. GRID-A MARRAZTU
-    const grid = content.querySelector('#odsGrid');
-    const catalog = this.adminCatalogs.ods || [];
+		// 5. GRID-A MARRAZTU
+		const grid = content.querySelector('#odsGrid');
+		const catalog = this.adminCatalogs.ods || [];
 
-    catalog.forEach(item => {
-        const itemNum = getCleanNumber(item);
-        let isSelected = currentSelection.some(sel => getCleanNumber(sel) === itemNum);
-        
-        const card = document.createElement('div');
-        const baseClass = "relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 bg-white h-full";
-        const selectedClass = "border-blue-600 ring-1 ring-blue-600 shadow-md transform scale-[1.02]";
-        const unselectedClass = "border-transparent hover:border-gray-300 hover:shadow-sm opacity-90 hover:opacity-100";
+		catalog.forEach(item => {
+			const itemNum = getCleanNumber(item);
+			let isSelected = currentSelection.some(sel => getCleanNumber(sel) === itemNum);
+			
+			const card = document.createElement('div');
+			const baseClass = "relative cursor-pointer group rounded-xl transition-all duration-200 flex flex-col items-center overflow-hidden border-2 bg-white h-full";
+			const selectedClass = "border-blue-600 ring-1 ring-blue-600 shadow-md transform scale-[1.02]";
+			const unselectedClass = "border-transparent hover:border-gray-300 hover:shadow-sm opacity-90 hover:opacity-100";
 
-        card.className = `${baseClass} ${isSelected ? selectedClass : unselectedClass}`;
-        
-        card.innerHTML = `
-            <div class="w-full aspect-square relative p-4 pb-0">
-                <img src="${getImageUrl(itemNum)}" class="w-full h-full object-contain drop-shadow-sm transition-all duration-300 ${isSelected ? '' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}" loading="lazy">
-                <div class="check-icon absolute top-2 right-2 bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg transition-transform duration-200 ${isSelected ? 'scale-100' : 'scale-0'}">
-                    <i class="fas fa-check text-sm"></i>
-                </div>
-            </div>
-            <div class="p-3 w-full text-center flex items-center justify-center grow">
-                <span class="text-xs font-bold leading-tight line-clamp-3 ${isSelected ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'}">${item.name || '...'}</span>
-            </div>
-        `;
+			card.className = `${baseClass} ${isSelected ? selectedClass : unselectedClass}`;
+			
+			card.innerHTML = `
+				<div class="w-full aspect-square relative p-4 pb-0">
+					<img src="${getImageUrl(itemNum)}" class="w-full h-full object-contain drop-shadow-sm transition-all duration-300 ${isSelected ? '' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}" loading="lazy">
+					<div class="check-icon absolute top-2 right-2 bg-blue-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg transition-transform duration-200 ${isSelected ? 'scale-100' : 'scale-0'}">
+						<i class="fas fa-check text-sm"></i>
+					</div>
+				</div>
+				<div class="p-3 w-full text-center flex items-center justify-center grow">
+					<span class="text-xs font-bold leading-tight line-clamp-3 ${isSelected ? 'text-blue-700' : 'text-gray-600 group-hover:text-gray-800'}">${item.name || '...'}</span>
+				</div>
+			`;
 
-        card.onclick = () => {
-            isSelected = !isSelected;
-            if (isSelected) {
-                if (!currentSelection.some(sel => getCleanNumber(sel) === itemNum)) currentSelection.push(item);
-                card.className = `${baseClass} ${selectedClass}`;
-                card.querySelector('img').classList.remove('grayscale', 'opacity-60');
-                card.querySelector('.check-icon').classList.replace('scale-0', 'scale-100');
-                card.querySelector('span').classList.replace('text-gray-600', 'text-blue-700');
-            } else {
-                currentSelection = currentSelection.filter(sel => getCleanNumber(sel) !== itemNum);
-                card.className = `${baseClass} ${unselectedClass}`;
-                card.querySelector('img').classList.add('grayscale', 'opacity-60');
-                card.querySelector('.check-icon').classList.replace('scale-100', 'scale-0');
-                card.querySelector('span').classList.replace('text-blue-700', 'text-gray-600');
-            }
-        };
-        grid.appendChild(card);
-    });
+			card.onclick = () => {
+				isSelected = !isSelected;
+				if (isSelected) {
+					if (!currentSelection.some(sel => getCleanNumber(sel) === itemNum)) currentSelection.push(item);
+					card.className = `${baseClass} ${selectedClass}`;
+					card.querySelector('img').classList.remove('grayscale', 'opacity-60');
+					card.querySelector('.check-icon').classList.replace('scale-0', 'scale-100');
+					card.querySelector('span').classList.replace('text-gray-600', 'text-blue-700');
+				} else {
+					currentSelection = currentSelection.filter(sel => getCleanNumber(sel) !== itemNum);
+					card.className = `${baseClass} ${unselectedClass}`;
+					card.querySelector('img').classList.add('grayscale', 'opacity-60');
+					card.querySelector('.check-icon').classList.replace('scale-100', 'scale-0');
+					card.querySelector('span').classList.replace('text-blue-700', 'text-gray-600');
+				}
+			};
+			grid.appendChild(card);
+		});
 
-    // 6. ITXIERA KUDEAKETA (Segurua)
-    let isClosing = false;
-    const closeModal = () => {
-        if (isClosing) return;
-        isClosing = true;
-        modal.style.opacity = '0';
-        modal.style.pointerEvents = 'none';
-        setTimeout(() => {
-            if (modal.parentNode) modal.parentNode.removeChild(modal);
-            isClosing = false;
-        }, 300);
-    };
+		// 6. ITXIERA KUDEAKETA (Segurua)
+		let isClosing = false;
+		const closeModal = () => {
+			if (isClosing) return;
+			isClosing = true;
+			modal.style.opacity = '0';
+			modal.style.pointerEvents = 'none';
+			setTimeout(() => {
+				if (modal.parentNode) modal.parentNode.removeChild(modal);
+				isClosing = false;
+			}, 300);
+		};
 
-    content.querySelector('#closeOdsModal').onclick = closeModal;
-    content.querySelector('#cancelOds').onclick = closeModal;
+		content.querySelector('#closeOdsModal').onclick = closeModal;
+		content.querySelector('#cancelOds').onclick = closeModal;
 
-    // 7. GORDE (Sinkronizazio Aurreratua)
-    content.querySelector('#finishOds').onclick = async () => {
-        // A) Klik bikoitza saihestu (Debounce)
-        if (this._isSavingOds) {
-            console.log("⏳ Itxaron, gordetzen ari da...");
-            return;
-        }
-        
-        const btn = content.querySelector('#finishOds');
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        btn.disabled = true;
-        this._isSavingOds = true;
+		// 7. GORDE (Sinkronizazio Aurreratua)
+		content.querySelector('#finishOds').onclick = async () => {
+			// A) Klik bikoitza saihestu (Debounce)
+			if (this._isSavingOds) {
+				console.log("⏳ Itxaron, gordetzen ari da...");
+				return;
+			}
+			
+			const btn = content.querySelector('#finishOds');
+			const originalHtml = btn.innerHTML;
+			btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+			btn.disabled = true;
+			this._isSavingOds = true;
 
-        try {
-            // B) Datuak prestatu
-            this.currentSubject.detailODS = [...currentSelection];
-            this.currentSubject.ods = currentSelection.map(s => s.code);
-            this.currentSubject.updated_at = new Date().toISOString();
+			try {
+				// B) Datuak prestatu
+				this.currentSubject.detailODS = [...currentSelection];
+				this.currentSubject.ods = currentSelection.map(s => s.code);
+				this.currentSubject.updated_at = new Date().toISOString();
 
-            // C) SINKRONIZAZIOA (Pakete nagusiarekin)
-            if (this.curriculumData && this.curriculumData.subjects) {
-                const index = this.curriculumData.subjects.findIndex(s => s.code === this.currentSubject.code);
-                if (index !== -1) {
-                    // Objektua erabat ordezkatu bertsio berriarekin
-                    this.curriculumData.subjects[index] = { ...this.currentSubject };
-                }
-            }
-            // Gauza bera cachearekin
-            if (this.cachedData && this.cachedData.subjects) {
-                const index = this.cachedData.subjects.findIndex(s => s.code === this.currentSubject.code);
-                if (index !== -1) {
-                    this.cachedData.subjects[index] = { ...this.currentSubject };
-                }
-            }
+				// C) SINKRONIZAZIOA (Pakete nagusiarekin)
+				if (this.curriculumData && this.curriculumData.subjects) {
+					const index = this.curriculumData.subjects.findIndex(s => s.code === this.currentSubject.code);
+					if (index !== -1) {
+						// Objektua erabat ordezkatu bertsio berriarekin
+						this.curriculumData.subjects[index] = { ...this.currentSubject };
+					}
+				}
+				// Gauza bera cachearekin
+				if (this.cachedData && this.cachedData.subjects) {
+					const index = this.cachedData.subjects.findIndex(s => s.code === this.currentSubject.code);
+					if (index !== -1) {
+						this.cachedData.subjects[index] = { ...this.currentSubject };
+					}
+				}
 
-            // D) Supabasera bidali
-            if (this.saveSubjectBasicData) {
-                await this.saveSubjectBasicData();
-            } else {
-                await this.saveData();
-            }
+				// D) Supabasera bidali
+				if (this.saveSubjectBasicData) {
+					await this.saveSubjectBasicData();
+				} else {
+					await this.saveData();
+				}
 
-            // E) UI Eguneratu eta Itxi
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-            closeModal();
+				// E) UI Eguneratu eta Itxi
+				if (window.ui && window.ui.renderSubjectDetail) {
+					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+				}
+				closeModal();
 
-        } catch (error) {
-            console.error("❌ Errorea gordetzean:", error);
-            alert("Errorea: " + error.message);
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-        } finally {
-            this._isSavingOds = false;
-        }
-    };
-}
+			} catch (error) {
+				console.error("❌ Errorea gordetzean:", error);
+				alert("Errorea: " + error.message);
+				btn.innerHTML = originalHtml;
+				btn.disabled = false;
+			} finally {
+				this._isSavingOds = false;
+			}
+		};
+	}
 	
 	// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO IDU (Para el Sidebar - Master)
     openIduCatalogEditor() {
@@ -1181,108 +1171,108 @@ openOdsSelector() {
 	
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist con Filtro)
-openIduSelector() {
-    // ZUZENKETA: 'idujar' propietatea zuzenean
-    const currentList = this.currentSubject.idujar || [];
+	openIduSelector() {
+		// ZUZENKETA: 'idujar' propietatea zuzenean
+		const currentList = this.currentSubject.idujar || [];
 
-    const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
-    
-    const content = document.createElement('div');
-    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
-    
-    content.innerHTML = `
-        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
-            <h3 class="font-bold text-lg text-gray-800">Hautatu IDU Jarraibideak</h3>
-            <button id="closeIduModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="p-6 overflow-y-auto space-y-6" id="iduContent"></div>
-        <div class="p-4 border-t bg-gray-50 flex justify-end">
-            <button id="finishIdu" class="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 font-medium">Ados</button>
-        </div>
-    `;
+		const modal = document.createElement('div');
+		modal.className = "fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm";
+		
+		const content = document.createElement('div');
+		content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
+		
+		content.innerHTML = `
+			<div class="p-4 border-b flex justify-between items-center bg-gray-50">
+				<h3 class="font-bold text-lg text-gray-800">Hautatu IDU Jarraibideak</h3>
+				<button id="closeIduModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times"></i></button>
+			</div>
+			<div class="p-6 overflow-y-auto space-y-6" id="iduContent"></div>
+			<div class="p-4 border-t bg-gray-50 flex justify-end">
+				<button id="finishIdu" class="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 font-medium">Ados</button>
+			</div>
+		`;
 
-    modal.appendChild(content);
-    document.body.appendChild(modal);
+		modal.appendChild(content);
+		document.body.appendChild(modal);
 
-    const container = content.querySelector('#iduContent');
-    const catalog = this.adminCatalogs.iduGuidelines || [];
+		const container = content.querySelector('#iduContent');
+		const catalog = this.adminCatalogs.iduGuidelines || [];
 
-    // Multzokatu (logika bisuala mantenduz)
-    const grouped = { 'EKINTZA': [], 'INPLIKAZIOA': [], 'IRUDIKAPENA': [] };
-    catalog.forEach(item => {
-        const key = Object.keys(grouped).find(k => item.range && item.range.includes(k));
-        if (key) grouped[key].push(item);
-        else grouped['EKINTZA'].push(item);
-    });
+		// Multzokatu (logika bisuala mantenduz)
+		const grouped = { 'EKINTZA': [], 'INPLIKAZIOA': [], 'IRUDIKAPENA': [] };
+		catalog.forEach(item => {
+			const key = Object.keys(grouped).find(k => item.range && item.range.includes(k));
+			if (key) grouped[key].push(item);
+			else grouped['EKINTZA'].push(item);
+		});
 
-    Object.entries(grouped).forEach(([groupName, items]) => {
-        if(items.length === 0) return;
-        
-        let colorClass = 'text-gray-700';
-        let bgClass = 'bg-gray-100';
-        if(groupName === 'EKINTZA') { colorClass = 'text-blue-700'; bgClass = 'bg-blue-50'; }
-        if(groupName === 'INPLIKAZIOA') { colorClass = 'text-emerald-700'; bgClass = 'bg-emerald-50'; }
-        if(groupName === 'IRUDIKAPENA') { colorClass = 'text-purple-700'; bgClass = 'bg-purple-50'; }
+		Object.entries(grouped).forEach(([groupName, items]) => {
+			if(items.length === 0) return;
+			
+			let colorClass = 'text-gray-700';
+			let bgClass = 'bg-gray-100';
+			if(groupName === 'EKINTZA') { colorClass = 'text-blue-700'; bgClass = 'bg-blue-50'; }
+			if(groupName === 'INPLIKAZIOA') { colorClass = 'text-emerald-700'; bgClass = 'bg-emerald-50'; }
+			if(groupName === 'IRUDIKAPENA') { colorClass = 'text-purple-700'; bgClass = 'bg-purple-50'; }
 
-        const groupDiv = document.createElement('div');
-        groupDiv.innerHTML = `<h4 class="font-bold ${colorClass} ${bgClass} px-3 py-2 rounded mb-3 text-sm tracking-wider sticky top-0 z-10 border">${groupName}</h4>`;
-        
-        const grid = document.createElement('div');
-        grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3";
-        
-        items.forEach(item => {
-            const card = document.createElement('div');
-            // 'idujar' zerrendan bilatu
-            const isSelected = currentList.some(o => o.code === item.code);
+			const groupDiv = document.createElement('div');
+			groupDiv.innerHTML = `<h4 class="font-bold ${colorClass} ${bgClass} px-3 py-2 rounded mb-3 text-sm tracking-wider sticky top-0 z-10 border">${groupName}</h4>`;
+			
+			const grid = document.createElement('div');
+			grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3";
+			
+			items.forEach(item => {
+				const card = document.createElement('div');
+				// 'idujar' zerrendan bilatu
+				const isSelected = currentList.some(o => o.code === item.code);
 
-            card.className = `cursor-pointer p-3 rounded border text-sm transition relative ${
-                isSelected ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-gray-200 hover:border-teal-300'
-            }`;
-            
-            card.innerHTML = `
-                <div class="flex justify-between items-start mb-1">
-                    <span class="font-bold text-xs bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">${item.code.replace('IDU-','')}</span>
-                    ${isSelected ? '<i class="fas fa-check-circle text-teal-600"></i>' : ''}
-                </div>
-                <p class="text-gray-600 leading-snug text-xs">${item.name}</p>
-            `;
+				card.className = `cursor-pointer p-3 rounded border text-sm transition relative ${
+					isSelected ? 'bg-teal-50 border-teal-500 shadow-md' : 'bg-white border-gray-200 hover:border-teal-300'
+				}`;
+				
+				card.innerHTML = `
+					<div class="flex justify-between items-start mb-1">
+						<span class="font-bold text-xs bg-gray-200 px-1.5 py-0.5 rounded text-gray-600">${item.code.replace('IDU-','')}</span>
+						${isSelected ? '<i class="fas fa-check-circle text-teal-600"></i>' : ''}
+					</div>
+					<p class="text-gray-600 leading-snug text-xs">${item.name}</p>
+				`;
 
-            card.onclick = () => {
-                let list = this.currentSubject.idujar || [];
-                
-                const exists = list.some(o => o.code === item.code);
+				card.onclick = () => {
+					let list = this.currentSubject.idujar || [];
+					
+					const exists = list.some(o => o.code === item.code);
 
-                if (exists) {
-                    // KENDU
-                    list = list.filter(o => o.code !== item.code);
-                } else {
-                    // GEHITU
-                    list.push(item);
-                }
+					if (exists) {
+						// KENDU
+						list = list.filter(o => o.code !== item.code);
+					} else {
+						// GEHITU
+						list.push(item);
+					}
 
-                // GORDE 'idujar' aldagaian
-                this.currentSubject.idujar = list;
-                
-                modal.remove();
-                this.openIduSelector();
-                 if (window.ui && window.ui.renderSubjectDetail) {
-                   window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-                }
-            };
-            grid.appendChild(card);
-        });
-        
-        groupDiv.appendChild(grid);
-        container.appendChild(groupDiv);
-    });
+					// GORDE 'idujar' aldagaian
+					this.currentSubject.idujar = list;
+					
+					modal.remove();
+					this.openIduSelector();
+					 if (window.ui && window.ui.renderSubjectDetail) {
+					   window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+					}
+				};
+				grid.appendChild(card);
+			});
+			
+			groupDiv.appendChild(grid);
+			container.appendChild(groupDiv);
+		});
 
-    content.querySelector('#closeIduModal').onclick = () => modal.remove();
-    content.querySelector('#finishIdu').onclick = () => {
-        modal.remove();
-        if (window.ui && window.ui.renderSubjectDetail) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-    };
-}
+		content.querySelector('#closeIduModal').onclick = () => modal.remove();
+		content.querySelector('#finishIdu').onclick = () => {
+			modal.remove();
+			if (window.ui && window.ui.renderSubjectDetail) window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+		};
+	}
 	
 	openProjectsCatalogEditor() {
 		const modal = document.getElementById('listEditorModal');
@@ -1670,134 +1660,134 @@ openIduSelector() {
 	}
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
-openProjectsSelector() {
-    let tempSelection = [...(this.currentSubject.extProy || [])];
+	openProjectsSelector() {
+		let tempSelection = [...(this.currentSubject.extProy || [])];
 
-    const modal = document.createElement('div');
-    modal.className = "fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm transition-all";
-    
-    const content = document.createElement('div');
-    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
-    
-    content.innerHTML = `
-        <div class="p-5 border-b bg-gray-50 space-y-3">
-            <div class="flex justify-between items-center">
-                <h3 class="font-bold text-xl text-gray-800">Hautatu Kanpo Proiektuak</h3>
-                <button id="closePrModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
-            </div>
-            <div class="relative">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                <input type="text" id="projectSearch" placeholder="Bilatu izena edo agentearen arabera..." 
-                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition">
-            </div>
-        </div>
-        
-        <div class="p-6 overflow-y-auto bg-gray-50 flex-1">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="prGrid"></div>
-            <div id="noResults" class="hidden text-center py-10 text-gray-500 italic">Ez da emaitzarik aurkitu.</div>
-        </div>
+		const modal = document.createElement('div');
+		modal.className = "fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm transition-all";
+		
+		const content = document.createElement('div');
+		content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200";
+		
+		content.innerHTML = `
+			<div class="p-5 border-b bg-gray-50 space-y-3">
+				<div class="flex justify-between items-center">
+					<h3 class="font-bold text-xl text-gray-800">Hautatu Kanpo Proiektuak</h3>
+					<button id="closePrModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
+				</div>
+				<div class="relative">
+					<i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+					<input type="text" id="projectSearch" placeholder="Bilatu izena edo agentearen arabera..." 
+						class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition">
+				</div>
+			</div>
+			
+			<div class="p-6 overflow-y-auto bg-gray-50 flex-1">
+				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="prGrid"></div>
+				<div id="noResults" class="hidden text-center py-10 text-gray-500 italic">Ez da emaitzarik aurkitu.</div>
+			</div>
 
-        <div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
-             <div class="flex-1 flex items-center px-2 text-sm text-gray-500">
-                <span id="selectedCount" class="font-bold text-orange-600 mr-1">0</span> hautatuta
-            </div>
-            <button id="cancelPr" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
-            <button id="finishPr" class="bg-orange-600 text-white px-8 py-2 rounded-lg hover:bg-orange-700 font-bold shadow-md transform active:scale-95 transition">Ados (Gorde)</button>
-        </div>
-    `;
+			<div class="p-4 border-t bg-white flex justify-end gap-3 shadow-lg">
+				 <div class="flex-1 flex items-center px-2 text-sm text-gray-500">
+					<span id="selectedCount" class="font-bold text-orange-600 mr-1">0</span> hautatuta
+				</div>
+				<button id="cancelPr" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition">Utzi</button>
+				<button id="finishPr" class="bg-orange-600 text-white px-8 py-2 rounded-lg hover:bg-orange-700 font-bold shadow-md transform active:scale-95 transition">Ados (Gorde)</button>
+			</div>
+		`;
 
-    modal.appendChild(content);
-    document.body.appendChild(modal);
+		modal.appendChild(content);
+		document.body.appendChild(modal);
 
-    const grid = content.querySelector('#prGrid');
-    const noResults = content.querySelector('#noResults');
-    const searchInput = content.querySelector('#projectSearch');
-    const countLabel = content.querySelector('#selectedCount');
-    const catalog = this.adminCatalogs.externalProjects || [];
+		const grid = content.querySelector('#prGrid');
+		const noResults = content.querySelector('#noResults');
+		const searchInput = content.querySelector('#projectSearch');
+		const countLabel = content.querySelector('#selectedCount');
+		const catalog = this.adminCatalogs.externalProjects || [];
 
-    const renderGrid = (filterText = '') => {
-        grid.innerHTML = '';
-        const lowerFilter = filterText.toLowerCase();
-        let visibleCount = 0;
+		const renderGrid = (filterText = '') => {
+			grid.innerHTML = '';
+			const lowerFilter = filterText.toLowerCase();
+			let visibleCount = 0;
 
-        catalog.forEach(item => {
-            // Iragazketa logika
-            const match = (item.name && item.name.toLowerCase().includes(lowerFilter)) || 
-                          (item.agent && item.agent.toLowerCase().includes(lowerFilter));
-            
-            if (!match) return;
-            visibleCount++;
+			catalog.forEach(item => {
+				// Iragazketa logika
+				const match = (item.name && item.name.toLowerCase().includes(lowerFilter)) || 
+							  (item.agent && item.agent.toLowerCase().includes(lowerFilter));
+				
+				if (!match) return;
+				visibleCount++;
 
-            const isSelected = tempSelection.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
-            
-            const card = document.createElement('div');
-            card.className = `cursor-pointer p-4 rounded-xl border transition-all duration-200 flex items-start gap-4 ${
-                isSelected 
-                ? 'bg-orange-50 border-orange-500 ring-1 ring-orange-500 shadow-md' 
-                : 'bg-white border-gray-200 hover:border-orange-300 hover:shadow-sm'
-            }`;
+				const isSelected = tempSelection.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
+				
+				const card = document.createElement('div');
+				card.className = `cursor-pointer p-4 rounded-xl border transition-all duration-200 flex items-start gap-4 ${
+					isSelected 
+					? 'bg-orange-50 border-orange-500 ring-1 ring-orange-500 shadow-md' 
+					: 'bg-white border-gray-200 hover:border-orange-300 hover:shadow-sm'
+				}`;
 
-            card.innerHTML = `
-                <div class="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm" style="background-color: ${item.color || '#fdba74'}">
-                    <i class="fas fa-building"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">${item.agent || 'Agentea'}</div>
-                    <div class="text-sm font-bold text-gray-800 leading-tight">${item.name}</div>
-                </div>
-                ${isSelected ? '<div class="text-orange-600 text-xl"><i class="fas fa-check-circle"></i></div>' : ''}
-            `;
+				card.innerHTML = `
+					<div class="w-10 h-10 rounded-full text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm" style="background-color: ${item.color || '#fdba74'}">
+						<i class="fas fa-building"></i>
+					</div>
+					<div class="flex-1 min-w-0">
+						<div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">${item.agent || 'Agentea'}</div>
+						<div class="text-sm font-bold text-gray-800 leading-tight">${item.name}</div>
+					</div>
+					${isSelected ? '<div class="text-orange-600 text-xl"><i class="fas fa-check-circle"></i></div>' : ''}
+				`;
 
-            card.onclick = () => {
-                const exists = tempSelection.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
-                if (exists) {
-                    tempSelection = tempSelection.filter(o => (o.code && o.code !== item.code) || (o.id && o.id !== item.id));
-                } else {
-                    tempSelection.push(item);
-                }
-                // Grid osoa birmarraztu ordez, bakarrik txartela eguneratu dezakegu optimizatzeko, 
-                // baina iragazkiarekin errazagoa da dena birmarraztea.
-                renderGrid(searchInput.value); 
-            };
-            grid.appendChild(card);
-        });
+				card.onclick = () => {
+					const exists = tempSelection.some(o => (o.code && o.code === item.code) || (o.id && o.id === item.id));
+					if (exists) {
+						tempSelection = tempSelection.filter(o => (o.code && o.code !== item.code) || (o.id && o.id !== item.id));
+					} else {
+						tempSelection.push(item);
+					}
+					// Grid osoa birmarraztu ordez, bakarrik txartela eguneratu dezakegu optimizatzeko, 
+					// baina iragazkiarekin errazagoa da dena birmarraztea.
+					renderGrid(searchInput.value); 
+				};
+				grid.appendChild(card);
+			});
 
-        // Emaitzarik ez badago
-        noResults.style.display = visibleCount === 0 ? 'block' : 'none';
-        countLabel.textContent = tempSelection.length;
-    };
+			// Emaitzarik ez badago
+			noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+			countLabel.textContent = tempSelection.length;
+		};
 
-    // Hasierako marrazketa
-    renderGrid();
+		// Hasierako marrazketa
+		renderGrid();
 
-    // Bilatzailea entzun
-    searchInput.addEventListener('input', (e) => {
-        renderGrid(e.target.value);
-    });
+		// Bilatzailea entzun
+		searchInput.addEventListener('input', (e) => {
+			renderGrid(e.target.value);
+		});
 
-    const closeModal = () => {
-        modal.classList.add('opacity-0');
-        setTimeout(() => modal.remove(), 200);
-    };
+		const closeModal = () => {
+			modal.classList.add('opacity-0');
+			setTimeout(() => modal.remove(), 200);
+		};
 
-    content.querySelector('#closePrModal').onclick = closeModal;
-    content.querySelector('#cancelPr').onclick = closeModal;
+		content.querySelector('#closePrModal').onclick = closeModal;
+		content.querySelector('#cancelPr').onclick = closeModal;
 
-    content.querySelector('#finishPr').onclick = () => {
-        this.currentSubject.extProy = tempSelection;
-        
-        // 💾 GORDE
-        if (this.saveSubjectBasicData) this.saveSubjectBasicData();
-        
-        closeModal();
-        if (window.ui && window.ui.renderSubjectDetail) {
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        }
-    };
-    
-    // Autofocus bilatzailean
-    setTimeout(() => searchInput.focus(), 100);
-}
+		content.querySelector('#finishPr').onclick = () => {
+			this.currentSubject.extProy = tempSelection;
+			
+			// 💾 GORDE
+			if (this.saveSubjectBasicData) this.saveSubjectBasicData();
+			
+			closeModal();
+			if (window.ui && window.ui.renderSubjectDetail) {
+				window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+			}
+		};
+		
+		// Autofocus bilatzailean
+		setTimeout(() => searchInput.focus(), 100);
+	}
 
 	// Helper para configurar el bot¨®n guardar de estos modales
 	_setupSaveButtonForSelector(modal) {
@@ -1953,7 +1943,7 @@ openProjectsSelector() {
 // ----------------------------------------------------------------------
     // 2. EDITOR DE RA DE ASIGNATURA (MODAL)
     // ----------------------------------------------------------------------
-openRaEditor() {
+	openRaEditor() {
         if (!this.currentSubject) return;
         
         const modal = document.getElementById('raModal');
@@ -2062,36 +2052,36 @@ openRaEditor() {
     }
 		
 // M¨¦todo auxiliar para crear filas
-createRaRow(type, index, data = {}) {
-    const isZh = type === 'zh';
-    const div = document.createElement('div');
-    div.className = `flex gap-2 p-2 bg-white border rounded ${isZh ? 'border-teal-100' : 'border-blue-100'} group ra-row`;
-    
-    // Mapeo flexible: intenta leer la nueva clave, si no la vieja
-    const code = isZh ? (data.zhCode || data.zhCode || data.code || '') : (data.raCode || data.code || '');
-    const desc = isZh ? (data.zhDesc || data.zhDesc || data.desc || '') : (data.raDesc || data.desc || '');
-    
-    div.innerHTML = `
-        <span class="${isZh ? 'text-teal-600' : 'text-blue-600'} font-bold text-xs mt-1 w-6">${index}</span>
-        <div class="flex-1 space-y-1">
-            <div class="flex gap-2">
-                <input type="text" class="raCode w-32 text-xs font-bold border-b focus:outline-none" value="${code}" placeholder="Kodea">
-                <button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-            <textarea class="ra-desc w-full text-xs border rounded p-1 resize-y min-h-[60px]" rows="2" placeholder="Deskribapena...">${desc}</textarea>
-        </div>
-    `;
-    return div;
-}	
+	createRaRow(type, index, data = {}) {
+		const isZh = type === 'zh';
+		const div = document.createElement('div');
+		div.className = `flex gap-2 p-2 bg-white border rounded ${isZh ? 'border-teal-100' : 'border-blue-100'} group ra-row`;
+		
+		// Mapeo flexible: intenta leer la nueva clave, si no la vieja
+		const code = isZh ? (data.zhCode || data.zhCode || data.code || '') : (data.raCode || data.code || '');
+		const desc = isZh ? (data.zhDesc || data.zhDesc || data.desc || '') : (data.raDesc || data.desc || '');
+		
+		div.innerHTML = `
+			<span class="${isZh ? 'text-teal-600' : 'text-blue-600'} font-bold text-xs mt-1 w-6">${index}</span>
+			<div class="flex-1 space-y-1">
+				<div class="flex gap-2">
+					<input type="text" class="raCode w-32 text-xs font-bold border-b focus:outline-none" value="${code}" placeholder="Kodea">
+					<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
+						<i class="fas fa-trash"></i>
+					</button>
+				</div>
+				<textarea class="ra-desc w-full text-xs border rounded p-1 resize-y min-h-[60px]" rows="2" placeholder="Deskribapena...">${desc}</textarea>
+			</div>
+		`;
+		return div;
+	}	
 
 
     // ----------------------------------------------------------------------
     // 3. GUARDADO DEL EDITOR (CRUCIAL: IMPORTA CRITERIOS DEL CAT¨¢LOGO)
 // En grados-manager.js
 
-guardarRAsDesdeEditor() {
+	guardarRAsDesdeEditor() {
         if (!this.currentSubject) return;
 
         // 1. RA TEKNIKOAK GORDE
@@ -2232,85 +2222,85 @@ guardarRAsDesdeEditor() {
 			</div>`;
 	}
 
-addRaRow(type, data = {}) {
-    const isZh = type === 'zh';
-    const containerId = isZh ? 'editListZh' : 'editListTec';
-    const container = document.getElementById(containerId);
-    
-    if (!container) return;
+	addRaRow(type, data = {}) {
+		const isZh = type === 'zh';
+		const containerId = isZh ? 'editListZh' : 'editListTec';
+		const container = document.getElementById(containerId);
+		
+		if (!container) return;
 
-    const colorClass = isZh ? 'teal' : 'blue';
+		const colorClass = isZh ? 'teal' : 'blue';
 
-    // Datuak prestatu
-    let codeValue = '';
-    let descValue = '';
+		// Datuak prestatu
+		let codeValue = '';
+		let descValue = '';
 
-    if (isZh) {
-        codeValue = data.zhCode || data.subjectZhCode || data.code || data.id || '';
-        descValue = data.zhDesc || data.subjectZhDesc || data.desc || '';
-    } else {
-        codeValue = data.raCode || data.code || data.id || '';
-        descValue = data.raDesc || data.desc || '';
-    }
+		if (isZh) {
+			codeValue = data.zhCode || data.subjectZhCode || data.code || data.id || '';
+			descValue = data.zhDesc || data.subjectZhDesc || data.desc || '';
+		} else {
+			codeValue = data.raCode || data.code || data.id || '';
+			descValue = data.raDesc || data.desc || '';
+		}
 
-    // Kode automatikoa hutsik badago
-    if (!codeValue) {
-        const count = container.children.length + 1;
-        const prefix = (this.currentSubject && this.currentSubject.autoCode) 
-            ? this.currentSubject.autoCode.split('_')[0] 
-            : 'GEN';
-        const suffix = isZh ? 'ZH' : 'RA';
-        codeValue = `${prefix}_${suffix}${String(count).padStart(2, '0')}`;
-    }
+		// Kode automatikoa hutsik badago
+		if (!codeValue) {
+			const count = container.children.length + 1;
+			const prefix = (this.currentSubject && this.currentSubject.autoCode) 
+				? this.currentSubject.autoCode.split('_')[0] 
+				: 'GEN';
+			const suffix = isZh ? 'ZH' : 'RA';
+			codeValue = `${prefix}_${suffix}${String(count).padStart(2, '0')}`;
+		}
 
-    // --- HEMEN DAGO GAKOA: SELEKTOREA TITULUEKIN ---
-    let options = '<option value="">-- Lotura gabe --</option>';
-    if (this.tempEgresoComps) {
-        options += this.tempEgresoComps.map(c => {
-            // Saiatu hainbat eremu deskribapena aurkitzeko
-            const cCode = c.code || c.autoCode || '';
-            const rawText = c.text || c.desc || c.description || c.title || ''; 
-            
-            // Moztu testua luzeegia bada
-            const truncatedText = rawText.length > 50 ? rawText.substring(0, 50) + '...' : rawText;
-            
-            const selected = (data.linkedCompetency === cCode) ? 'selected' : '';
-            
-            // Emaitza: "C1 - Talde lana..."
-            return `<option value="${cCode}" ${selected}>${cCode} - ${truncatedText}</option>`;
-        }).join('');
-    }
+		// --- HEMEN DAGO GAKOA: SELEKTOREA TITULUEKIN ---
+		let options = '<option value="">-- Lotura gabe --</option>';
+		if (this.tempEgresoComps) {
+			options += this.tempEgresoComps.map(c => {
+				// Saiatu hainbat eremu deskribapena aurkitzeko
+				const cCode = c.code || c.autoCode || '';
+				const rawText = c.text || c.desc || c.description || c.title || ''; 
+				
+				// Moztu testua luzeegia bada
+				const truncatedText = rawText.length > 50 ? rawText.substring(0, 50) + '...' : rawText;
+				
+				const selected = (data.linkedCompetency === cCode) ? 'selected' : '';
+				
+				// Emaitza: "C1 - Talde lana..."
+				return `<option value="${cCode}" ${selected}>${cCode} - ${truncatedText}</option>`;
+			}).join('');
+		}
 
-    // HTML Sortu
-    const div = document.createElement('div');
-    div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
-    
-    div.innerHTML = `
-        <div class="flex flex-col gap-1 w-24 shrink-0">
-            <input type="text" 
-                class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
-                value="${codeValue}" 
-                placeholder="KODEA">
-        </div>
-        <div class="flex-1 flex flex-col gap-1">
-            <textarea 
-                class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
-                placeholder="Deskribapena...">${descValue}</textarea>
-            
-            <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
-                ${options}
-            </select>
-        </div>
-        <button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
-            <i class="fas fa-trash-alt"></i>
-        </button>
-    `;
+		// HTML Sortu
+		const div = document.createElement('div');
+		div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
+		
+		div.innerHTML = `
+			<div class="flex flex-col gap-1 w-24 shrink-0">
+				<input type="text" 
+					class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
+					value="${codeValue}" 
+					placeholder="KODEA">
+			</div>
+			<div class="flex-1 flex flex-col gap-1">
+				<textarea 
+					class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
+					placeholder="Deskribapena...">${descValue}</textarea>
+				
+				<select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
+					${options}
+				</select>
+			</div>
+			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
+				<i class="fas fa-trash-alt"></i>
+			</button>
+		`;
 
-    container.appendChild(div);
-}
+		container.appendChild(div);
+	}
 
 	
-setupDragAndDrop(containerId) {
+	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -2369,126 +2359,126 @@ setupDragAndDrop(containerId) {
 
 	
 // ************** FUNTZIO BERRIA: KODEAK NORMALIZATU GORDETZERAKO **************
-normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
-    if (!subject) return;
-    
-    // Obtener prefijo base desde autoCode (como en generateUnitAutoCode)
-    let basePrefix = '';
-    if (subject.autoCode) {
-        const parts = subject.autoCode.split('_');
-        if (parts.length >= 2) {
-            basePrefix = parts.slice(0, 2).join('_'); // "BD1_1NEU"
-        }
-    }
-    
-    // Si no hay autoCode, calcularlo
-    if (!basePrefix) {
-        const grado = subject.degreeCode || "BD";
-        const curso = subject.course || subject.year || "1";
-        const periodo = subject.term || subject.semester || "1";
-        const rawName = subject.name || subject.subjectTitle || "ASIG";
-        const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
-        const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
-        
-        basePrefix = `${grado}${curso}_${periodo}${acronimo}`;
-    }
-    
-    // Normalizar RAs t¨¦cnicos
-    tecRAs.forEach((ra, index) => {
-        if (ra.code && !ra.code.startsWith(basePrefix)) {
-            // Mantener el n¨²mero secuencial si existe
-            const match = ra.code.match(/(RA|ZH)(\d+)$/);
-            if (match) {
-                const tipo = "RA"; // Siempre RA para t¨¦cnicos
-                const numero = match[2] || String(index + 1).padStart(2, '0');
-                ra.code = `${basePrefix}_${tipo}${numero}`;
-                ra.id = ra.code; // Tambi¨¦n actualizar ID
-            } else {
-                ra.code = `${basePrefix}_RA${String(index + 1).padStart(2, '0')}`;
-                ra.id = ra.code;
-            }
-        }
-    });
-    
-    // Normalizar RAs transversales (ZH)
-    zhRAs.forEach((zh, index) => {
-        if (zh.code && !zh.code.startsWith(basePrefix)) {
-            const match = zh.code.match(/(RA|ZH)(\d+)$/);
-            if (match) {
-                const tipo = "ZH"; // Siempre ZH para transversales
-                const numero = match[2] || String(index + 1).padStart(2, '0');
-                zh.code = `${basePrefix}_${tipo}${numero}`;
-                zh.id = zh.code;
-            } else {
-                zh.code = `${basePrefix}_ZH${String(index + 1).padStart(2, '0')}`;
-                zh.id = zh.code;
-            }
-        }
-    });
-}
+	normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
+		if (!subject) return;
+		
+		// Obtener prefijo base desde autoCode (como en generateUnitAutoCode)
+		let basePrefix = '';
+		if (subject.autoCode) {
+			const parts = subject.autoCode.split('_');
+			if (parts.length >= 2) {
+				basePrefix = parts.slice(0, 2).join('_'); // "BD1_1NEU"
+			}
+		}
+		
+		// Si no hay autoCode, calcularlo
+		if (!basePrefix) {
+			const grado = subject.degreeCode || "BD";
+			const curso = subject.course || subject.year || "1";
+			const periodo = subject.term || subject.semester || "1";
+			const rawName = subject.name || subject.subjectTitle || "ASIG";
+			const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
+			const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
+			
+			basePrefix = `${grado}${curso}_${periodo}${acronimo}`;
+		}
+		
+		// Normalizar RAs t¨¦cnicos
+		tecRAs.forEach((ra, index) => {
+			if (ra.code && !ra.code.startsWith(basePrefix)) {
+				// Mantener el n¨²mero secuencial si existe
+				const match = ra.code.match(/(RA|ZH)(\d+)$/);
+				if (match) {
+					const tipo = "RA"; // Siempre RA para t¨¦cnicos
+					const numero = match[2] || String(index + 1).padStart(2, '0');
+					ra.code = `${basePrefix}_${tipo}${numero}`;
+					ra.id = ra.code; // Tambi¨¦n actualizar ID
+				} else {
+					ra.code = `${basePrefix}_RA${String(index + 1).padStart(2, '0')}`;
+					ra.id = ra.code;
+				}
+			}
+		});
+		
+		// Normalizar RAs transversales (ZH)
+		zhRAs.forEach((zh, index) => {
+			if (zh.code && !zh.code.startsWith(basePrefix)) {
+				const match = zh.code.match(/(RA|ZH)(\d+)$/);
+				if (match) {
+					const tipo = "ZH"; // Siempre ZH para transversales
+					const numero = match[2] || String(index + 1).padStart(2, '0');
+					zh.code = `${basePrefix}_${tipo}${numero}`;
+					zh.id = zh.code;
+				} else {
+					zh.code = `${basePrefix}_ZH${String(index + 1).padStart(2, '0')}`;
+					zh.id = zh.code;
+				}
+			}
+		});
+	}
 
 // Aldaketak egiteko funtzio temporala:
 
 	
-saveRaChanges() {
-    const s = this.currentSubject;
-    if (!s) return;
+	saveRaChanges() {
+		const s = this.currentSubject;
+		if (!s) return;
 
-    console.log("?? Aldaketak gordetzen (saveData bidez)...");
+		console.log("?? Aldaketak gordetzen (saveData bidez)...");
 
-    // 1. TEKNIKOAK BILDU
-    const tecRows = document.querySelectorAll('#editListTec .ra-row');
-    s.currentOfficialRAs = Array.from(tecRows).map(row => {
-        const code = row.querySelector('.ra-code')?.value.trim() || '';
-        const desc = row.querySelector('.ra-desc')?.value.trim() || '';
-        const linked = row.querySelector('.ra-link')?.value || ''; // Lotura ere gorde
+		// 1. TEKNIKOAK BILDU
+		const tecRows = document.querySelectorAll('#editListTec .ra-row');
+		s.currentOfficialRAs = Array.from(tecRows).map(row => {
+			const code = row.querySelector('.ra-code')?.value.trim() || '';
+			const desc = row.querySelector('.ra-desc')?.value.trim() || '';
+			const linked = row.querySelector('.ra-link')?.value || ''; // Lotura ere gorde
 
-        return {
-            id: code,
-            code: code,                   // Bateragarritasuna
-            raCode: code,                 // Estandarra
-            raDesc: desc,                 // Estandarra
-            desc: desc,                   // Bateragarritasuna
-            linkedCompetency: linked      // Lotura
-        };
-    });
+			return {
+				id: code,
+				code: code,                   // Bateragarritasuna
+				raCode: code,                 // Estandarra
+				raDesc: desc,                 // Estandarra
+				desc: desc,                   // Bateragarritasuna
+				linkedCompetency: linked      // Lotura
+			};
+		});
 
-    // 2. ZEHARKAKOAK BILDU
-    const zhRows = document.querySelectorAll('#editListZh .ra-row');
-    s.subjectZhRAs = Array.from(zhRows).map(row => {
-        const code = row.querySelector('.ra-code')?.value.trim() || '';
-        const desc = row.querySelector('.ra-desc')?.value.trim() || '';
-        const linked = row.querySelector('.ra-link')?.value || ''; // Lotura ere gorde
+		// 2. ZEHARKAKOAK BILDU
+		const zhRows = document.querySelectorAll('#editListZh .ra-row');
+		s.subjectZhRAs = Array.from(zhRows).map(row => {
+			const code = row.querySelector('.ra-code')?.value.trim() || '';
+			const desc = row.querySelector('.ra-desc')?.value.trim() || '';
+			const linked = row.querySelector('.ra-link')?.value || ''; // Lotura ere gorde
 
-        return {
-            id: code,
-            subjectZhCode: code,          // Bateragarritasuna
-            zhCode: code,                 // Estandarra
-            subjectZhDesc: desc,          // Bateragarritasuna
-            zhDesc: desc,                 // Estandarra
-            desc: desc,                   // Backup
-            linkedCompetency: linked      // Lotura
-        };
-    });
+			return {
+				id: code,
+				subjectZhCode: code,          // Bateragarritasuna
+				zhCode: code,                 // Estandarra
+				subjectZhDesc: desc,          // Bateragarritasuna
+				zhDesc: desc,                 // Estandarra
+				desc: desc,                   // Backup
+				linkedCompetency: linked      // Lotura
+			};
+		});
 
-    // 3. Gorde egitura osoa (saveData erabiliz)
-    if (this.saveData) {
-        this.saveData(); 
-    } else {
-        console.error("? 'saveData' funtzioa ez da aurkitu GradosManager-en.");
-    }
-    
-    // 4. Itxi modala
-    const modal = document.getElementById('raModal');
-    if (modal) modal.classList.add('hidden');
-    
-    // 5. Bista freskatu
-    if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-        window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-    }
-}
+		// 3. Gorde egitura osoa (saveData erabiliz)
+		if (this.saveData) {
+			this.saveData(); 
+		} else {
+			console.error("? 'saveData' funtzioa ez da aurkitu GradosManager-en.");
+		}
+		
+		// 4. Itxi modala
+		const modal = document.getElementById('raModal');
+		if (modal) modal.classList.add('hidden');
+		
+		// 5. Bista freskatu
+		if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
+			window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+		}
+	}
 
-    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
+/*    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
         // Zure kode zaharraren normalizazioa jarri hemen
         console.log("Kodeak normalizatzen...", subject, tecRAs, zhRAs);
         
@@ -2507,666 +2497,679 @@ saveRaChanges() {
                 ra.code = `${subject.subjectCode}_ZH${num.padStart(2, '0')}`;
             }
         });
-    }
+    }*/
 
-    showToast(message, type = 'info') {
-        // Alert sinple bat edo toast sistema bat
-        alert(`? ${message}`);
+// Laguntzailea: Toast mezua erakusteko (zure kode zaharretik kopiatua)
+    showToast(message) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed; top: 20px; right: 20px; 
+            background: #10B981; color: white; padding: 15px 20px;
+            border-radius: 8px; z-index: 10000; font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 
 	
-openPreReqEditor() {
-    if (!this.currentSubject) return;
+	openPreReqEditor() {
+		if (!this.currentSubject) return;
 
-    // 1. Setup del Modal
-    const modal = document.getElementById('listEditorModal');
-    const container = document.getElementById('listEditorContainer');
-    const titleEl = document.getElementById('listEditorTitle');
-    const inputTop = document.getElementById('newItemInput')?.parentElement;
-    
-    if (inputTop) inputTop.classList.add('hidden');
-    if (titleEl) titleEl.innerHTML = `<i class="fas fa-layer-group mr-2 text-indigo-500"></i> Aurre-ezagutzak (Automatikoa)`;
+		// 1. Setup del Modal
+		const modal = document.getElementById('listEditorModal');
+		const container = document.getElementById('listEditorContainer');
+		const titleEl = document.getElementById('listEditorTitle');
+		const inputTop = document.getElementById('newItemInput')?.parentElement;
+		
+		if (inputTop) inputTop.classList.add('hidden');
+		if (titleEl) titleEl.innerHTML = `<i class="fas fa-layer-group mr-2 text-indigo-500"></i> Aurre-ezagutzak (Automatikoa)`;
 
-    // 2. Inicializar datos locales - ✨ ALDAKETA: erroan zuzenean
-    if (!Array.isArray(this.currentSubject.preReq)) {
-        this.currentSubject.preReq = []; // Erroan hasieratu
-    }
-    const localList = this.currentSubject.preReq; // ✨ context erabili gabe
+		// 2. Inicializar datos locales - ✨ ALDAKETA: erroan zuzenean
+		if (!Array.isArray(this.currentSubject.preReq)) {
+			this.currentSubject.preReq = []; // Erroan hasieratu
+		}
+		const localList = this.currentSubject.preReq; // ✨ context erabili gabe
 
-    // ---------------------------------------------------------
-    // 3. FUNCIÓN PARA LEER ÁREAS DINÁMICAMENTE
-    // ---------------------------------------------------------
-    const getAreasFromSystem = () => {
-        const areaColorMap = {};
-        
-        console.log("🔍 Eremuak bilatzen...");
-        
-        // currentDegree-tik hartu (gradu bakoitzak bere eremuak ditu)
-        if (this.currentDegree?.subjectAreas) {
-            const areas = this.currentDegree.subjectAreas;
-            
-            console.log(`${areas.length} eremu aurkituak currentDegree.subjectAreas-en`);
-            
-            areas.forEach(area => {
-                if (area && area.name) {
-                    areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
-                    console.log(`  ✅ "${area.name}" -> ${areaColorMap[area.name]}`);
-                }
-            });
-        } 
-        // cloudModel-en bilatu fallback gisa
-        else if (this.cloudModel?.degrees) {
-            console.log("🔍 CloudModel-en bilatzen...");
-            
-            const currentDegreeId = this.currentDegree?.id || this.currentSubject.degreeId;
-            if (currentDegreeId) {
-                const degreeInCloud = this.cloudModel.degrees.find(d => d.id === currentDegreeId);
-                if (degreeInCloud?.subjectAreas) {
-                    degreeInCloud.subjectAreas.forEach(area => {
-                        if (area && area.name) {
-                            areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
-                        }
-                    });
-                }
-            }
-        }
-        
-        console.log(`📊 Guztira ${Object.keys(areaColorMap).length} eremu eskuragarri`);
-        return areaColorMap;
-    };
+		// ---------------------------------------------------------
+		// 3. FUNCIÓN PARA LEER ÁREAS DINÁMICAMENTE
+		// ---------------------------------------------------------
+		const getAreasFromSystem = () => {
+			const areaColorMap = {};
+			
+			console.log("🔍 Eremuak bilatzen...");
+			
+			// currentDegree-tik hartu (gradu bakoitzak bere eremuak ditu)
+			if (this.currentDegree?.subjectAreas) {
+				const areas = this.currentDegree.subjectAreas;
+				
+				console.log(`${areas.length} eremu aurkituak currentDegree.subjectAreas-en`);
+				
+				areas.forEach(area => {
+					if (area && area.name) {
+						areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
+						console.log(`  ✅ "${area.name}" -> ${areaColorMap[area.name]}`);
+					}
+				});
+			} 
+			// cloudModel-en bilatu fallback gisa
+			else if (this.cloudModel?.degrees) {
+				console.log("🔍 CloudModel-en bilatzen...");
+				
+				const currentDegreeId = this.currentDegree?.id || this.currentSubject.degreeId;
+				if (currentDegreeId) {
+					const degreeInCloud = this.cloudModel.degrees.find(d => d.id === currentDegreeId);
+					if (degreeInCloud?.subjectAreas) {
+						degreeInCloud.subjectAreas.forEach(area => {
+							if (area && area.name) {
+								areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
+							}
+						});
+					}
+				}
+			}
+			
+			console.log(`📊 Guztira ${Object.keys(areaColorMap).length} eremu eskuragarri`);
+			return areaColorMap;
+		};
 
-    const areaColorMap = getAreasFromSystem();
-    const areaCount = Object.keys(areaColorMap).length;
-    const sortedAreaNames = Object.keys(areaColorMap).sort((a, b) => 
-        a.localeCompare(b, 'eu')
-    );
+		const areaColorMap = getAreasFromSystem();
+		const areaCount = Object.keys(areaColorMap).length;
+		const sortedAreaNames = Object.keys(areaColorMap).sort((a, b) => 
+			a.localeCompare(b, 'eu')
+		);
 
-    // Kolorea parseatzeko funtzioa
-    const parseColor = (hsl) => {
-        if (!hsl) return '#94a3b8';
-        if (hsl.startsWith('#')) return hsl;
-        if (hsl.startsWith('hsl')) return hsl;
-        return '#94a3b8';
-    };
+		// Kolorea parseatzeko funtzioa
+		const parseColor = (hsl) => {
+			if (!hsl) return '#94a3b8';
+			if (hsl.startsWith('#')) return hsl;
+			if (hsl.startsWith('hsl')) return hsl;
+			return '#94a3b8';
+		};
 
-    // ---------------------------------------------------------
-    // 4. GENERADOR DE CÓDIGO
-    // ---------------------------------------------------------
-    const generateAutoCode = (index) => {
-        const subjectName = this.currentSubject.name || this.currentSubject.subjectTitle || "ASIG";
-        const cleanName = subjectName.replace(/^[\d\.\s]+/, '').trim();
-        
-        const romanMap = {
-            ' VIII': '8', ' VII': '7', ' VI': '6', ' V': '5', 
-            ' IV': '4', ' III': '3', ' II': '2', ' I': '1'
-        };
-        
-        let numSuffix = '';
-        let baseName = cleanName;
-        
-        for (const [roman, num] of Object.entries(romanMap)) {
-            if (cleanName.toUpperCase().endsWith(roman)) {
-                numSuffix = num;
-                baseName = cleanName.substring(0, cleanName.length - roman.length).trim();
-                break;
-            }
-        }
-        
-        if (!numSuffix) {
-            const arabicMatch = cleanName.match(/(\d+)$/);
-            if (arabicMatch) {
-                numSuffix = arabicMatch[1];
-                baseName = cleanName.substring(0, cleanName.length - arabicMatch[0].length).trim();
-            }
-        }
-        
-        const letters = baseName.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase();
-        const seq = String(index + 1).padStart(2, '0');
-        
-        return `AE_${numSuffix || ''}${letters}_${seq}`;
-    };
+		// ---------------------------------------------------------
+		// 4. GENERADOR DE CÓDIGO
+		// ---------------------------------------------------------
+		const generateAutoCode = (index) => {
+			const subjectName = this.currentSubject.name || this.currentSubject.subjectTitle || "ASIG";
+			const cleanName = subjectName.replace(/^[\d\.\s]+/, '').trim();
+			
+			const romanMap = {
+				' VIII': '8', ' VII': '7', ' VI': '6', ' V': '5', 
+				' IV': '4', ' III': '3', ' II': '2', ' I': '1'
+			};
+			
+			let numSuffix = '';
+			let baseName = cleanName;
+			
+			for (const [roman, num] of Object.entries(romanMap)) {
+				if (cleanName.toUpperCase().endsWith(roman)) {
+					numSuffix = num;
+					baseName = cleanName.substring(0, cleanName.length - roman.length).trim();
+					break;
+				}
+			}
+			
+			if (!numSuffix) {
+				const arabicMatch = cleanName.match(/(\d+)$/);
+				if (arabicMatch) {
+					numSuffix = arabicMatch[1];
+					baseName = cleanName.substring(0, cleanName.length - arabicMatch[0].length).trim();
+				}
+			}
+			
+			const letters = baseName.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase();
+			const seq = String(index + 1).padStart(2, '0');
+			
+			return `AE_${numSuffix || ''}${letters}_${seq}`;
+		};
 
-    // ---------------------------------------------------------
-    // 5. RENDERIZAR EDITOR
-    // ---------------------------------------------------------
-    const renderTable = () => {
-        container.innerHTML = `
-            <div class="mb-4">
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-[10px] text-gray-400 italic">
-                        <i class="fas fa-robot mr-1"></i> Kodeak automatikoak dira.
-                    </span>
-                    <button id="btnAddPreReq" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
-                        <i class="fas fa-plus mr-1"></i> Gehitu Aurre-ezagutza
-                    </button>
-                </div>
-                
-                ${areaCount === 0 ? `
-                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
-                    <div class="flex items-start">
-                        <i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-2"></i>
-                        <div>
-                            <p class="text-xs font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
-                            <p class="text-[11px] text-yellow-700">
-                                Eremuak lehenik definitu behar dira graduan (sidebar edo graduaren datuetan).
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                ` : `
-                <div class="text-[10px] text-gray-500 mb-2 flex items-center">
-                    <i class="fas fa-check-circle text-green-500 mr-1"></i>
-                    <span class="mr-2">${areaCount} eremu aurkituak</span>
-                    <select id="quickAreaSelect" class="text-xs border border-gray-300 rounded px-2 py-1 ml-auto">
-                        <option value="">Hautatu eremua...</option>
-                        ${sortedAreaNames.map(area => `
-                            <option value="${area}">${area}</option>
-                        `).join('')}
-                    </select>
-                </div>
-                `}
-            </div>
-            
-            <div class="flex gap-2 px-3 mb-1 text-[9px] font-bold text-gray-400 uppercase">
-                <div class="w-1/4">Kodea</div>
-                <div class="w-2/5">Izena</div>
-                <div class="w-2/5">Ezagutza Eremua</div>
-                <div class="w-8"></div>
-            </div>
+		// ---------------------------------------------------------
+		// 5. RENDERIZAR EDITOR
+		// ---------------------------------------------------------
+		const renderTable = () => {
+			container.innerHTML = `
+				<div class="mb-4">
+					<div class="flex justify-between items-center mb-3">
+						<span class="text-[10px] text-gray-400 italic">
+							<i class="fas fa-robot mr-1"></i> Kodeak automatikoak dira.
+						</span>
+						<button id="btnAddPreReq" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
+							<i class="fas fa-plus mr-1"></i> Gehitu Aurre-ezagutza
+						</button>
+					</div>
+					
+					${areaCount === 0 ? `
+					<div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
+						<div class="flex items-start">
+							<i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-2"></i>
+							<div>
+								<p class="text-xs font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
+								<p class="text-[11px] text-yellow-700">
+									Eremuak lehenik definitu behar dira graduan (sidebar edo graduaren datuetan).
+								</p>
+							</div>
+						</div>
+					</div>
+					` : `
+					<div class="text-[10px] text-gray-500 mb-2 flex items-center">
+						<i class="fas fa-check-circle text-green-500 mr-1"></i>
+						<span class="mr-2">${areaCount} eremu aurkituak</span>
+						<select id="quickAreaSelect" class="text-xs border border-gray-300 rounded px-2 py-1 ml-auto">
+							<option value="">Hautatu eremua...</option>
+							${sortedAreaNames.map(area => `
+								<option value="${area}">${area}</option>
+							`).join('')}
+						</select>
+					</div>
+					`}
+				</div>
+				
+				<div class="flex gap-2 px-3 mb-1 text-[9px] font-bold text-gray-400 uppercase">
+					<div class="w-1/4">Kodea</div>
+					<div class="w-2/5">Izena</div>
+					<div class="w-2/5">Ezagutza Eremua</div>
+					<div class="w-8"></div>
+				</div>
 
-            <div id="preReqTableBody" class="space-y-2 pb-4 max-h-[60vh] overflow-y-auto pr-1"></div>
-            
-            <!-- Datalist para autocompletar -->
-            <datalist id="preReqAreasList">
-                ${sortedAreaNames.map(area => `
-                    <option value="${area}">${area}</option>
-                `).join('')}
-            </datalist>
-        `;
+				<div id="preReqTableBody" class="space-y-2 pb-4 max-h-[60vh] overflow-y-auto pr-1"></div>
+				
+				<!-- Datalist para autocompletar -->
+				<datalist id="preReqAreasList">
+					${sortedAreaNames.map(area => `
+						<option value="${area}">${area}</option>
+					`).join('')}
+				</datalist>
+			`;
 
-        const body = document.getElementById('preReqTableBody');
+			const body = document.getElementById('preReqTableBody');
 
-        // Azkar aukeratzeko dropdown-a
-        const quickSelect = document.getElementById('quickAreaSelect');
-        if (quickSelect) {
-            quickSelect.addEventListener('change', function() {
-                if (this.value) {
-                    const activeInput = document.activeElement;
-                    if (activeInput && activeInput.classList.contains('field-area')) {
-                        activeInput.value = this.value;
-                        const event = new Event('input', { bubbles: true });
-                        activeInput.dispatchEvent(event);
-                    }
-                    this.value = '';
-                }
-            });
-        }
+			// Azkar aukeratzeko dropdown-a
+			const quickSelect = document.getElementById('quickAreaSelect');
+			if (quickSelect) {
+				quickSelect.addEventListener('change', function() {
+					if (this.value) {
+						const activeInput = document.activeElement;
+						if (activeInput && activeInput.classList.contains('field-area')) {
+							activeInput.value = this.value;
+							const event = new Event('input', { bubbles: true });
+							activeInput.dispatchEvent(event);
+						}
+						this.value = '';
+					}
+				});
+			}
 
-        localList.forEach((item, index) => {
-            // Kode automatikoa sortu
-            const autoCode = generateAutoCode(index);
-            item.code = autoCode;
-            localList[index] = item;
-            
-            // Kolorea zehaztu
-            let displayColor = '#e2e8f0';
-            let areaName = item.area || '';
-            
-            if (areaName && areaColorMap[areaName]) {
-                displayColor = parseColor(areaColorMap[areaName]);
-            } else if (item.color) {
-                displayColor = parseColor(item.color);
-            }
+			localList.forEach((item, index) => {
+				// Kode automatikoa sortu
+				const autoCode = generateAutoCode(index);
+				item.code = autoCode;
+				localList[index] = item;
+				
+				// Kolorea zehaztu
+				let displayColor = '#e2e8f0';
+				let areaName = item.area || '';
+				
+				if (areaName && areaColorMap[areaName]) {
+					displayColor = parseColor(areaColorMap[areaName]);
+				} else if (item.color) {
+					displayColor = parseColor(item.color);
+				}
 
-            const row = document.createElement('div');
-            row.className = "flex gap-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition items-center";
-            
-            row.innerHTML = `
-                <div class="w-1/4">
-                    <input type="text" 
-                           class="w-full text-xs font-mono font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 outline-none cursor-not-allowed" 
-                           value="${item.code}" 
-                           readonly
-                           title="Kode automatikoa (AE_numeroLETRAS_secuencia)">
-                </div>
-                <div class="w-2/5">
-                    <input type="text" 
-                           class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 field-name" 
-                           value="${item.name || ''}" 
-                           placeholder="Aurre-ezagutzaren izena..."
-                           data-index="${index}"
-                           autocomplete="off">
-                </div>
-                <div class="w-2/5 relative">
-                    <input type="text" 
-                           list="preReqAreasList"
-                           class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 pr-7 field-area" 
-                           value="${areaName}" 
-                           placeholder="Idatzi eremuaren izena..."
-                           autocomplete="off"
-                           data-index="${index}"
-                           id="areaInput_${index}">
-                    
-                    <div class="absolute right-0 top-2.5 w-4 h-4 rounded-full area-color-preview border border-gray-300"
-                         style="background-color: ${displayColor}"
-                         title="${areaName || 'Ez dago eremurik'}"></div>
-                </div>
-                <button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition btn-delete" 
-                        title="Ezabatu aurre-ezagutza hau"
-                        data-index="${index}">
-                    <i class="fas fa-trash-alt text-sm"></i>
-                </button>
-            `;
+				const row = document.createElement('div');
+				row.className = "flex gap-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition items-center";
+				
+				row.innerHTML = `
+					<div class="w-1/4">
+						<input type="text" 
+							   class="w-full text-xs font-mono font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 outline-none cursor-not-allowed" 
+							   value="${item.code}" 
+							   readonly
+							   title="Kode automatikoa (AE_numeroLETRAS_secuencia)">
+					</div>
+					<div class="w-2/5">
+						<input type="text" 
+							   class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 field-name" 
+							   value="${item.name || ''}" 
+							   placeholder="Aurre-ezagutzaren izena..."
+							   data-index="${index}"
+							   autocomplete="off">
+					</div>
+					<div class="w-2/5 relative">
+						<input type="text" 
+							   list="preReqAreasList"
+							   class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 pr-7 field-area" 
+							   value="${areaName}" 
+							   placeholder="Idatzi eremuaren izena..."
+							   autocomplete="off"
+							   data-index="${index}"
+							   id="areaInput_${index}">
+						
+						<div class="absolute right-0 top-2.5 w-4 h-4 rounded-full area-color-preview border border-gray-300"
+							 style="background-color: ${displayColor}"
+							 title="${areaName || 'Ez dago eremurik'}"></div>
+					</div>
+					<button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition btn-delete" 
+							title="Ezabatu aurre-ezagutza hau"
+							data-index="${index}">
+						<i class="fas fa-trash-alt text-sm"></i>
+					</button>
+				`;
 
-            const nameInput = row.querySelector('.field-name');
-            const areaInput = row.querySelector('.field-area');
-            const colorPreview = row.querySelector('.area-color-preview');
-            const deleteBtn = row.querySelector('.btn-delete');
+				const nameInput = row.querySelector('.field-name');
+				const areaInput = row.querySelector('.field-area');
+				const colorPreview = row.querySelector('.area-color-preview');
+				const deleteBtn = row.querySelector('.btn-delete');
 
-            const updateRow = () => {
-                const newName = nameInput.value.trim();
-                const newArea = areaInput.value.trim();
-                
-                // Kolorea eguneratu
-                let matchedColor = '#94a3b8';
-                if (newArea && areaColorMap[newArea]) {
-                    matchedColor = parseColor(areaColorMap[newArea]);
-                }
-                
-                colorPreview.style.backgroundColor = matchedColor;
-                colorPreview.title = newArea || 'Ez dago eremurik';
-                
-                // Datuak eguneratu
-                localList[index] = {
-                    code: autoCode,
-                    name: newName,
-                    area: newArea,
-                    color: matchedColor
-                };
-            };
+				const updateRow = () => {
+					const newName = nameInput.value.trim();
+					const newArea = areaInput.value.trim();
+					
+					// Kolorea eguneratu
+					let matchedColor = '#94a3b8';
+					if (newArea && areaColorMap[newArea]) {
+						matchedColor = parseColor(areaColorMap[newArea]);
+					}
+					
+					colorPreview.style.backgroundColor = matchedColor;
+					colorPreview.title = newArea || 'Ez dago eremurik';
+					
+					// Datuak eguneratu
+					localList[index] = {
+						code: autoCode,
+						name: newName,
+						area: newArea,
+						color: matchedColor
+					};
+				};
 
-            // Event listeners
-            nameInput.addEventListener('input', updateRow);
-            nameInput.addEventListener('blur', updateRow);
-            
-            areaInput.addEventListener('input', updateRow);
-            areaInput.addEventListener('blur', updateRow);
-            areaInput.addEventListener('change', updateRow);
-            
-            // Autocomplete
-            areaInput.addEventListener('input', function(e) {
-                const value = this.value.toLowerCase();
-                const hasMatch = sortedAreaNames.some(area => 
-                    area.toLowerCase().includes(value)
-                );
-                
-                if (value && hasMatch) {
-                    this.style.borderColor = '#10b981';
-                } else {
-                    this.style.borderColor = value ? '#ef4444' : '#d1d5db';
-                }
-                updateRow();
-            });
+				// Event listeners
+				nameInput.addEventListener('input', updateRow);
+				nameInput.addEventListener('blur', updateRow);
+				
+				areaInput.addEventListener('input', updateRow);
+				areaInput.addEventListener('blur', updateRow);
+				areaInput.addEventListener('change', updateRow);
+				
+				// Autocomplete
+				areaInput.addEventListener('input', function(e) {
+					const value = this.value.toLowerCase();
+					const hasMatch = sortedAreaNames.some(area => 
+						area.toLowerCase().includes(value)
+					);
+					
+					if (value && hasMatch) {
+						this.style.borderColor = '#10b981';
+					} else {
+						this.style.borderColor = value ? '#ef4444' : '#d1d5db';
+					}
+					updateRow();
+				});
 
-            deleteBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (localList.length <= 1) {
-                    alert("Gutxienez aurre-ezagutza bat egon behar da.");
-                    return;
-                }
-                if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
-                    localList.splice(index, 1);
-                    renderTable();
-                }
-            });
+				deleteBtn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					if (localList.length <= 1) {
+						alert("Gutxienez aurre-ezagutza bat egon behar da.");
+						return;
+					}
+					if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
+						localList.splice(index, 1);
+						renderTable();
+					}
+				});
 
-            body.appendChild(row);
-        });
+				body.appendChild(row);
+			});
 
-        // Fila hutsa gehitu behar bada
-        if (localList.length === 0) {
-            localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
-            renderTable();
-            return;
-        }
-    };
+			// Fila hutsa gehitu behar bada
+			if (localList.length === 0) {
+				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
+				renderTable();
+				return;
+			}
+		};
 
-    // Gehitu botoia
-    container.addEventListener('click', (e) => {
-        if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
-            localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
-            renderTable();
-            
-            setTimeout(() => {
-                const lastRow = document.querySelector('#preReqTableBody .field-name:last-child');
-                if (lastRow) lastRow.focus();
-            }, 50);
-        }
-    });
+		// Gehitu botoia
+		container.addEventListener('click', (e) => {
+			if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
+				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
+				renderTable();
+				
+				setTimeout(() => {
+					const lastRow = document.querySelector('#preReqTableBody .field-name:last-child');
+					if (lastRow) lastRow.focus();
+				}, 50);
+			}
+		});
 
-    // Renderizar
-    renderTable();
+		// Renderizar
+		renderTable();
 
-    // ---------------------------------------------------------
-    // 6. CONFIGURAR BOTÓN GUARDAR
-    // ---------------------------------------------------------
-    const saveBtn = this._setupSaveButtonRaw(modal);
-    saveBtn.onclick = async () => {
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        saveBtn.disabled = true;
-        
-        try {
-            // Filtroak
-            const filteredList = localList.filter(item => item.name && item.name.trim());
-            
-            if (filteredList.length === 0) {
-                alert("Gutxienez aurre-ezagutza bat definitu behar duzu.");
-                saveBtn.innerHTML = 'Gorde Aldaketak';
-                saveBtn.disabled = false;
-                return;
-            }
-            
-            // ✨ ALDAKETA: Datuak erroan gorde soilik
-            this.currentSubject.preReq = filteredList;
-            
-            // ✨ OHARRA: context ez da behar, baina mantentzeko kodea
-            if (!this.currentSubject.context) {
-                this.currentSubject.context = {};
-            }
-            // Hemen soilik context-ean ere gorde nahi baduzu:
-            // this.currentSubject.context.preReq = filteredList;
-            
-            // Datuak gorde
-            await this.saveData();
-            modal.classList.add('hidden');
-            
-            // Vista eguneratu
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-            
-            // Berri ona
-            if (this.showNotification) {
-                this.showNotification('Aurre-ezagutzak gorde dira!', 'success');
-            } else {
-                alert('✅ Aurre-ezagutzak gorde dira!');
-            }
-            
-        } catch (error) {
-            console.error('Errorea gordetzean:', error);
-            alert("Errorea gordetzerakoan: " + error.message);
-        } finally {
-            saveBtn.innerHTML = 'Gorde Aldaketak';
-            saveBtn.disabled = false;
-        }
-    };
+		// ---------------------------------------------------------
+		// 6. CONFIGURAR BOTÓN GUARDAR
+		// ---------------------------------------------------------
+		const saveBtn = this._setupSaveButtonRaw(modal);
+		saveBtn.onclick = async () => {
+			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+			saveBtn.disabled = true;
+			
+			try {
+				// Filtroak
+				const filteredList = localList.filter(item => item.name && item.name.trim());
+				
+				if (filteredList.length === 0) {
+					alert("Gutxienez aurre-ezagutza bat definitu behar duzu.");
+					saveBtn.innerHTML = 'Gorde Aldaketak';
+					saveBtn.disabled = false;
+					return;
+				}
+				
+				// ✨ ALDAKETA: Datuak erroan gorde soilik
+				this.currentSubject.preReq = filteredList;
+				
+				// ✨ OHARRA: context ez da behar, baina mantentzeko kodea
+				if (!this.currentSubject.context) {
+					this.currentSubject.context = {};
+				}
+				// Hemen soilik context-ean ere gorde nahi baduzu:
+				// this.currentSubject.context.preReq = filteredList;
+				
+				// Datuak gorde
+				await this.saveData();
+				modal.classList.add('hidden');
+				
+				// Vista eguneratu
+				if (window.ui && window.ui.renderSubjectDetail) {
+					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+				}
+				
+				// Berri ona
+				if (this.showNotification) {
+					this.showNotification('Aurre-ezagutzak gorde dira!', 'success');
+				} else {
+					alert('✅ Aurre-ezagutzak gorde dira!');
+				}
+				
+			} catch (error) {
+				console.error('Errorea gordetzean:', error);
+				alert("Errorea gordetzerakoan: " + error.message);
+			} finally {
+				saveBtn.innerHTML = 'Gorde Aldaketak';
+				saveBtn.disabled = false;
+			}
+		};
 
-    // Modal erakutsi
-    modal.classList.remove('hidden');
-}
-	
-openSignActEditor() {
-    if (!this.currentSubject) return;
+		// Modal erakutsi
+		modal.classList.remove('hidden');
+	}
+		
+	openSignActEditor() {
+		if (!this.currentSubject) return;
 
-    // 1. Preparar Modal
-    const modal = document.getElementById('listEditorModal');
-    const container = document.getElementById('listEditorContainer');
-    const titleEl = document.getElementById('listEditorTitle');
-    const inputTop = document.getElementById('newItemInput')?.parentElement;
-    
-    // Ocultar la parte superior antigua y poner título
-    if (inputTop) inputTop.classList.add('hidden');
-    if (titleEl) titleEl.innerHTML = `<i class="fas fa-star mr-2 text-indigo-500"></i> Jarduera Esanguratsuak`;
+		// 1. Preparar Modal
+		const modal = document.getElementById('listEditorModal');
+		const container = document.getElementById('listEditorContainer');
+		const titleEl = document.getElementById('listEditorTitle');
+		const inputTop = document.getElementById('newItemInput')?.parentElement;
+		
+		// Ocultar la parte superior antigua y poner título
+		if (inputTop) inputTop.classList.add('hidden');
+		if (titleEl) titleEl.innerHTML = `<i class="fas fa-star mr-2 text-indigo-500"></i> Jarduera Esanguratsuak`;
 
-    // 2. Inicializar datos locales (signAct) - ✨ ALDAKETA: erroan zuzenean
-    // Lehenik erroan bilatu
-    if (!Array.isArray(this.currentSubject.signAct)) {
-        // Fallback: context-ean badaude, erro-ra kopiatu
-        if (this.currentSubject.context && Array.isArray(this.currentSubject.context.signAct)) {
-            this.currentSubject.signAct = [...this.currentSubject.context.signAct];
-        } else {
-            this.currentSubject.signAct = []; // Erroan hasieratu
-        }
-    }
-    const localList = this.currentSubject.signAct; // ✨ context erabili gabe
+		// 2. Inicializar datos locales (signAct) - ✨ ALDAKETA: erroan zuzenean
+		// Lehenik erroan bilatu
+		if (!Array.isArray(this.currentSubject.signAct)) {
+			// Fallback: context-ean badaude, erro-ra kopiatu
+			if (this.currentSubject.context && Array.isArray(this.currentSubject.context.signAct)) {
+				this.currentSubject.signAct = [...this.currentSubject.context.signAct];
+			} else {
+				this.currentSubject.signAct = []; // Erroan hasieratu
+			}
+		}
+		const localList = this.currentSubject.signAct; // ✨ context erabili gabe
 
-    // 3. PREPARAR LA INTELIGENCIA (Datos Globales)
-    const globalProjects = this.adminCatalogs.externalProjects || [];
-    
-    // Mapa rápido: Tipo -> Color
-    const typeColorMap = {};
-    const agentsSet = new Set();
-    const typesSet = new Set();
+		// 3. PREPARAR LA INTELIGENCIA (Datos Globales)
+		const globalProjects = this.adminCatalogs.externalProjects || [];
+		
+		// Mapa rápido: Tipo -> Color
+		const typeColorMap = {};
+		const agentsSet = new Set();
+		const typesSet = new Set();
 
-    globalProjects.forEach(p => {
-        if (p.type) {
-            typesSet.add(p.type);
-            if (p.color && p.color !== '#94a3b8') {
-                typeColorMap[p.type] = p.color;
-            }
-        }
-        if (p.agent) agentsSet.add(p.agent);
-    });
+		globalProjects.forEach(p => {
+			if (p.type) {
+				typesSet.add(p.type);
+				if (p.color && p.color !== '#94a3b8') {
+					typeColorMap[p.type] = p.color;
+				}
+			}
+			if (p.agent) agentsSet.add(p.agent);
+		});
 
-    const uniqueTypes = [...typesSet].sort();
-    const uniqueAgents = [...agentsSet].sort();
+		const uniqueTypes = [...typesSet].sort();
+		const uniqueAgents = [...agentsSet].sort();
 
-    // Función auxiliar para obtener color
-    const getColorForType = (type) => typeColorMap[type] || null;
+		// Función auxiliar para obtener color
+		const getColorForType = (type) => typeColorMap[type] || null;
 
-    // 4. Renderizar Editor
-    const renderTable = () => {
-        container.innerHTML = `
-            <div class="flex justify-between items-center mb-3">
-                <span class="text-[10px] text-gray-400 italic">
-                    <i class="fas fa-magic mr-1"></i> Kolorea automatikoki aldatuko da motaren arabera.
-                </span>
-                <button id="btnAddSignAct" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
-                    + Gehitu Jarduera
-                </button>
-            </div>
-            <div id="signActTableBody" class="space-y-3 pb-4 max-h-[60vh] overflow-y-auto pr-2"></div>
-        `;
+		// 4. Renderizar Editor
+		const renderTable = () => {
+			container.innerHTML = `
+				<div class="flex justify-between items-center mb-3">
+					<span class="text-[10px] text-gray-400 italic">
+						<i class="fas fa-magic mr-1"></i> Kolorea automatikoki aldatuko da motaren arabera.
+					</span>
+					<button id="btnAddSignAct" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
+						+ Gehitu Jarduera
+					</button>
+				</div>
+				<div id="signActTableBody" class="space-y-3 pb-4 max-h-[60vh] overflow-y-auto pr-2"></div>
+			`;
 
-        const body = document.getElementById('signActTableBody');
+			const body = document.getElementById('signActTableBody');
 
-        localList.forEach((item, index) => {
-            // Normalizar datos si eran strings
-            if (typeof item === 'string') {
-                item = { name: item, agent: '', type: '', color: '#94a3b8' };
-                localList[index] = item;
-            }
+			localList.forEach((item, index) => {
+				// Normalizar datos si eran strings
+				if (typeof item === 'string') {
+					item = { name: item, agent: '', type: '', color: '#94a3b8' };
+					localList[index] = item;
+				}
 
-            // Si el item no tiene color propio, intentamos deducirlo del tipo
-            let displayColor = item.color;
-            if ((!displayColor || displayColor === '#94a3b8') && item.type) {
-                const suggested = getColorForType(item.type);
-                if (suggested) displayColor = suggested;
-            }
-            // Fallback final
-            if (!displayColor) displayColor = '#94a3b8';
+				// Si el item no tiene color propio, intentamos deducirlo del tipo
+				let displayColor = item.color;
+				if ((!displayColor || displayColor === '#94a3b8') && item.type) {
+					const suggested = getColorForType(item.type);
+					if (suggested) displayColor = suggested;
+				}
+				// Fallback final
+				if (!displayColor) displayColor = '#94a3b8';
 
-            const row = document.createElement('div');
-            row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group hover:border-indigo-300 transition";
-            
-            row.innerHTML = `
-                <div class="flex gap-2">
-                    <div class="w-1/3">
-                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Agentea</label>
-                        <input type="text" list="signActAgentSuggestions" 
-                            class="w-full text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-agent" 
-                            value="${item.agent || ''}" placeholder="Erakundea...">
-                    </div>
-                    <div class="w-2/3">
-                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Jardueraren Izena</label>
-                        <input type="text" 
-                            class="w-full text-sm text-gray-800 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-name" 
-                            value="${item.name || ''}" placeholder="Jardueraren izena...">
-                    </div>
-                </div>
-                
-                <div class="flex gap-2 items-end">
-                    <div class="flex-grow">
-                        <label class="block text-[9px] font-bold text-gray-400 uppercase">Mota</label>
-                        <div class="flex items-center gap-2">
-                            <input type="text" list="signActTypeSuggestions" 
-                                class="flex-grow text-xs text-gray-500 border-b border-gray-100 focus:border-indigo-500 outline-none bg-transparent py-1 field-type"
-                                value="${item.type || ''}" placeholder="Mota...">
-                            
-                            <div class="w-4 h-4 rounded-full border border-gray-300 shadow-sm type-color-preview transition-colors duration-300"
-                                 style="background-color: ${displayColor}"
-                                 title="Kolorea"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="w-12 text-right">
-                        <input type="color" 
-                            class="w-8 h-6 p-0 border-0 rounded cursor-pointer field-color" 
-                            value="${displayColor}">
-                    </div>
-                </div>
+				const row = document.createElement('div');
+				row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group hover:border-indigo-300 transition";
+				
+				row.innerHTML = `
+					<div class="flex gap-2">
+						<div class="w-1/3">
+							<label class="block text-[9px] font-bold text-gray-400 uppercase">Agentea</label>
+							<input type="text" list="signActAgentSuggestions" 
+								class="w-full text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-agent" 
+								value="${item.agent || ''}" placeholder="Erakundea...">
+						</div>
+						<div class="w-2/3">
+							<label class="block text-[9px] font-bold text-gray-400 uppercase">Jardueraren Izena</label>
+							<input type="text" 
+								class="w-full text-sm text-gray-800 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-name" 
+								value="${item.name || ''}" placeholder="Jardueraren izena...">
+						</div>
+					</div>
+					
+					<div class="flex gap-2 items-end">
+						<div class="flex-grow">
+							<label class="block text-[9px] font-bold text-gray-400 uppercase">Mota</label>
+							<div class="flex items-center gap-2">
+								<input type="text" list="signActTypeSuggestions" 
+									class="flex-grow text-xs text-gray-500 border-b border-gray-100 focus:border-indigo-500 outline-none bg-transparent py-1 field-type"
+									value="${item.type || ''}" placeholder="Mota...">
+								
+								<div class="w-4 h-4 rounded-full border border-gray-300 shadow-sm type-color-preview transition-colors duration-300"
+									 style="background-color: ${displayColor}"
+									 title="Kolorea"></div>
+							</div>
+						</div>
+						
+						<div class="w-12 text-right">
+							<input type="color" 
+								class="w-8 h-6 p-0 border-0 rounded cursor-pointer field-color" 
+								value="${displayColor}">
+						</div>
+					</div>
 
-                <button class="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition btn-delete">
-                    <i class="fas fa-trash"></i>
-                </button>
-            `;
+					<button class="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition btn-delete">
+						<i class="fas fa-trash"></i>
+					</button>
+				`;
 
-            // LOGICA DE ACTUALIZACIÓN Y COLORES
-            const agentInput = row.querySelector('.field-agent');
-            const nameInput = row.querySelector('.field-name');
-            const typeInput = row.querySelector('.field-type');
-            const colorInput = row.querySelector('.field-color');
-            const colorPreview = row.querySelector('.type-color-preview');
+				// LOGICA DE ACTUALIZACIÓN Y COLORES
+				const agentInput = row.querySelector('.field-agent');
+				const nameInput = row.querySelector('.field-name');
+				const typeInput = row.querySelector('.field-type');
+				const colorInput = row.querySelector('.field-color');
+				const colorPreview = row.querySelector('.type-color-preview');
 
-            const updateModel = () => {
-                localList[index] = {
-                    agent: agentInput.value,
-                    name: nameInput.value,
-                    type: typeInput.value,
-                    color: colorInput.value
-                };
-            };
+				const updateModel = () => {
+					localList[index] = {
+						agent: agentInput.value,
+						name: nameInput.value,
+						type: typeInput.value,
+						color: colorInput.value
+					};
+				};
 
-            // Evento especial para el TIPO:
-            typeInput.addEventListener('input', (e) => {
-                const val = e.target.value;
-                const autoColor = getColorForType(val);
-                
-                if (autoColor) {
-                    colorInput.value = autoColor;
-                    colorPreview.style.backgroundColor = autoColor;
-                    updateModel();
-                } else {
-                    localList[index].type = val;
-                }
-            });
+				// Evento especial para el TIPO:
+				typeInput.addEventListener('input', (e) => {
+					const val = e.target.value;
+					const autoColor = getColorForType(val);
+					
+					if (autoColor) {
+						colorInput.value = autoColor;
+						colorPreview.style.backgroundColor = autoColor;
+						updateModel();
+					} else {
+						localList[index].type = val;
+					}
+				});
 
-            // Evento para el color manual
-            colorInput.addEventListener('input', (e) => {
-                const val = e.target.value;
-                colorPreview.style.backgroundColor = val;
-                updateModel();
-            });
+				// Evento para el color manual
+				colorInput.addEventListener('input', (e) => {
+					const val = e.target.value;
+					colorPreview.style.backgroundColor = val;
+					updateModel();
+				});
 
-            // Resto de eventos
-            [agentInput, nameInput].forEach(inp => inp.addEventListener('input', updateModel));
-            
-            // Eliminar
-            row.querySelector('.btn-delete').addEventListener('click', () => {
-                if(confirm("Ziur zaude jarduera hau ezabatu nahi duzula?")) {
-                    localList.splice(index, 1);
-                    renderTable();
-                }
-            });
+				// Resto de eventos
+				[agentInput, nameInput].forEach(inp => inp.addEventListener('input', updateModel));
+				
+				// Eliminar
+				row.querySelector('.btn-delete').addEventListener('click', () => {
+					if(confirm("Ziur zaude jarduera hau ezabatu nahi duzula?")) {
+						localList.splice(index, 1);
+						renderTable();
+					}
+				});
 
-            body.appendChild(row);
-        });
+				body.appendChild(row);
+			});
 
-        // 5. Crear Datalists (Autocompletado)
-        const createDatalists = () => {
-            ['signActTypeSuggestions', 'signActAgentSuggestions'].forEach(id => {
-                if(document.getElementById(id)) document.getElementById(id).remove();
-            });
+			// 5. Crear Datalists (Autocompletado)
+			const createDatalists = () => {
+				['signActTypeSuggestions', 'signActAgentSuggestions'].forEach(id => {
+					if(document.getElementById(id)) document.getElementById(id).remove();
+				});
 
-            if (uniqueTypes.length) {
-                const dl = document.createElement('datalist');
-                dl.id = 'signActTypeSuggestions';
-                uniqueTypes.forEach(t => {
-                    const op = document.createElement('option');
-                    op.value = t;
-                    if(typeColorMap[t]) op.dataset.color = typeColorMap[t]; 
-                    dl.appendChild(op);
-                });
-                document.body.appendChild(dl);
-            }
+				if (uniqueTypes.length) {
+					const dl = document.createElement('datalist');
+					dl.id = 'signActTypeSuggestions';
+					uniqueTypes.forEach(t => {
+						const op = document.createElement('option');
+						op.value = t;
+						if(typeColorMap[t]) op.dataset.color = typeColorMap[t]; 
+						dl.appendChild(op);
+					});
+					document.body.appendChild(dl);
+				}
 
-            if (uniqueAgents.length) {
-                const dl = document.createElement('datalist');
-                dl.id = 'signActAgentSuggestions';
-                uniqueAgents.forEach(a => dl.appendChild(new Option(a)));
-                document.body.appendChild(dl);
-            }
-        };
-        createDatalists();
-    };
+				if (uniqueAgents.length) {
+					const dl = document.createElement('datalist');
+					dl.id = 'signActAgentSuggestions';
+					uniqueAgents.forEach(a => dl.appendChild(new Option(a)));
+					document.body.appendChild(dl);
+				}
+			};
+			createDatalists();
+		};
 
-    // Inicializar modal
-    document.getElementById('listEditorModal').classList.remove('hidden');
-    
-    // Primera renderización
-    renderTable();
-    
-    // Botón añadir (delegación de eventos)
-    container.addEventListener('click', (e) => {
-        if(e.target.id === 'btnAddSignAct' || e.target.closest('#btnAddSignAct')) {
-            localList.push({ name: '', agent: '', type: '', color: '#94a3b8' });
-            renderTable();
-        }
-    });
+		// Inicializar modal
+		document.getElementById('listEditorModal').classList.remove('hidden');
+		
+		// Primera renderización
+		renderTable();
+		
+		// Botón añadir (delegación de eventos)
+		container.addEventListener('click', (e) => {
+			if(e.target.id === 'btnAddSignAct' || e.target.closest('#btnAddSignAct')) {
+				localList.push({ name: '', agent: '', type: '', color: '#94a3b8' });
+				renderTable();
+			}
+		});
 
-    // 6. Botón Guardar
-    const saveBtn = this._setupSaveButtonRaw(modal);
-    saveBtn.onclick = async () => {
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        saveBtn.disabled = true;
-        
-        try {
-            // ✨ ALDAKETA: guardar en erro
-            // Filtroak: bakarrik izena dutenak
-            const filteredList = localList.filter(item => item.name && item.name.trim());
-            this.currentSubject.signAct = filteredList;
-            
-            // ✨ BATERAGARRIKOTASUNA: context-ean ere gorde (beharrezkoa bada)
-            if (!this.currentSubject.context) {
-                this.currentSubject.context = {};
-            }
-            // Kontsultatu ea context-ean mantendu nahi duzun:
-            // this.currentSubject.context.signAct = filteredList;
-            
-            await this.saveData();
-            modal.classList.add('hidden');
-            
-            // Actualizar vista
-            if (window.ui && this.currentSubject) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-            
-            // Mostrar notificación
-            if (this.showNotification) {
-                this.showNotification('Jarduera esanguratsuak gorde dira!', 'success');
-            } else {
-                alert('✅ Jarduera esanguratsuak gorde dira!');
-            }
-            
-        } catch (e) {
-            console.error(e);
-            alert("Errorea gordetzerakoan: " + e.message);
-        } finally {
-            saveBtn.innerHTML = 'Gorde Aldaketak';
-            saveBtn.disabled = false;
-        }
-    };
-}
+		// 6. Botón Guardar
+		const saveBtn = this._setupSaveButtonRaw(modal);
+		saveBtn.onclick = async () => {
+			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+			saveBtn.disabled = true;
+			
+			try {
+				// ✨ ALDAKETA: guardar en erro
+				// Filtroak: bakarrik izena dutenak
+				const filteredList = localList.filter(item => item.name && item.name.trim());
+				this.currentSubject.signAct = filteredList;
+				
+				// ✨ BATERAGARRIKOTASUNA: context-ean ere gorde (beharrezkoa bada)
+				if (!this.currentSubject.context) {
+					this.currentSubject.context = {};
+				}
+				// Kontsultatu ea context-ean mantendu nahi duzun:
+				// this.currentSubject.context.signAct = filteredList;
+				
+				await this.saveData();
+				modal.classList.add('hidden');
+				
+				// Actualizar vista
+				if (window.ui && this.currentSubject) {
+					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+				}
+				
+				// Mostrar notificación
+				if (this.showNotification) {
+					this.showNotification('Jarduera esanguratsuak gorde dira!', 'success');
+				} else {
+					alert('✅ Jarduera esanguratsuak gorde dira!');
+				}
+				
+			} catch (e) {
+				console.error(e);
+				alert("Errorea gordetzerakoan: " + e.message);
+			} finally {
+				saveBtn.innerHTML = 'Gorde Aldaketak';
+				saveBtn.disabled = false;
+			}
+		};
+	}
 
 /*async saveListEditor() {
     if (!this.currentEditingField) return;
@@ -3282,188 +3285,188 @@ openSignActEditor() {
 // GESTI¨®N DE LA VISTA DE PLANIFICACI¨®N (GANTT)
 // ==========================================
 
-goToPlanning() {
-    // Delegamos completamente al nuevo m¨®dulo
-    if (window.planningManager) {
-        // Pasamos la asignatura actual al manager
-        window.planningManager.open(this.currentSubject);
-    } else {
-        console.error("? PlanningManager no est¨¢ cargado en window.");
-        alert("Errorea: PlanningManager modulua falta da.");
-    }
-}
+	goToPlanning() {
+		// Delegamos completamente al nuevo m¨®dulo
+		if (window.planningManager) {
+			// Pasamos la asignatura actual al manager
+			window.planningManager.open(this.currentSubject);
+		} else {
+			console.error("? PlanningManager no est¨¢ cargado en window.");
+			alert("Errorea: PlanningManager modulua falta da.");
+		}
+	}
 
-closePlanning() {
-    document.getElementById('subjectPlanningView').classList.add('hidden');
-    document.getElementById('subjectDetailView').classList.remove('hidden');
-    // Al volver, actualizamos la vista de detalle por si cambiaron las horas
-    if (window.ui) window.ui.renderSubjectDetail(this.currentSubject);
-}
+	closePlanning() {
+		document.getElementById('subjectPlanningView').classList.add('hidden');
+		document.getElementById('subjectDetailView').classList.remove('hidden');
+		// Al volver, actualizamos la vista de detalle por si cambiaron las horas
+		if (window.ui) window.ui.renderSubjectDetail(this.currentSubject);
+	}
 
 
 
 // ==========================================
 // RENDERIZADO DE UNA FILA DE ACTIVIDAD
 // ==========================================
-renderActivityRow(act, udIndex, actIndex, areaColor) {
-    const assigned = act.assignedDescriptors || [];
-    
-    return `
-        <div class="activity-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all relative group/act mb-4">
-            <div class="grid grid-cols-12 gap-6">
-                
-                <div class="col-span-5 border-r border-gray-100 pr-4 space-y-3">
-                    
-                    <div>
-                        <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Jardueraren Izenburua</label>
-                        <input type="text" value="${act.name || ''}" 
-                               onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'name', this.value)"
-                               class="w-full font-bold text-gray-800 text-sm border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none placeholder-gray-300 transition-colors" 
-                               placeholder="Adib: Proiektuaren aurkezpena...">
-                    </div>
+	renderActivityRow(act, udIndex, actIndex, areaColor) {
+		const assigned = act.assignedDescriptors || [];
+		
+		return `
+			<div class="activity-card bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-all relative group/act mb-4">
+				<div class="grid grid-cols-12 gap-6">
+					
+					<div class="col-span-5 border-r border-gray-100 pr-4 space-y-3">
+						
+						<div>
+							<label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Jardueraren Izenburua</label>
+							<input type="text" value="${act.name || ''}" 
+								   onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'name', this.value)"
+								   class="w-full font-bold text-gray-800 text-sm border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none placeholder-gray-300 transition-colors" 
+								   placeholder="Adib: Proiektuaren aurkezpena...">
+						</div>
 
-                    <div>
-                        <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Azalpen Deskriptiboa</label>
-                        <textarea 
-                               onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'description', this.value)"
-                               class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 focus:border-indigo-500 focus:bg-white focus:outline-none resize-y min-h-[60px]"
-                               placeholder="Deskribatu hemen jardueraren nondik norakoak...">${act.description || ''}</textarea>
-                    </div>
-                    
-                    <div class="flex items-center gap-2 bg-gray-50 p-2 rounded w-fit">
-                        <i class="far fa-clock text-gray-400 text-xs"></i>
-                        <input type="number" value="${act.duration || 0}" min="0" step="0.5"
-                               onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'duration', this.value)"
-                               class="w-12 text-xs font-mono bg-transparent border-b border-gray-300 text-center focus:border-indigo-500 focus:outline-none">
-                        <span class="text-xs text-gray-500 font-bold">ordu</span>
-                    </div>
-                </div>
+						<div>
+							<label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Azalpen Deskriptiboa</label>
+							<textarea 
+								   onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'description', this.value)"
+								   class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2 focus:border-indigo-500 focus:bg-white focus:outline-none resize-y min-h-[60px]"
+								   placeholder="Deskribatu hemen jardueraren nondik norakoak...">${act.description || ''}</textarea>
+						</div>
+						
+						<div class="flex items-center gap-2 bg-gray-50 p-2 rounded w-fit">
+							<i class="far fa-clock text-gray-400 text-xs"></i>
+							<input type="number" value="${act.duration || 0}" min="0" step="0.5"
+								   onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'duration', this.value)"
+								   class="w-12 text-xs font-mono bg-transparent border-b border-gray-300 text-center focus:border-indigo-500 focus:outline-none">
+							<span class="text-xs text-gray-500 font-bold">ordu</span>
+						</div>
+					</div>
 
-                <div class="col-span-4 border-r border-gray-100 px-2 flex flex-col"
-                     ondragover="window.gradosManager.handleDragOver(event)"
-                     ondrop="window.gradosManager.handleDrop(event, ${udIndex}, ${actIndex})">
-                    <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 flex justify-between">
-                        <span>Lortutako Emaitzak (Deskriptoreak)</span>
-                    </label>
-                    <div class="flex-1 bg-gray-50/50 rounded border border-dashed border-gray-300 p-2 flex flex-wrap gap-1 content-start min-h-[80px]">
-                        ${assigned.map((d, i) => `
-                            <span class="inline-flex items-center px-2 py-1 rounded text-[10px] bg-white border border-gray-200 shadow-sm text-gray-700 max-w-full group/tag">
-                                <span class="truncate max-w-[120px]" title="${d}">${d}</span>
-                                <button onclick="window.gradosManager.removeDescriptorFromActivity(${udIndex}, ${actIndex}, ${i})" class="ml-1 text-gray-300 hover:text-red-500 opacity-0 group-hover/tag:opacity-100">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>
+					<div class="col-span-4 border-r border-gray-100 px-2 flex flex-col"
+						 ondragover="window.gradosManager.handleDragOver(event)"
+						 ondrop="window.gradosManager.handleDrop(event, ${udIndex}, ${actIndex})">
+						<label class="block text-[10px] text-gray-400 font-bold uppercase mb-1 flex justify-between">
+							<span>Lortutako Emaitzak (Deskriptoreak)</span>
+						</label>
+						<div class="flex-1 bg-gray-50/50 rounded border border-dashed border-gray-300 p-2 flex flex-wrap gap-1 content-start min-h-[80px]">
+							${assigned.map((d, i) => `
+								<span class="inline-flex items-center px-2 py-1 rounded text-[10px] bg-white border border-gray-200 shadow-sm text-gray-700 max-w-full group/tag">
+									<span class="truncate max-w-[120px]" title="${d}">${d}</span>
+									<button onclick="window.gradosManager.removeDescriptorFromActivity(${udIndex}, ${actIndex}, ${i})" class="ml-1 text-gray-300 hover:text-red-500 opacity-0 group-hover/tag:opacity-100">
+										<i class="fas fa-times"></i>
+									</button>
+								</span>
+							`).join('')}
+						</div>
+					</div>
 
-                <div class="col-span-3 pl-2 space-y-4">
-                    <div>
-                        <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Baliabideak</label>
-                        <textarea 
-                               onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'resources', this.value)"
-                               class="w-full text-xs bg-white border border-gray-200 rounded p-2 focus:border-indigo-500 focus:outline-none min-h-[40px]"
-                               placeholder="PDF, Softwarea...">${act.resources || ''}</textarea>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Ebaluazio / Evidencia</label>
-                        <textarea 
-                               onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'evaluation', this.value)"
-                               class="w-full text-xs bg-white border border-gray-200 rounded p-2 focus:border-indigo-500 focus:outline-none min-h-[40px]"
-                               placeholder="Txostena, Testa...">${act.evaluation || ''}</textarea>
-                    </div>
-                </div>
-            </div>
+					<div class="col-span-3 pl-2 space-y-4">
+						<div>
+							<label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Baliabideak</label>
+							<textarea 
+								   onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'resources', this.value)"
+								   class="w-full text-xs bg-white border border-gray-200 rounded p-2 focus:border-indigo-500 focus:outline-none min-h-[40px]"
+								   placeholder="PDF, Softwarea...">${act.resources || ''}</textarea>
+						</div>
+						<div>
+							<label class="block text-[10px] text-gray-400 font-bold uppercase mb-1">Ebaluazio / Evidencia</label>
+							<textarea 
+								   onchange="window.gradosManager.updateActivityField(${udIndex}, ${actIndex}, 'evaluation', this.value)"
+								   class="w-full text-xs bg-white border border-gray-200 rounded p-2 focus:border-indigo-500 focus:outline-none min-h-[40px]"
+								   placeholder="Txostena, Testa...">${act.evaluation || ''}</textarea>
+						</div>
+					</div>
+				</div>
 
-            <button onclick="window.gradosManager.deleteActivity(${udIndex}, ${actIndex})" 
-                    class="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover/act:opacity-100 transition-opacity p-2 bg-white rounded-full shadow-sm border border-gray-100">
-                <i class="fas fa-trash"></i>
-            </button>
-        </div>
-    `;
-}
+				<button onclick="window.gradosManager.deleteActivity(${udIndex}, ${actIndex})" 
+						class="absolute top-2 right-2 text-gray-300 hover:text-red-500 opacity-0 group-hover/act:opacity-100 transition-opacity p-2 bg-white rounded-full shadow-sm border border-gray-100">
+					<i class="fas fa-trash"></i>
+				</button>
+			</div>
+		`;
+	}
 
 // ==========================================
 // M¨¦TODOS DE DATOS Y DRAG & DROP
 // ==========================================
 
-addActivity(udIndex) {
-    if (!this.currentSubject.unitateak[udIndex].activities) {
-        this.currentSubject.unitateak[udIndex].activities = [];
-    }
-    
-    this.currentSubject.unitateak[udIndex].activities.push({
-        id: Date.now(),
-        name: "",         // T¨ªtulo
-        description: "",  // NUEVO: Descripci¨®n detallada
-        duration: 2, 
-        assignedDescriptors: [], 
-        resources: "",
-        evaluation: ""
-    });
-    
-    this.renderPlanning();
-}
+	addActivity(udIndex) {
+		if (!this.currentSubject.unitateak[udIndex].activities) {
+			this.currentSubject.unitateak[udIndex].activities = [];
+		}
+		
+		this.currentSubject.unitateak[udIndex].activities.push({
+			id: Date.now(),
+			name: "",         // T¨ªtulo
+			description: "",  // NUEVO: Descripci¨®n detallada
+			duration: 2, 
+			assignedDescriptors: [], 
+			resources: "",
+			evaluation: ""
+		});
+		
+		this.renderPlanning();
+	}
 
-updateActivityField(udIndex, actIndex, field, value) {
-    const act = this.currentSubject.unitateak[udIndex].activities[actIndex];
-    
-    if (field === 'duration') {
-        act[field] = parseFloat(value) || 0;
-        // Si cambiamos la duraci¨®n, hay que recalcular el total de la UD y el Gantt
-        this.renderPlanning(); 
-    } else {
-        act[field] = value;
-    }
-}
+	updateActivityField(udIndex, actIndex, field, value) {
+		const act = this.currentSubject.unitateak[udIndex].activities[actIndex];
+		
+		if (field === 'duration') {
+			act[field] = parseFloat(value) || 0;
+			// Si cambiamos la duraci¨®n, hay que recalcular el total de la UD y el Gantt
+			this.renderPlanning(); 
+		} else {
+			act[field] = value;
+		}
+	}
 
-deleteActivity(udIndex, actIndex) {
-    if(confirm('Ziur jarduera hau ezabatu nahi duzula?')) {
-        this.currentSubject.unitateak[udIndex].activities.splice(actIndex, 1);
-        this.renderPlanning();
-    }
-}
+	deleteActivity(udIndex, actIndex) {
+		if(confirm('Ziur jarduera hau ezabatu nahi duzula?')) {
+			this.currentSubject.unitateak[udIndex].activities.splice(actIndex, 1);
+			this.renderPlanning();
+		}
+	}
 
 // --- DRAG & DROP LOGIC ---
 
-handleDragStart(e, descriptorText, sourceUdIndex) {
-    // Guardamos el texto y el ¨ªndice de origen para validaciones
-    e.dataTransfer.setData("text/plain", descriptorText);
-    e.dataTransfer.setData("sourceUdIndex", sourceUdIndex);
-    e.dataTransfer.effectAllowed = "copy"; // Icono de copia
-}
+	handleDragStart(e, descriptorText, sourceUdIndex) {
+		// Guardamos el texto y el ¨ªndice de origen para validaciones
+		e.dataTransfer.setData("text/plain", descriptorText);
+		e.dataTransfer.setData("sourceUdIndex", sourceUdIndex);
+		e.dataTransfer.effectAllowed = "copy"; // Icono de copia
+	}
 
-handleDragOver(e) {
-    e.preventDefault(); // Necesario para permitir el drop
-    e.dataTransfer.dropEffect = "copy";
-}
+	handleDragOver(e) {
+		e.preventDefault(); // Necesario para permitir el drop
+		e.dataTransfer.dropEffect = "copy";
+	}
 
-handleDrop(e, targetUdIndex, targetActIndex) {
-    e.preventDefault();
-    const descriptorText = e.dataTransfer.getData("text/plain");
-    const sourceUdIndex = parseInt(e.dataTransfer.getData("sourceUdIndex"));
+	handleDrop(e, targetUdIndex, targetActIndex) {
+		e.preventDefault();
+		const descriptorText = e.dataTransfer.getData("text/plain");
+		const sourceUdIndex = parseInt(e.dataTransfer.getData("sourceUdIndex"));
 
-    // Validaci¨®n pedag¨®gica: ?Permitimos arrastrar descriptores de OTRA unidad?
-    // Generalmente NO, el alineamiento es intra-unidad.
-    if (sourceUdIndex !== targetUdIndex) {
-        alert("Ezin duzu beste unitate bateko deskriptorerik erabili jarduera honetan.");
-        return;
-    }
+		// Validaci¨®n pedag¨®gica: ?Permitimos arrastrar descriptores de OTRA unidad?
+		// Generalmente NO, el alineamiento es intra-unidad.
+		if (sourceUdIndex !== targetUdIndex) {
+			alert("Ezin duzu beste unitate bateko deskriptorerik erabili jarduera honetan.");
+			return;
+		}
 
-    const activity = this.currentSubject.unitateak[targetUdIndex].activities[targetActIndex];
-    if (!activity.assignedDescriptors) activity.assignedDescriptors = [];
+		const activity = this.currentSubject.unitateak[targetUdIndex].activities[targetActIndex];
+		if (!activity.assignedDescriptors) activity.assignedDescriptors = [];
 
-    // Evitar duplicados en la misma actividad
-    if (!activity.assignedDescriptors.includes(descriptorText)) {
-        activity.assignedDescriptors.push(descriptorText);
-        this.renderPlanning(); // Refrescar para ver el tag
-    }
-}
+		// Evitar duplicados en la misma actividad
+		if (!activity.assignedDescriptors.includes(descriptorText)) {
+			activity.assignedDescriptors.push(descriptorText);
+			this.renderPlanning(); // Refrescar para ver el tag
+		}
+	}
 
-removeDescriptorFromActivity(udIndex, actIndex, descIndex) {
-    this.currentSubject.unitateak[udIndex].activities[actIndex].assignedDescriptors.splice(descIndex, 1);
-    this.renderPlanning();
-}
+	removeDescriptorFromActivity(udIndex, actIndex, descIndex) {
+		this.currentSubject.unitateak[udIndex].activities[actIndex].assignedDescriptors.splice(descIndex, 1);
+		this.renderPlanning();
+	}
 
 // ==========================================
 // 6. EXPORTACI¨®N E IMPORTACI¨®N (Persistencia)
@@ -3473,181 +3476,181 @@ removeDescriptorFromActivity(udIndex, actIndex, descIndex) {
  * Exporta la configuraci¨®n completa de la asignatura (UDs + Actividades) a un JSON
  */
 
-exportPlanning() {
-    if (!this.currentSubject) return;
+	exportPlanning() {
+		if (!this.currentSubject) return;
 
-    const exportData = {
-        meta: {
-            version: "2.0",
-            date: new Date().toISOString(),
-            subject: this.currentSubject.name || "Unknown",
-            code: this.currentSubject.code || "Unknown"
-        },
-        units: this.currentSubject.unitateak || []
-    };
+		const exportData = {
+			meta: {
+				version: "2.0",
+				date: new Date().toISOString(),
+				subject: this.currentSubject.name || "Unknown",
+				code: this.currentSubject.code || "Unknown"
+			},
+			units: this.currentSubject.unitateak || []
+		};
 
-    const dataStr = JSON.stringify(exportData, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+		const dataStr = JSON.stringify(exportData, null, 2);
+		const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
 
-    const exportFileDefaultName = `PLANGINTZA_${this.currentSubject.code || 'ASIG'}_${new Date().toISOString().slice(0,10)}.json`;
+		const exportFileDefaultName = `PLANGINTZA_${this.currentSubject.code || 'ASIG'}_${new Date().toISOString().slice(0,10)}.json`;
 
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    
-    // Notificaci¨®n visual (si tienes un sistema de toast)
-    console.log("Plangintza esportatua!");
-}
+		const linkElement = document.createElement('a');
+		linkElement.setAttribute('href', dataUri);
+		linkElement.setAttribute('download', exportFileDefaultName);
+		linkElement.click();
+		
+		// Notificaci¨®n visual (si tienes un sistema de toast)
+		console.log("Plangintza esportatua!");
+	}
 
-/**
- * Importa un JSON y sobrescribe las unidades actuales
- */
-importPlanning(inputElement) {
-    const file = inputElement.files[0];
-    if (!file) return;
+	/**
+	 * Importa un JSON y sobrescribe las unidades actuales
+	 */
+	importPlanning(inputElement) {
+		const file = inputElement.files[0];
+		if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const json = JSON.parse(e.target.result);
-            
-            // Validaci¨®n b¨¢sica
-            if (!json.units || !Array.isArray(json.units)) {
-                alert("Errorea: Fitxategiaren formatua ez da zuzena (unitateak falta dira).");
-                return;
-            }
+		const reader = new FileReader();
+		reader.onload = (e) => {
+			try {
+				const json = JSON.parse(e.target.result);
+				
+				// Validaci¨®n b¨¢sica
+				if (!json.units || !Array.isArray(json.units)) {
+					alert("Errorea: Fitxategiaren formatua ez da zuzena (unitateak falta dira).");
+					return;
+				}
 
-            if(confirm(`Ziur zaude "${json.meta?.subject || 'Fitxategia'}" inportatu nahi duzula? Honek uneko datuak ordezkatuko ditu.`)) {
-                // Sobrescribir datos
-                this.currentSubject.unitateak = json.units;
-                
-                // Guardar y Renderizar
-                this.saveData();
-                this.renderPlanning();
-                
-                alert("Plangintza ondo inportatu da!");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Errorea fitxategia irakurtzean. Ziurtatu JSON baliozkoa dela.");
-        }
-        // Limpiar input para permitir recargar el mismo archivo si falla
-        inputElement.value = '';
-    };
-    reader.readAsText(file);
-}
+				if(confirm(`Ziur zaude "${json.meta?.subject || 'Fitxategia'}" inportatu nahi duzula? Honek uneko datuak ordezkatuko ditu.`)) {
+					// Sobrescribir datos
+					this.currentSubject.unitateak = json.units;
+					
+					// Guardar y Renderizar
+					this.saveData();
+					this.renderPlanning();
+					
+					alert("Plangintza ondo inportatu da!");
+				}
+			} catch (err) {
+				console.error(err);
+				alert("Errorea fitxategia irakurtzean. Ziurtatu JSON baliozkoa dela.");
+			}
+			// Limpiar input para permitir recargar el mismo archivo si falla
+			inputElement.value = '';
+		};
+		reader.readAsText(file);
+	}
 
-/**
- * Exporta la Matriz de Alineaci¨®n a CSV (Excel friendly)
- * Cruza: Unidades (Columnas) vs Competencias/Descriptores (Filas)
- */
-exportAlignmentMatrix() {
-    if (!this.currentSubject) return;
+	/**
+	 * Exporta la Matriz de Alineaci¨®n a CSV (Excel friendly)
+	 * Cruza: Unidades (Columnas) vs Competencias/Descriptores (Filas)
+	 */
+	exportAlignmentMatrix() {
+		if (!this.currentSubject) return;
 
-    const units = this.currentSubject.unitateak || [];
-    if (units.length === 0) {
-        alert("Ez dago unitaterik matrizea sortzeko.");
-        return;
-    }
+		const units = this.currentSubject.unitateak || [];
+		if (units.length === 0) {
+			alert("Ez dago unitaterik matrizea sortzeko.");
+			return;
+		}
 
-    // 1. Preparar Cabeceras (CSV Headers)
-    // Formato: "Konpetentzia";"Deskriptorea";"UD1";"UD2";"UD3"...
-    let csvContent = "data:text/csv;charset=utf-8,";
-    let header = ["Konpetentzia", "Ikaskuntza Emaitza (RA) / Deskriptorea"];
-    
-    // A?adir c¨®digos de UD a la cabecera
-    units.forEach(u => header.push(u.unitCode || u.name));
-    csvContent += header.join(";") + "\r\n";
+		// 1. Preparar Cabeceras (CSV Headers)
+		// Formato: "Konpetentzia";"Deskriptorea";"UD1";"UD2";"UD3"...
+		let csvContent = "data:text/csv;charset=utf-8,";
+		let header = ["Konpetentzia", "Ikaskuntza Emaitza (RA) / Deskriptorea"];
+		
+		// A?adir c¨®digos de UD a la cabecera
+		units.forEach(u => header.push(u.unitCode || u.name));
+		csvContent += header.join(";") + "\r\n";
 
-    // 2. Recopilar todos los RA/Descriptores ¨²nicos de la asignatura
-    // (Asumimos que est¨¢n en this.currentSubject.competencies o similar, 
-    // pero si no, los sacamos de las propias UDs para asegurar que sale todo lo usado)
-    
-    const allDescriptorsMap = new Map(); // Mapa para evitar duplicados
-    
-    // Barrido para encontrar todos los descriptores usados
-    units.forEach(u => {
-        (u.descriptores || []).forEach(desc => {
-            if (!allDescriptorsMap.has(desc)) {
-                allDescriptorsMap.set(desc, {
-                    name: desc,
-                    type: "Generikoa" // Aqu¨ª podr¨ªas buscar el tipo real si lo tienes en otra lista
-                });
-            }
-        });
-    });
+		// 2. Recopilar todos los RA/Descriptores ¨²nicos de la asignatura
+		// (Asumimos que est¨¢n en this.currentSubject.competencies o similar, 
+		// pero si no, los sacamos de las propias UDs para asegurar que sale todo lo usado)
+		
+		const allDescriptorsMap = new Map(); // Mapa para evitar duplicados
+		
+		// Barrido para encontrar todos los descriptores usados
+		units.forEach(u => {
+			(u.descriptores || []).forEach(desc => {
+				if (!allDescriptorsMap.has(desc)) {
+					allDescriptorsMap.set(desc, {
+						name: desc,
+						type: "Generikoa" // Aqu¨ª podr¨ªas buscar el tipo real si lo tienes en otra lista
+					});
+				}
+			});
+		});
 
-    // 3. Generar Filas del CSV
-    allDescriptorsMap.forEach((descObj, descText) => {
-        let row = [];
-        row.push(descObj.type); // Columna 1: Tipo/Competencia
-        row.push(`"${descText.replace(/"/g, '""')}"`); // Columna 2: Texto (escapando comillas)
+		// 3. Generar Filas del CSV
+		allDescriptorsMap.forEach((descObj, descText) => {
+			let row = [];
+			row.push(descObj.type); // Columna 1: Tipo/Competencia
+			row.push(`"${descText.replace(/"/g, '""')}"`); // Columna 2: Texto (escapando comillas)
 
-        // Columnas UDs: Marcar con 'X' si la UD tiene este descriptor
-        units.forEach(u => {
-            const hasDesc = (u.descriptores || []).includes(descText);
-            row.push(hasDesc ? "X" : "");
-        });
+			// Columnas UDs: Marcar con 'X' si la UD tiene este descriptor
+			units.forEach(u => {
+				const hasDesc = (u.descriptores || []).includes(descText);
+				row.push(hasDesc ? "X" : "");
+			});
 
-        csvContent += row.join(";") + "\r\n";
-    });
+			csvContent += row.join(";") + "\r\n";
+		});
 
-    // 4. Descargar
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `MATRIZEA_${this.currentSubject.code}_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link); // Required for FF
-    link.click();
-    document.body.removeChild(link);
-}
+		// 4. Descargar
+		const encodedUri = encodeURI(csvContent);
+		const link = document.createElement("a");
+		link.setAttribute("href", encodedUri);
+		link.setAttribute("download", `MATRIZEA_${this.currentSubject.code}_${new Date().toISOString().slice(0,10)}.csv`);
+		document.body.appendChild(link); // Required for FF
+		link.click();
+		document.body.removeChild(link);
+	}
 
 
-    // --- GESTIÃ“N DE UNIDADES (UNITATEAK) ---
+		// --- GESTIÃ“N DE UNIDADES (UNITATEAK) ---
 
-// A. ABRIR EL EDITOR Y CARGAR DATOS
-// --- GESTI¨®N DE UNIDADES (TABLA) ---
+	// A. ABRIR EL EDITOR Y CARGAR DATOS
+	// --- GESTI¨®N DE UNIDADES (TABLA) ---
 
-openUnitEditor() {
-    if (!this.currentSubject) return;
+	openUnitEditor() {
+		if (!this.currentSubject) return;
 
-    const tbody = document.getElementById('unitEditorBody');
-    const modal = document.getElementById('unitEditorModal');
-    
-    tbody.innerHTML = '';
-    
-    // Obtenemos las unidades existentes
-    let units = this.currentSubject.unitateak || [];
+		const tbody = document.getElementById('unitEditorBody');
+		const modal = document.getElementById('unitEditorModal');
+		
+		tbody.innerHTML = '';
+		
+		// Obtenemos las unidades existentes
+		let units = this.currentSubject.unitateak || [];
 
-    // --- CORRECCI¨®N FORZOSA DE C¨®DIGOS ---
-    // Recorremos todas las unidades y regeneramos su c¨®digo AHORA MISMO
-    // Esto arregla las que pone "XX1..." o las antiguas sin formato.
-    units = units.map((u, i) => {
-        // Generamos el c¨®digo correcto basado en la posici¨®n actual
-        const newCode = this.generateUnitAutoCode(i);
-        
-        // Actualizamos el objeto (puedes comentar este if si quieres machacar TODO siempre)
-        // Aqu¨ª decimos: si el c¨®digo actual es diferente al calculado, actual¨ªzalo.
-        if (u.unitCode !== newCode) {
-            u.unitCode = newCode;
-            // Tambi¨¦n actualizamos la propiedad legacy 'code' por si acaso
-            u.code = newCode;
-        }
-        return u;
-    });
-    
-    // Guardamos la referencia actualizada en memoria temporalmente para que se vea en la tabla
-    this.currentSubject.unitateak = units;
+		// --- CORRECCI¨®N FORZOSA DE C¨®DIGOS ---
+		// Recorremos todas las unidades y regeneramos su c¨®digo AHORA MISMO
+		// Esto arregla las que pone "XX1..." o las antiguas sin formato.
+		units = units.map((u, i) => {
+			// Generamos el c¨®digo correcto basado en la posici¨®n actual
+			const newCode = this.generateUnitAutoCode(i);
+			
+			// Actualizamos el objeto (puedes comentar este if si quieres machacar TODO siempre)
+			// Aqu¨ª decimos: si el c¨®digo actual es diferente al calculado, actual¨ªzalo.
+			if (u.unitCode !== newCode) {
+				u.unitCode = newCode;
+				// Tambi¨¦n actualizamos la propiedad legacy 'code' por si acaso
+				u.code = newCode;
+			}
+			return u;
+		});
+		
+		// Guardamos la referencia actualizada en memoria temporalmente para que se vea en la tabla
+		this.currentSubject.unitateak = units;
 
-    // --- RENDERIZADO ---
-    units.forEach((u, i) => this.addUnitRow(u, i));
+		// --- RENDERIZADO ---
+		units.forEach((u, i) => this.addUnitRow(u, i));
 
-    // Si no hab¨ªa ninguna, a?adimos una fila vac¨ªa (que generar¨¢ UD01)
-    if (units.length === 0) this.addUnitRow({}, 0);
+		// Si no hab¨ªa ninguna, a?adimos una fila vac¨ªa (que generar¨¢ UD01)
+		if (units.length === 0) this.addUnitRow({}, 0);
 
-    modal.classList.remove('hidden');
-}
+		modal.classList.remove('hidden');
+	}
 
 // ==========================================
 // 2. HELPER: Generador de C¨®digo Autom¨¢tico
@@ -3674,146 +3677,148 @@ openUnitEditor() {
         return '???';
     }
 
-generateUnitAutoCode(index) {
-    const subj = this.currentSubject || {};
+	generateUnitAutoCode(index) {
+		const subj = this.currentSubject || {};
 
-    // 1. Grado (BD): Usa degreeCode o un valor por defecto
-    const grado = this.currentDegree?.code || subj.degreeCode || "BD"; 
+		// 1. Grado (BD): Usa degreeCode o un valor por defecto
+		const grado = this.currentDegree?.code || subj.degreeCode || "BD"; 
 
-    // 2. Curso y Periodo
-    const curso = subj.course || subj.year || "1";
-    const periodo = subj.term || subj.semester || "1";
+		// 2. Curso y Periodo
+		const curso = subj.course || subj.year || "1";
+		const periodo = subj.term || subj.semester || "1";
 
-    // 3. ACR¨®NIMO (Correcci¨®n):
-    // Priorizamos el nombre visual (ej: "Proiektuak I")
-    const rawName = subj.name || subj.subjectTitle || subj.title || "ASIG";
-    
-    // Limpiamos el nombre: Quitamos n¨²meros, puntos y espacios para que "Proiektuak 1" sea "PRO"
-    const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
-    
-    // Cogemos las 3 primeras letras. Si es muy corto, rellenamos con X.
-    const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
+		// 3. ACR¨®NIMO (Correcci¨®n):
+		// Priorizamos el nombre visual (ej: "Proiektuak I")
+		const rawName = subj.name || subj.subjectTitle || subj.title || "ASIG";
+		
+		// Limpiamos el nombre: Quitamos n¨²meros, puntos y espacios para que "Proiektuak 1" sea "PRO"
+		const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
+		
+		// Cogemos las 3 primeras letras. Si es muy corto, rellenamos con X.
+		const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
 
-    // 4. Secuencia (UD01)
-    const secuencia = String(index + 1).padStart(2, '0');
+		// 4. Secuencia (UD01)
+		const secuencia = String(index + 1).padStart(2, '0');
 
-    // Resultado: BD1_3PRO_UD01
-    return `${grado}${curso}_${periodo}${acronimo}_UD${secuencia}`;
-}
+		// Resultado: BD1_3PRO_UD01
+		return `${grado}${curso}_${periodo}${acronimo}_UD${secuencia}`;
+	}
 
-addUnitRow(data = {}, index = null) {
-    const tbody = document.getElementById('unitEditorBody');
-    
-    // Calcular ¨ªndice si es una fila nueva manual
-    const currentRowCount = tbody.children.length;
-    const finalIndex = index !== null ? index : currentRowCount;
+	addUnitRow(data = {}, index = null) {
+		const tbody = document.getElementById('unitEditorBody');
+		
+		// Calcular ¨ªndice si es una fila nueva manual
+		const currentRowCount = tbody.children.length;
+		const finalIndex = index !== null ? index : currentRowCount;
 
-    const tr = document.createElement('tr');
-    tr.className = "bg-white border-b hover:bg-gray-50 group";
-    
-    // Usamos el c¨®digo que ya viene corregido en 'data', o generamos si es nueva
-    const code = data.unitCode || this.generateUnitAutoCode(finalIndex);
-    
-    const name = data.unitName || "";
-    const hours = data.irauOrd || "";
-    const descriptors = data.descriptores || data.descriptors || [];
-    const descriptorsText = descriptors.join('\n');
-    const areaColor = this.currentSubject?._areaColor || '#6366f1';
+		const tr = document.createElement('tr');
+		tr.className = "bg-white border-b hover:bg-gray-50 group";
+		
+		// Usamos el c¨®digo que ya viene corregido en 'data', o generamos si es nueva
+		const code = data.unitCode || this.generateUnitAutoCode(finalIndex);
+		
+		const name = data.unitName || "";
+		const hours = data.irauOrd || "";
+		const descriptors = data.descriptores || data.descriptors || [];
+		const descriptorsText = descriptors.join('\n');
+		const areaColor = this.currentSubject?._areaColor || '#6366f1';
 
-    tr.innerHTML = `
-        <td class="px-2 py-2 w-[15%] align-top">
-            <input type="text" class="unit-code-input w-full text-xs font-mono font-bold text-gray-600 bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
-                   value="${code}" 
-                   readonly 
-                   title="Automatikoki sortua. Ezin da aldatu."
-                   style="border-bottom-color: ${areaColor}30; cursor: not-allowed; opacity: 0.8;">
-        </td>
+		tr.innerHTML = `
+			<td class="px-2 py-2 w-[15%] align-top">
+				<input type="text" class="unit-code-input w-full text-xs font-mono font-bold text-gray-600 bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
+					   value="${code}" 
+					   readonly 
+					   title="Automatikoki sortua. Ezin da aldatu."
+					   style="border-bottom-color: ${areaColor}30; cursor: not-allowed; opacity: 0.8;">
+			</td>
 
-        <td class="px-2 py-2 w-[20%] align-top">
-            <input type="text" class="unit-name-input w-full text-sm font-semibold bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
-                   value="${name}" placeholder="Unitatearen izena..."
-                   style="border-bottom-color: ${areaColor}30;">
-        </td>
+			<td class="px-2 py-2 w-[20%] align-top">
+				<input type="text" class="unit-name-input w-full text-sm font-semibold bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
+					   value="${name}" placeholder="Unitatearen izena..."
+					   style="border-bottom-color: ${areaColor}30;">
+			</td>
 
-        <td class="px-2 py-2 w-[8%] align-top">
-            <input type="number" class="unit-hours-input w-full text-center text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
-                   value="${hours}" placeholder="h"
-                   style="border-bottom-color: ${areaColor}30;">
-        </td>
+			<td class="px-2 py-2 w-[8%] align-top">
+				<input type="number" class="unit-hours-input w-full text-center text-xs bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
+					   value="${hours}" placeholder="h"
+					   style="border-bottom-color: ${areaColor}30;">
+			</td>
 
-        <td class="px-2 py-2 w-[52%]">
-            <textarea class="unit-descriptors-input w-full text-xs border rounded p-2 bg-gray-50 focus:bg-white resize-y transition-all shadow-sm"
-                      rows="2"
-                      placeholder="Deskriptoreak..."
-                      style="min-height: 45px; border-color: ${areaColor}40;"
-                      onfocus="this.style.borderColor='${areaColor}'; this.style.boxShadow='0 0 0 2px ${areaColor}20';"
-                      onblur="this.style.borderColor='${areaColor}40'; this.style.boxShadow='none';">${descriptorsText}</textarea>
-        </td>
+			<td class="px-2 py-2 w-[52%]">
+				<textarea class="unit-descriptors-input w-full text-xs border rounded p-2 bg-gray-50 focus:bg-white resize-y transition-all shadow-sm"
+						  rows="2"
+						  placeholder="Deskriptoreak..."
+						  style="min-height: 45px; border-color: ${areaColor}40;"
+						  onfocus="this.style.borderColor='${areaColor}'; this.style.boxShadow='0 0 0 2px ${areaColor}20';"
+						  onblur="this.style.borderColor='${areaColor}40'; this.style.boxShadow='none';">${descriptorsText}</textarea>
+			</td>
 
-        <td class="px-2 py-2 w-[5%] text-center align-top pt-3">
-            <button onclick="this.closest('tr').remove()" class="text-gray-300 hover:text-red-500 transition-colors">
-                <i class="fas fa-trash"></i>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(tr);
+			<td class="px-2 py-2 w-[5%] text-center align-top pt-3">
+				<button onclick="this.closest('tr').remove()" class="text-gray-300 hover:text-red-500 transition-colors">
+					<i class="fas fa-trash"></i>
+				</button>
+			</td>
+		`;
+		tbody.appendChild(tr);
 
-    setTimeout(() => {
-        const ta = tr.querySelector('.unit-descriptors-input');
-        if(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
-    }, 10);
-}
+		setTimeout(() => {
+			const ta = tr.querySelector('.unit-descriptors-input');
+			if(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+		}, 10);
+	}
 
-// Funci¨®n auxiliar para auto-resize
-autoResize(textarea) {
-    textarea.style.height = 'auto';
-    textarea.style.height = (textarea.scrollHeight) + 'px';
-}
+	// Funci¨®n auxiliar para auto-resize
+	autoResize(textarea) {
+		textarea.style.height = 'auto';
+		textarea.style.height = (textarea.scrollHeight) + 'px';
+	}
 
-saveUnitEditor() {
-    if (!this.currentSubject) return;
+	saveUnitEditor() {
+		if (!this.currentSubject) return;
 
-    const rows = document.querySelectorAll('#unitEditorBody tr');
-    const newUnits = [];
+		const rows = document.querySelectorAll('#unitEditorBody tr');
+		const newUnits = [];
 
-    rows.forEach(row => {
-        const code = row.querySelector('.unit-code-input')?.value.trim();
-        const name = row.querySelector('.unit-name-input')?.value.trim();
-        const hours = row.querySelector('.unit-hours-input')?.value.trim();
-        const descriptorsText = row.querySelector('.unit-descriptors-input')?.value.trim();
+		rows.forEach(row => {
+			const code = row.querySelector('.unit-code-input')?.value.trim();
+			const name = row.querySelector('.unit-name-input')?.value.trim();
+			const hours = row.querySelector('.unit-hours-input')?.value.trim();
+			const descriptorsText = row.querySelector('.unit-descriptors-input')?.value.trim();
 
-        // Guardamos si hay c¨®digo O nombre (para evitar filas vac¨ªas fantasma)
-        if (code || name) {
-            const descriptors = descriptorsText 
-                ? descriptorsText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-                : [];
-            
-            newUnits.push({
-                unitCode: code,
-                unitName: name,
-                irauOrd: hours,
-                descriptores: descriptors,
-                // Mantener compatibilidad legacy si la usas en otro lado
-                code: code,
-                name: name,
-                hours: hours
-            });
-        }
-    });
+			// Guardamos si hay c¨®digo O nombre (para evitar filas vac¨ªas fantasma)
+			if (code || name) {
+				const descriptors = descriptorsText 
+					? descriptorsText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+					: [];
+				
+				newUnits.push({
+					unitCode: code,
+					unitName: name,
+					irauOrd: hours,
+					descriptores: descriptors,
+					// Mantener compatibilidad legacy si la usas en otro lado
+					code: code,
+					name: name,
+					hours: hours
+				});
+			}
+		});
 
-    this.currentSubject.unitateak = newUnits;
-    this.saveData();
+		this.currentSubject.unitateak = newUnits;
+		this.saveData();
 
-    // Actualizar UI
-    document.getElementById('unitEditorModal').classList.add('hidden');
-    if (window.ui && window.ui.renderSubjectDetail) {
-        window.ui.renderSubjectDetail(this.currentSubject);
-    }
-    
-    console.log(`?? Guardadas ${newUnits.length} unidades.`);
-}
+		// Actualizar UI
+		document.getElementById('unitEditorModal').classList.add('hidden');
+		if (window.ui && window.ui.renderSubjectDetail) {
+			window.ui.renderSubjectDetail(this.currentSubject);
+		}
+		
+		console.log(`?? Guardadas ${newUnits.length} unidades.`);
+	}
+	
+	
     // --- MODALES Y AREAS (MANTENIDOS IGUAL) ---
-injectAreaModal() {
+	injectAreaModal() {
         if (document.getElementById('areaModal')) return; 
         const modalHTML = `
         <div id="areaModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
@@ -3859,7 +3864,7 @@ injectAreaModal() {
         if (modal) modal.style.display = 'flex'; 
     }
 
-addSubjectArea() {
+	addSubjectArea() {
         if (!this.currentDegree) return;
         this.editingAreaOldName = null;
         this.showModal(); 
@@ -3878,7 +3883,7 @@ addSubjectArea() {
         document.getElementById('areaNameInput').focus();
     }
 	
-editSubjectArea(encodedName) {
+	editSubjectArea(encodedName) {
         if (!this.currentDegree) return;
         const name = decodeURIComponent(encodedName);
         this.editingAreaOldName = name; // Importante para saber cu¨¢l borrar
@@ -3930,7 +3935,7 @@ editSubjectArea(encodedName) {
         }
     }
 
-deleteSubjectArea() {
+	deleteSubjectArea() {
 		if (!this.currentDegree || !this.editingAreaOldName) return;
 
 			// --- BABESA: Zeharkakoa ezin da ezabatu ---
@@ -3963,7 +3968,7 @@ deleteSubjectArea() {
     // IRAKASGAIAK EZABATU (DELETE SUBJECT)
     // ==========================================
 
-deleteSubject(yearKey, subjectIndex) {
+	deleteSubject(yearKey, subjectIndex) {
         if (!this.currentDegree || !this.currentDegree.year) return;
 
         // ZUZENKETA: Zuzenean Array-a hartu (.subjects gabe)
@@ -4012,7 +4017,7 @@ deleteSubject(yearKey, subjectIndex) {
      * 1. Ireki Arbela (Dashboard)
      * Hau da Sidebar-eko botoiak deituko duen funtzioa.
      */
-openCompetenciesDashboard() {
+	openCompetenciesDashboard() {
         if (!this.currentDegree) return alert("Mesedez, aukeratu gradu bat lehenengo.");
 
         // Inicializar si no existe
@@ -4089,7 +4094,7 @@ openCompetenciesDashboard() {
      * 2. Txartelak Marraztu
      * Koloreak eta Kodeak aplikatuz.
      */
-renderVisualCards(filterArea = "") {
+	renderVisualCards(filterArea = "") {
         ['ingreso', 'egreso'].forEach(type => {
             const container = document.getElementById(`container-${type}`);
             if (!container) return;
@@ -4186,7 +4191,7 @@ renderVisualCards(filterArea = "") {
      * 3. Edizio Modal Txikia (Item bakarrarentzat)
      * Hau irekiko da "Gehitu" edo "Klik Bikoitza" egitean.
      */
-openSingleCompEditor(type, index) {
+	openSingleCompEditor(type, index) {
         // 1. DATUAK PRESTATU
         const isNew = (index === null);
         // Ziurtatu zerrenda existitzen dela
@@ -4385,56 +4390,56 @@ openSingleCompEditor(type, index) {
     }
 	
 	// M¨¦todo para actualizar un ZH en todas partes
-actualizarZHGlobal(zhCodeViejo, nuevosDatos) {
-    if (!this.currentDegree) return;
-    
-    // 1. Actualizar en cat¨¢logo (Estructura: zhCode / zhDesc)
-    if (this.currentDegree.zhCatalog) {
-        const index = this.currentDegree.zhCatalog.findIndex(z => (z.zhCode || z.code) === zhCodeViejo);
-        if (index !== -1) {
-            this.currentDegree.zhCatalog[index] = { 
-                ...this.currentDegree.zhCatalog[index], 
-                zhCode: nuevosDatos.zhCode || nuevosDatos.code || zhCodeViejo,
-                zhDesc: nuevosDatos.zhDesc || nuevosDatos.desc
-            };
-        }
-    }
-    
-    // 2. Propagar a todas las asignaturas del grado
-    if (this.cachedData?.graduak) {
-        this.cachedData.graduak.forEach(grado => {
-            Object.values(grado.year || {}).forEach(asignaturas => {
-                asignaturas.forEach(asig => {
-                    // Actualizar en zhRAs
-                    if (asig.zhRAs) {
-                        asig.zhRAs.forEach(zh => {
-                            if (zh.zhCode === zhCodeViejo) {
-                                zh.zhCode = nuevosDatos.zhCode || zh.zhCode;
-                                zh.zhDesc = nuevosDatos.zhDesc || zh.zhDesc;
-                            }
-                        });
-                    }
-                    
-                    // Actualizar Criterios de Evaluaci¨®n vinculados
-                    if (asig.subjectCritEval) {
-                        asig.subjectCritEval.forEach(crit => {
-                            if (crit.raRelacionado === zhCodeViejo) {
-                                crit.raRelacionado = nuevosDatos.zhCode || zhCodeViejo;
-                                // Actualiza el prefijo del c¨®digo del criterio (ej: ZH1.CE1 -> ZH1_NEW.CE1)
-                                if (nuevosDatos.zhCode) {
-                                    crit.ceCode = crit.ceCode.replace(zhCodeViejo, nuevosDatos.zhCode);
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-        });
-    }
-    this.saveData();
-}
+	actualizarZHGlobal(zhCodeViejo, nuevosDatos) {
+		if (!this.currentDegree) return;
+		
+		// 1. Actualizar en cat¨¢logo (Estructura: zhCode / zhDesc)
+		if (this.currentDegree.zhCatalog) {
+			const index = this.currentDegree.zhCatalog.findIndex(z => (z.zhCode || z.code) === zhCodeViejo);
+			if (index !== -1) {
+				this.currentDegree.zhCatalog[index] = { 
+					...this.currentDegree.zhCatalog[index], 
+					zhCode: nuevosDatos.zhCode || nuevosDatos.code || zhCodeViejo,
+					zhDesc: nuevosDatos.zhDesc || nuevosDatos.desc
+				};
+			}
+		}
+		
+		// 2. Propagar a todas las asignaturas del grado
+		if (this.cachedData?.graduak) {
+			this.cachedData.graduak.forEach(grado => {
+				Object.values(grado.year || {}).forEach(asignaturas => {
+					asignaturas.forEach(asig => {
+						// Actualizar en zhRAs
+						if (asig.zhRAs) {
+							asig.zhRAs.forEach(zh => {
+								if (zh.zhCode === zhCodeViejo) {
+									zh.zhCode = nuevosDatos.zhCode || zh.zhCode;
+									zh.zhDesc = nuevosDatos.zhDesc || zh.zhDesc;
+								}
+							});
+						}
+						
+						// Actualizar Criterios de Evaluaci¨®n vinculados
+						if (asig.subjectCritEval) {
+							asig.subjectCritEval.forEach(crit => {
+								if (crit.raRelacionado === zhCodeViejo) {
+									crit.raRelacionado = nuevosDatos.zhCode || zhCodeViejo;
+									// Actualiza el prefijo del c¨®digo del criterio (ej: ZH1.CE1 -> ZH1_NEW.CE1)
+									if (nuevosDatos.zhCode) {
+										crit.ceCode = crit.ceCode.replace(zhCodeViejo, nuevosDatos.zhCode);
+									}
+								}
+							});
+						}
+					});
+				});
+			});
+		}
+		this.saveData();
+	}
 
- 
+	 
     // 1. Pinta los checkboxes en el modal
     renderChecklistSelector(containerId, masterList, currentSelection, keyField, labelRenderFn) {
         const container = document.getElementById(containerId);
@@ -4500,33 +4505,25 @@ actualizarZHGlobal(zhCodeViejo, nuevosDatos) {
     // BAIMENAK
     // ==========================================
 // Funtzio laguntzailea irakasgai baten datua eguneratzeko
-	async saveFieldChange(degreeId, subject, fieldKey, newValue, pathArray) {
-		
-		// pathArray: JSONaren barruko bide zehatza.
-		// Adibidez, 1. mailako 3. irakasgaia bada: ['year', '1', '2', 'description']
-		// MatrixEngine-k edo zure bistak bide hau jakin beharko luke.
+/**
+     * Eremu bakar bat eguneratu eta gorde.
+     * Hau da 'saveFieldChange' zaharraren ordezkoa.
+     */
+    async updateField(key, value) {
+        if (!this.currentSubject) return;
 
-		try {
-			const { data, error } = await supabase
-				.rpc('update_curriculum_value', {
-					p_degree_id: degreeId,
-					p_subject_code: subject.subjectCode, // Segurtasunerako gakoa
-					p_path: pathArray,                   // Bide osoa: ['year', '1', 0, 'description']
-					p_key: fieldKey,                     // Eremuaren izena: 'description' (balidaziorako)
-					p_new_value: newValue                // Balio berria (JSON formatuan)
-				});
+        console.log(`🔄 Eremua eguneratzen: ${key} ->`, value);
 
-			if (error) throw error;
+        // 1. MEMORIA EGUNERATU
+        // Objektua memorian aldatzen dugu. Berdin dio "root" den edo JSON barrukoa,
+        // gure objektua laua da memorian (loadSubject-en batu dugulako).
+        this.currentSubject[key] = value;
 
-			console.log("? Aldaketa gordeta:", data);
-			alert("Ondo gorde da!");
-
-		} catch (err) {
-			console.error("? Errorea gordetzean:", err);
-			alert("Errorea: " + err.message); // Hemen agertuko da "Ez daukazu baimenik..." mezua
-		}
-	}
-
+        // 2. GORDE (SQL logic)
+        // 'saveData'-k badaki nola banatu (Zutabea vs Content)
+        await this.saveData(); 
+    }
+	
 }
 
 const gradosManager = new GradosManager();
