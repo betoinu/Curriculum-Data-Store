@@ -128,81 +128,6 @@ class GradosManager {
         console.log(`📚 Katalogoak OK: ${this.adminCatalogs.iduGuidelines.length} IDU, ${this.adminCatalogs.odsList.length} ODS.`);
     }
 	
-	async loadData() {
-		console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
-		
-		// 1. HASIERAKETA SEGURUA (Erroreak ekiditeko)
-		this.cachedData = {
-			graduak: [],
-			proyectosExternos: []
-		};
-		this.currentRowId = null;
-
-		try {
-			const supabase = getSupabaseInstance();
-			if (!supabase) return;
-
-			// 2. DATUAK ESKATU (Azkeneko erregistroa bakarrik)
-			const { data: curriculumData, error: errorCurriculum } = await supabase
-				.from('curriculum_data')
-				.select('*')
-				.order('created_at', { ascending: false })
-				.limit(1);
-
-			if (errorCurriculum) {
-				console.error("❌ Error cargando curriculum_data:", errorCurriculum);
-				throw errorCurriculum;
-			}
-
-			// 3. DATUAK PROZESATU
-			if (curriculumData && curriculumData.length > 0) {
-				const row = curriculumData[0];
-				this.currentRowId = row.id;
-				
-				// Datuak cachean gorde (existitzen ez bada, array hutsak jarri)
-				if (row.datos) {
-					this.cachedData.graduak = row.datos.graduak || [];
-					// Ziurtatu izenak bat datozela zure DBarekin ('extProy' edo 'proyectosExternos')
-					this.cachedData.proyectosExternos = row.datos.proyectosExternos || row.datos.extProy || [];
-				}
-
-				console.log(`✅ Datuak kargatuta. ID: ${row.id}`);
-				console.log(`🎓 Graduak: ${this.cachedData.graduak.length}`);
-				
-				// 4. SEGURTASUNA: idAsig sortu falta bada (Legacy code support)
-				this.cachedData.graduak.forEach(grado => {
-					const gradoCodigo = grado.codigo || grado.id || 'G';
-					Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
-						if (Array.isArray(asignaturas)) {
-							asignaturas.forEach((asig, asigIndex) => {
-								if (!asig.idAsig) {
-									asig.idAsig = `${gradoCodigo}_${yearNum}_${String(asigIndex + 1).padStart(3, '0')}`;
-								}
-							});
-						}
-					});
-				});
-				
-			} else {
-				console.log("ℹ️ Ez dago daturik Supabase-n. Hutsetik hasiko gara.");
-			}
-
-			// 5. UI EGUNERATU
-			// Orain selektorea beteko da, baina "Hautatu gradua..." markatuta geratuko da
-			this.populateDegreeSelect();
-
-			// Aukerakoa: Formularioa garbitu (aurreko saioetako datuak ez ikusteko)
-			if (this.clearForm) {
-				this.clearForm();
-			}
-
-		} catch (err) {
-			console.error("❌ Erroa loadData funtzioan:", err);
-			// Errorea egonda ere, saiatu selektorea marrazten (hutsik bada ere)
-			this.populateDegreeSelect();
-		}
-	}
-	
 // HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
 	async saveSubject(subjectData) {
         console.log("💾 SQLan Gordetzen:", subjectData.subjectTitle);
@@ -4629,6 +4554,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
