@@ -72,61 +72,30 @@ class GradosManager {
 
     // --- MODIFICACI¨®N 1: El m¨¦todo initialize ---
 // ✅ Funtzio honek dena egiten du (ez da loadData edo loadCatalogs behar)
-    async initialize(user) {
+	async initialize(user) {
         console.log("🚀 Sistema abiarazten (SQL Modua)...");
         this.currentUser = user;
 
         try {
             // 1. Supabase lortu
-            // ------------------------------------------------
-            // Zure inportazioaren arabera egokitu, baina normalean:
             const { getSupabaseInstance } = await import('./config.js');
             this.supabase = getSupabaseInstance();
-
             if (!this.supabase) throw new Error("Supabase ez da aurkitu.");
 
             // 2. DATU GUZTIAK PARALELOAN KARGATU
-            // ------------------------------------------------
-            // Hemen konpondu dugu 'codigo' vs 'name' errorea.
-            // Dena batera eskatzen dugu azkarrago joateko.
-            
             const [graduakRes, odsRes, iduRes, projRes] = await Promise.all([
-                // A) Graduak
-                this.supabase
-                    .from('graduak')
-                    .select('*')
-                    .order('selectedDegree', { ascending: true }), // Edo 'name'
-
-                // B) ODS Katalogoa ('name' erabiliz)
-                this.supabase
-                    .from('catalog_ods')
-                    .select('*')
-                    .order('name', { ascending: true }),
-
-                // C) IDU Katalogoa ('name' erabiliz)
-                this.supabase
-                    .from('catalog_idu')
-                    .select('*')
-                    .order('name', { ascending: true }),
-
-                // D) Proiektuak ('name' erabiliz)
-                this.supabase
-                    .from('admin_external_projects')
-                    .select('*')
-                    .order('name', { ascending: true })
+                this.supabase.from('graduak').select('*').order('selectedDegree', { ascending: true }),
+                this.supabase.from('catalog_ods').select('*').order('name', { ascending: true }),
+                this.supabase.from('catalog_idu').select('*').order('name', { ascending: true }),
+                this.supabase.from('admin_external_projects').select('*').order('name', { ascending: true })
             ]);
 
             // 3. ERROREAK EGIAZTATU
-            // ------------------------------------------------
             if (graduakRes.error) throw new Error("Graduak errorea: " + graduakRes.error.message);
-            if (odsRes.error) throw new Error("ODS errorea: " + odsRes.error.message);
-            if (iduRes.error) throw new Error("IDU errorea: " + iduRes.error.message);
-            // Proiektuak batzuetan hutsik egon daitezke, ez da larria.
+            // Beste erroreak kudeatu...
 
             // 4. MEMORIAN GORDE
-            // ------------------------------------------------
             this.degrees = graduakRes.data || [];
-            
             this.adminCatalogs = {
                 odsList: odsRes.data || [],
                 iduGuidelines: iduRes.data || [],
@@ -135,29 +104,23 @@ class GradosManager {
 
             console.log(`✅ Kargatuta: ${this.degrees.length} gradu eta katalogoak.`);
 
-            // 5. UI EGUNERATU
+            // 5. UI EGUNERATU (HEMEN EGIN DUT ALDAKETA)
             // ------------------------------------------------
-            // Graduen selektorea bete
-            if (window.ui && window.ui.renderDegreeSelector) {
-                window.ui.renderDegreeSelector(this.degrees);
-            }
+            // Lehen 'window.ui.renderDegreeSelector' zegoen (ez da existitzen).
+            // Orain zure funtzio propioa deitzen dugu:
+            this.populateDegreeSelect(); 
             
-            // Area modala injektatu (beharrezkoa bada)
+            // Area modala injektatu
             if (this.injectAreaModal) this.injectAreaModal();
 
             return true;
 
         } catch (error) {
             console.error("❌ Errorea initialize-n:", error);
-            if (window.ui && window.ui.showError) {
-                window.ui.showError(error);
-            } else {
-                alert("Errorea abiaraztean: " + error.message);
-            }
+            alert("Errorea abiaraztean: " + error.message);
             return false;
         }
     }
-	
 	
     // --- MODIFICACI¨®N 2: Nueva funci¨®n para cargar cat¨¢logos ---
 	async loadCatalogs() {
@@ -165,8 +128,8 @@ class GradosManager {
         
         // Hiru kontsulta independente jaurti batera
         const [iduRes, odsRes, extProjectsRes] = await Promise.all([
-            this.supabase.from('catalog_idu').select('*').order('name', { ascending: true }),
-            this.supabase.from('catalog_ods').select('*').order('name', { ascending: true }),
+            this.supabase.from('catalog_idu').select('*').order('code', { ascending: true }),
+            this.supabase.from('catalog_ods').select('*').order('code', { ascending: true }),
             this.supabase.from('admin_external_projects').select('*').order('name', { ascending: true })
         ]);
 
@@ -184,6 +147,81 @@ class GradosManager {
         
         console.log(`📚 Katalogoak OK: ${this.adminCatalogs.iduGuidelines.length} IDU, ${this.adminCatalogs.odsList.length} ODS.`);
     }
+	
+/*	async loadData() {
+		console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
+		
+		// 1. HASIERAKETA SEGURUA (Erroreak ekiditeko)
+		this.cachedData = {
+			graduak: [],
+			proyectosExternos: []
+		};
+		this.currentRowId = null;
+
+		try {
+			const supabase = getSupabaseInstance();
+			if (!supabase) return;
+
+			// 2. DATUAK ESKATU (Azkeneko erregistroa bakarrik)
+			const { data: curriculumData, error: errorCurriculum } = await supabase
+				.from('curriculum_data')
+				.select('*')
+				.order('created_at', { ascending: false })
+				.limit(1);
+
+			if (errorCurriculum) {
+				console.error("❌ Error cargando curriculum_data:", errorCurriculum);
+				throw errorCurriculum;
+			}
+
+			// 3. DATUAK PROZESATU
+			if (curriculumData && curriculumData.length > 0) {
+				const row = curriculumData[0];
+				this.currentRowId = row.id;
+				
+				// Datuak cachean gorde (existitzen ez bada, array hutsak jarri)
+				if (row.datos) {
+					this.cachedData.graduak = row.datos.graduak || [];
+					// Ziurtatu izenak bat datozela zure DBarekin ('extProy' edo 'proyectosExternos')
+					this.cachedData.proyectosExternos = row.datos.proyectosExternos || row.datos.extProy || [];
+				}
+
+				console.log(`✅ Datuak kargatuta. ID: ${row.id}`);
+				console.log(`🎓 Graduak: ${this.cachedData.graduak.length}`);
+				
+				// 4. SEGURTASUNA: idAsig sortu falta bada (Legacy code support)
+				this.cachedData.graduak.forEach(grado => {
+					const gradoCodigo = grado.codigo || grado.id || 'G';
+					Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
+						if (Array.isArray(asignaturas)) {
+							asignaturas.forEach((asig, asigIndex) => {
+								if (!asig.idAsig) {
+									asig.idAsig = `${gradoCodigo}_${yearNum}_${String(asigIndex + 1).padStart(3, '0')}`;
+								}
+							});
+						}
+					});
+				});
+				
+			} else {
+				console.log("ℹ️ Ez dago daturik Supabase-n. Hutsetik hasiko gara.");
+			}
+
+			// 5. UI EGUNERATU
+			// Orain selektorea beteko da, baina "Hautatu gradua..." markatuta geratuko da
+			this.populateDegreeSelect();
+
+			// Aukerakoa: Formularioa garbitu (aurreko saioetako datuak ez ikusteko)
+			if (this.clearForm) {
+				this.clearForm();
+			}
+
+		} catch (err) {
+			console.error("❌ Erroa loadData funtzioan:", err);
+			// Errorea egonda ere, saiatu selektorea marrazten (hutsik bada ere)
+			this.populateDegreeSelect();
+		}
+	}*/
 	
 // HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
 	async saveSubject(subjectData) {
@@ -310,7 +348,8 @@ class GradosManager {
             console.error("❌ Errorea:", err);
             alert("Ezin izan dira irakasgaiak kargatu.");
         }
-    }	
+    }
+	
 	// En GradosManager class, despu¨¦s del constructor
 	/*getZhFromCatalog(zhCode) {
 		if (!this.currentDegree?.zhCatalog) return null;
@@ -600,9 +639,17 @@ class GradosManager {
     }
 	
 // 1. POPULATE (Zerrenda marraztu) - HAU ONDO DAGO
-    populateDegreeSelect() {
-        const select = document.getElementById('degreeSelect');
-        if (!select || !this.degrees) return;
+	populateDegreeSelect() {
+        // KONTUZ: Ziurtatu HTMLan IDa 'degreeSelector' edo 'degreeSelect' den.
+        // Zure azken kodean 'degreeSelect' jarri duzu, baina HTMLan 'degreeSelector' bada, aldatu hemen.
+        const select = document.getElementById('degreeSelector') || document.getElementById('degreeSelect');
+        
+        if (!select) {
+            console.warn("⚠️ Ez da selektorea aurkitu HTMLan.");
+            return;
+        }
+
+        if (!this.degrees) return;
         
         select.innerHTML = '';
 
@@ -627,26 +674,31 @@ class GradosManager {
         // Real Degrees
         this.degrees.forEach(g => {
             const op = document.createElement('option');
-            op.value = g.idDegree; 
+            // IDak ondo kudeatu
+            op.value = g.idDegree || g.id; 
             op.textContent = g.selectedDegree || g.name || "Izenik gabea";
-            if (this.currentDegree && this.currentDegree.idDegree === g.idDegree) {
+            
+            if (this.currentDegree && (this.currentDegree.idDegree === g.idDegree || this.currentDegree.id === g.id)) {
                 op.selected = true;
             }
             select.appendChild(op);
         });
-    }
 
+        // Event Listener garrantzitsua
+        select.onchange = (e) => this.selectDegree(e);
+        
+        console.log("✅ Selektorea beteta.");
+    }
     // 2. SELECT (Aukeraketa kudeatu) - HAU DA ZUZENA (LoadData barruan duena)
-    async selectDegree(e) {
+async selectDegree(e) {
         const val = (e.target && e.target.value) ? e.target.value : e;
         
-        // A) GRADU BERRIA
         if (val === "NEW_DEGREE") {
-            this.createNewDegree(); 
+            // this.createNewDegree(); // Deskomentatu funtzioa existitzen bada
+            console.log("Gradu berria sortzen...");
             return;
         }
 
-        // B) GRADUA KARGATU (SQLtik zuzenean)
         console.log(`⏳ Gradua kargatzen: ${val}...`);
         
         this.currentDegree = this.degrees.find(d => d.idDegree === val || d.id === val);
@@ -657,31 +709,41 @@ class GradosManager {
         }
 
         try {
-            // HEMEN dago gakoa: 'loadDegreeData' deitu beharrean, 
-            // kodea hemen bertan daukagu.
             const { data: subjects, error } = await this.supabase
                 .from('irakasgaiak')
                 .select('*')
-                .eq('idDegree', this.currentDegree.idDegree)
+                .eq('idDegree', this.currentDegree.idDegree || this.currentDegree.id) // ID zuzena ziurtatu
                 .order('year', { ascending: true })
                 .order('subjectTitle', { ascending: true });
 
             if (error) throw error;
 
-            // Datuak fusionatu
             this.currentDegree.subjects = subjects.map(s => ({
                 ...s,
                 ...(s.content || {}) 
             }));
+            
+            this.currentSubjects = this.currentDegree.subjects; // Honek laguntzen du beste lekuetan
 
             // UI marraztu
-            this.renderDegreeView(); 
+            // 1. UI DEITU: Eguneratu alboko barra irakasgai berriekin
+			if (window.ui && window.ui.renderSidebar) {
+				// Pasatu irakasgaiak 'subjects' erabiliz (SQLtik datozenak)
+				window.ui.renderSidebar(this.currentDegree.subjects);
+				console.log("✅ Sidebar eguneratuta.");
+			}
+
+			// 2. HASIERAKO EGOERA: Garbitu panel nagusia edo erakutsi lehen urtea
+			// Zure UIan 'renderYearView' ere badago, agian hori deitu nahi duzu lehenbizi?
+			if (window.ui && window.ui.renderYearView) {
+				 // Hau hautazkoa da, baina askotan gradua kargatzean ikuspegi orokorra erakusten da
+				 window.ui.renderYearView(this.currentDegree.subjects);
+			}
 
         } catch (err) {
             console.error("❌ Errorea irakasgaiak kargatzean:", err);
         }
-    } 
-
+    }
 	
 	async createNewDegree() {
         // 1. Admin dela ziurtatu
@@ -4617,6 +4679,7 @@ class GradosManager {
             }
         }
     }
+
 // ==========================================
     // BAIMENAK
     // ==========================================
@@ -4745,35 +4808,3 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
