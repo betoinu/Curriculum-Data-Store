@@ -283,7 +283,7 @@ const AppCoordinator = {
             console.log('3. Inicializando GradosManager...');
             const gradosManager = this.getModule('grados-manager');
             if (gradosManager && gradosManager.initialize) {
-                await gradosManager.initialize();
+                await gradosManager.initialize(user);
                 console.log('✅ GradosManager inicializado con datos');
             }
             
@@ -352,5 +352,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 export default AppCoordinator;
+
 
 
