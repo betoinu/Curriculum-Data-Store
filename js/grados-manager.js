@@ -108,8 +108,8 @@ class GradosManager {
         
         // Hiru kontsulta independente jaurti batera
         const [iduRes, odsRes, extProjectsRes] = await Promise.all([
-            this.supabase.from('catalog_idu').select('*').order('codigo', { ascending: true }),
-            this.supabase.from('catalog_ods').select('*').order('codigo', { ascending: true }),
+            this.supabase.from('catalog_idu').select('*').order('name', { ascending: true }),
+            this.supabase.from('catalog_ods').select('*').order('name', { ascending: true }),
             this.supabase.from('admin_external_projects').select('*').order('name', { ascending: true })
         ]);
 
@@ -4688,6 +4688,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
