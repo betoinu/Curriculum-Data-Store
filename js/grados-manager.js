@@ -4453,17 +4453,113 @@ class GradosManager {
         return selected;
     }
 
-    updateSubjectsAreaName(oldName, newName) {
-        if(!this.currentDegree.year) return;
-        Object.values(this.currentDegree.year).forEach(list => {
-            list.forEach(subj => {
-                if (subj.subjectArea === oldName) subj.subjectArea = newName;
-            });
-        });
+	async updateSubjectsAreaName(oldName, newName) {
+        if (!this.currentDegree) return;
+
+        console.log(`🔄 Area izena eguneratzen: '${oldName}' -> '${newName}'`);
+
+        try {
+            // 1. SQL EGUNERATU (Datu-basea)
+            // Agindu bakar batekin irakasgai guztiak eguneratzen ditugu
+            const { error } = await this.supabase
+                .from('irakasgaiak')
+                .update({ subjectArea: newName })
+                .eq('idDegree', this.currentDegree.idDegree) // Gradu honetakoak bakarrik
+                .eq('subjectArea', oldName);                 // Izen zaharra dutenak
+
+            if (error) throw error;
+
+            // 2. MEMORIA EGUNERATU (Berehala ikusteko)
+            // Orain 'subjects' array laua denez, askoz errazagoa da
+            if (this.currentDegree.subjects) {
+                this.currentDegree.subjects.forEach(subj => {
+                    if (subj.subjectArea === oldName) {
+                        subj.subjectArea = newName;
+                    }
+                });
+            }
+            
+            console.log("✅ Area izenak eguneratuta DBan eta Memorian.");
+
+        } catch (err) {
+            console.error("❌ Errorea area izenak eguneratzean:", err);
+        }
     }
     
-    editCompetencies(t) { alert("Editatu: " + t); }
+// ==========================================
+    // KONPETENTZIAK KUDEATU (SARRERA / IRTEERA)
+    // ==========================================
 
+    async editCompetencies(type) {
+        if (!this.currentDegree) return;
+
+        const label = type === 'sarrera' ? 'Sarrera Profila' : 'Irteera Profila';
+        
+        // 1. Eskatu testua (Prompt bidez azkar egiteko)
+        const text = prompt(`Gehitu konpetentzia berria (${label}):`);
+        
+        if (text && text.trim().length > 0) {
+            try {
+                // Egitura ziurtatu (null bada sortu)
+                if (!this.currentDegree.konpetentziak) {
+                    this.currentDegree.konpetentziak = { sarrera: [], irteera: [] };
+                }
+                if (!this.currentDegree.konpetentziak[type]) {
+                    this.currentDegree.konpetentziak[type] = [];
+                }
+
+                // 2. Memoria eguneratu (Gehitu)
+                this.currentDegree.konpetentziak[type].push(text.trim());
+
+                // 3. SQL Eguneratu (Objektu osoa bidali behar da JSON zutabea delako)
+                const { error } = await this.supabase
+                    .from('graduak')
+                    .update({ konpetentziak: this.currentDegree.konpetentziak })
+                    .eq('idDegree', this.currentDegree.idDegree);
+
+                if (error) throw error;
+
+                console.log(`✅ Konpetentzia gehituta: ${type}`);
+
+                // 4. UI Eguneratu
+                if (window.ui && window.ui.renderSidebar) {
+                    window.ui.renderSidebar(this.currentDegree);
+                }
+
+            } catch (err) {
+                console.error("❌ Errorea konpetentziak gordetzean:", err);
+                alert("Errorea datu-basean gordetzean.");
+            }
+        }
+    }
+
+    // Gehigarria: Zerrendatik elementu bat ezabatzeko
+    async deleteCompetency(type, index) {
+        if (!this.currentDegree || !this.currentDegree.konpetentziak) return;
+
+        if (confirm("Ziur konpetentzia hau zerrendatik kendu nahi duzula?")) {
+            try {
+                // 1. Memoria eguneratu (Ezabatu)
+                this.currentDegree.konpetentziak[type].splice(index, 1);
+
+                // 2. SQL Eguneratu
+                const { error } = await this.supabase
+                    .from('graduak')
+                    .update({ konpetentziak: this.currentDegree.konpetentziak })
+                    .eq('idDegree', this.currentDegree.idDegree);
+
+                if (error) throw error;
+
+                // 3. UI Eguneratu
+                if (window.ui && window.ui.renderSidebar) {
+                    window.ui.renderSidebar(this.currentDegree);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Errorea ezabatzean.");
+            }
+        }
+    }
 // ==========================================
     // BAIMENAK
     // ==========================================
@@ -4592,6 +4688,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
