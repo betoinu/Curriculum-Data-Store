@@ -690,7 +690,7 @@ class GradosManager {
         console.log("✅ Selektorea beteta.");
     }
     // 2. SELECT (Aukeraketa kudeatu) - HAU DA ZUZENA (LoadData barruan duena)
-async selectDegree(e) {
+	async selectDegree(e) {
         const val = (e.target && e.target.value) ? e.target.value : e;
         
         if (val === "NEW_DEGREE") {
@@ -725,20 +725,20 @@ async selectDegree(e) {
             
             this.currentSubjects = this.currentDegree.subjects; // Honek laguntzen du beste lekuetan
 
-            // UI marraztu
-            // 1. UI DEITU: Eguneratu alboko barra irakasgai berriekin
-			if (window.ui && window.ui.renderSidebar) {
-				// Pasatu irakasgaiak 'subjects' erabiliz (SQLtik datozenak)
-				window.ui.renderSidebar(this.currentDegree.subjects);
-				console.log("✅ Sidebar eguneratuta.");
-			}
+			// --- HEMEN DAGO ALDAKETA ---
 
-			// 2. HASIERAKO EGOERA: Garbitu panel nagusia edo erakutsi lehen urtea
-			// Zure UIan 'renderYearView' ere badago, agian hori deitu nahi duzu lehenbizi?
-			if (window.ui && window.ui.renderYearView) {
-				 // Hau hautazkoa da, baina askotan gradua kargatzean ikuspegi orokorra erakusten da
-				 window.ui.renderYearView(this.currentDegree.subjects);
-			}
+            console.log("🎨 UI eguneratzen...");
+
+            // 1. Alboko barra (Sidebar) marraztu (Botoiak agertzeko: 1.maila, 2.maila...)
+            if (window.ui && window.ui.renderSidebar) {
+                window.ui.renderSidebar(this.currentDegree);
+            }
+
+            // 2. LEHENENGO MAILA ERAKUTSI (Hau falta zitzaizun!)
+            // '1' zenbakia pasatzen diogu defektuz lehen maila kargatzeko.
+            if (window.ui && window.ui.renderYearView) {
+                window.ui.renderYearView(this.currentDegree, 1); 
+            }
 
         } catch (err) {
             console.error("❌ Errorea irakasgaiak kargatzean:", err);
@@ -4808,3 +4808,4 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
