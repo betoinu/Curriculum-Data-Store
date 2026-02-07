@@ -940,7 +940,14 @@ openEditSubjectModal() {
         modal.classList.remove('hidden');
     }
 
-
+// Helper simple para limpiar bot¨®n guardar
+setupSaveButtonRaw(modal) {
+    const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    return newBtn;
+}
+	
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
 openOdsSelector(subject) {
@@ -4822,6 +4829,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
