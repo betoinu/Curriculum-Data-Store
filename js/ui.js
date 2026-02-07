@@ -406,25 +406,21 @@ renderYearView: (degree, yearNum) => {
             card.style.borderLeftColor = areaColor;
             
             card.innerHTML = `
-                <div class="h-full flex flex-col gap-2">
-                    <div class="flex justify-between items-start">
+				<div class="h-full flex flex-col">
+                    <div class="flex justify-between items-start mb-3">
                         <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono">${code}</span>
-                            ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
+                             <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
+                             ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
                         </div>
-                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[45px] text-center shadow-sm" style="background-color: ${areaColor}">
-                            ${credits} EC
-                        </span>
+                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">${credits} EC</span>
                     </div>
                     
-                    <h3 class="text-sm font-bold text-gray-800 leading-tight line-clamp-3">${subjTitle}</h3>
+                    <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
                     
-                    <div>${langBadge}</div>
+                    <div class="mb-2">${langBadge}</div>
 
                     <div class="mt-auto pt-2 border-t border-gray-50">
-                        <p class="text-[11px] text-gray-400 truncate" title="${subj.subjectArea || ''}">
-                            ${subj.subjectArea || 'Eremu gabe'}
-                        </p>
+                        <p class="text-xs text-gray-400 truncate">${subj.subjectArea || 'Eremu gabe'}</p>
                     </div>
                 </div>
             `;
@@ -1557,6 +1553,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
