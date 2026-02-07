@@ -347,6 +347,7 @@ renderYearView: (degree, yearNum) => {
         console.log(`🎨 UI: ${yearNum}. maila marrazten...`);
 
         // 1. PANELAK KUDEATU
+        // Reset sinplea: denak ezkutatu, gurea erakutsi.
         ['emptyState', 'subjectDetailView'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('hidden');
@@ -355,12 +356,14 @@ renderYearView: (degree, yearNum) => {
         const viewContainer = document.getElementById('yearView');
         if (viewContainer) {
             viewContainer.classList.remove('hidden');
-            viewContainer.style.display = 'block'; 
+            // HEMEN ZEGOEN ERROREA: Ez jarri style.display = 'block'.
+            // Utzi Tailwind-i bere lana egiten.
         } else {
+            console.error("❌ 'yearView' ez da aurkitu");
             return;
         }
 
-        // Izenburua
+        // Izenburua eguneratu
         const pageTitle = document.getElementById('yearTitle');
         if (pageTitle) pageTitle.textContent = `${yearNum}. Maila - ${degree.selectedDegree || degree.name}`;
 
@@ -386,13 +389,12 @@ renderYearView: (degree, yearNum) => {
             const code = subj.subjectCode || subj.code || '---';
             const subjTitle = subj.subjectTitle || subj.name || 'Izena gabe'; 
             const credits = subj.subjectCredits || subj.credits || 0;
-            const id = subj.idAsig || subj.id;
             
-            // --- BERRIRO GEHITUTAKO ALDAGAIAK ---
-            const semester = subj.semester ? `${subj.semester}.S` : ''; // Adib: "1.S"
+            // Datu berriak (Semester & Language)
+            const semester = subj.semester ? `${subj.semester}.S` : '';
             const lang = subj.language || ''; 
             
-            // Hizkuntzaren estiloa (Badge txikia)
+            // Hizkuntza txarteltxoa
             let langBadge = '';
             if (lang === 'eu') langBadge = '<span class="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">EU</span>';
             else if (lang === 'es') langBadge = '<span class="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-100 px-1.5 py-0.5 rounded">ES</span>';
@@ -1555,6 +1557,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
