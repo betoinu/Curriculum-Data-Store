@@ -837,17 +837,24 @@ openEditSubjectModal() {
     
 // ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO (Para el Sidebar)
     // Permite editar C¨®digo, Nombre y Color
-    openOdsCatalogEditor() {
+openOdsCatalogEditor() {
         const modal = document.getElementById('listEditorModal');
         const container = document.getElementById('listEditorContainer');
         const titleEl = document.getElementById('listEditorTitle');
         const inputTop = document.getElementById('newItemInput')?.parentElement;
         
-        // Configuraci¨®n visual
-        if(inputTop) inputTop.classList.add('hidden'); // Ocultar input simple
+        // Prestaketa bisuala
+        if(inputTop) inputTop.classList.add('hidden'); 
         if(titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-blue-500"></i> Editatu ODS Katalogoa (Master)`;
         
-        // Renderizar Tabla de Edici¨®n
+        // === 1. DATUAK PRESTATU (KRASKATZEA EKIDITEKO) ===
+        // "undefined" bada, array huts bat jarri, bestela forEach-ek errorea emango du.
+        if (!this.adminCatalogs.ods) {
+            this.adminCatalogs.ods = [];
+        }
+        const currentCatalog = this.adminCatalogs.ods;
+
+        // === 2. TAULA MARRAZTU ===
         const renderTable = () => {
             container.innerHTML = `
                 <div class="flex justify-between items-center mb-3">
@@ -856,84 +863,93 @@ openEditSubjectModal() {
                         + ODS Berria
                     </button>
                 </div>
-                <div id="odsTableBody" class="space-y-2"></div>
+                <div id="odsTableBody" class="space-y-2 max-h-[60vh] overflow-y-auto pr-2"></div>
             `;
 
             const body = document.getElementById('odsTableBody');
             
-            // Usamos el cat¨¢logo cargado en memoria
-            this.adminCatalogs.ods.forEach((ods, index) => {
+            if (currentCatalog.length === 0) {
+                body.innerHTML = '<div class="text-center text-gray-400 text-xs py-4">Ez dago daturik katalogoan.</div>';
+            }
+
+            currentCatalog.forEach((ods, index) => {
                 const row = document.createElement('div');
                 row.className = "flex items-center gap-2 p-2 bg-white border rounded shadow-sm";
                 
                 row.innerHTML = `
                     <div class="relative group">
                         <input type="color" class="w-8 h-8 p-0 border-0 rounded cursor-pointer overflow-hidden field-color" 
-                               value="${ods.color}" title="Aldatu kolorea">
+                               value="${ods.color || '#cccccc'}">
                     </div>
-
-                    <input type="text" class="w-16 text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-blue-500 outline-none field-code" 
-                           value="${ods.code}">
-
+                    <input type="text" class="w-20 text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-blue-500 outline-none field-code" 
+                           value="${ods.code || ''}" placeholder="Kodea">
                     <input type="text" class="flex-1 text-sm text-gray-600 border-b border-gray-200 focus:border-blue-500 outline-none field-name" 
-                           value="${ods.name}">
-
+                           value="${ods.name || ''}" placeholder="Izena">
                     <button class="text-gray-300 hover:text-red-500 transition px-2 btn-delete">
                         <i class="fas fa-trash"></i>
                     </button>
                 `;
 
-                // Eventos de edici¨®n en tiempo real (actualiza array local)
+                // Editatu
                 const updateLocal = () => {
-                    this.adminCatalogs.ods[index].color = row.querySelector('.field-color').value;
-                    this.adminCatalogs.ods[index].code = row.querySelector('.field-code').value;
-                    this.adminCatalogs.ods[index].name = row.querySelector('.field-name').value;
+                    const item = currentCatalog[index];
+                    item.color = row.querySelector('.field-color').value;
+                    item.code = row.querySelector('.field-code').value;
+                    item.name = row.querySelector('.field-name').value;
                 };
-
                 row.querySelectorAll('input').forEach(i => i.oninput = updateLocal);
                 
+                // Ezabatu
                 row.querySelector('.btn-delete').onclick = () => {
                     if(confirm(`Ziur "${ods.code}" ezabatu nahi duzula?`)) {
-                        this.adminCatalogs.ods.splice(index, 1);
-                        renderTable(); // Re-render
+                        currentCatalog.splice(index, 1);
+                        renderTable(); 
                     }
                 };
 
                 body.appendChild(row);
             });
 
-            // Bot¨®n a?adir nuevo
-            document.getElementById('btnAddOdsMaster').onclick = () => {
-                this.adminCatalogs.ods.push({ code: 'ODS-XX', name: 'Nuevo Objetivo', color: '#888888' });
-                renderTable();
-            };
+            // Gehitu botoia
+            const btnAdd = document.getElementById('btnAddOdsMaster');
+            if(btnAdd) {
+                btnAdd.onclick = () => {
+                    currentCatalog.push({ code: 'ODS-XX', name: 'Helburu Berria', color: '#888888' });
+                    renderTable();
+                    // Scroll auto-down
+                    setTimeout(() => body.scrollTop = body.scrollHeight, 50);
+                };
+            }
         };
 
         renderTable();
 
-        // GUARDADO ESPECIAL A SUPABASE (Tabla catalog_ods)
-        const saveBtn = this._setupSaveButtonRaw(modal); // Helper para limpiar el bot¨®n
+        // === 3. GORDE (Zure funtzioa erabiliz) ===
+        // Zuk esan duzu _setupSaveButtonRaw badaukazula, beraz zuzenean deitzen dugu.
+        const saveBtn = this._setupSaveButtonRaw(modal);
+        
+        saveBtn.innerHTML = 'Gorde Aldaketak';
         saveBtn.onclick = async () => {
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+            saveBtn.disabled = true;
+            
             try {
-                // 1. Upsert a Supabase (Guardar cambios)
+                // Upsert katalogoa 'catalog_ods' taulan
                 const { error } = await this.supabase
                     .from('catalog_ods')
-                    .upsert(this.adminCatalogs.ods, { onConflict: 'code' }); // Asume 'code' o 'id' como ¨²nico
+                    .upsert(currentCatalog, { onConflict: 'code' }); 
 
                 if (error) throw error;
                 
-                // 2. Si borraste alguno, habr¨ªa que gestionar el delete en BD, 
-                // pero por simplicidad el upsert actualiza los existentes. 
-                // (Para borrado real se necesitar¨ªa sync m¨¢s complejo o borrar por ID).
-                
-                alert("Katalogoa eguneratuta!");
+                alert("✅ ODS Katalogoa gorde da.");
                 modal.classList.add('hidden');
+                
             } catch (e) {
                 console.error(e);
-                alert("Errorea gordetzerakoan: " + e.message);
+                alert("Errorea: " + e.message);
             } finally {
                 saveBtn.innerHTML = 'Gorde Aldaketak';
+                saveBtn.disabled = false;
             }
         };
 
@@ -4829,6 +4845,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
