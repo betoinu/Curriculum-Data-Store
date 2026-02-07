@@ -941,7 +941,7 @@ openEditSubjectModal() {
     }
 
 // Helper simple para limpiar bot¨®n guardar
-setupSaveButtonRaw(modal) {
+_setupSaveButtonRaw(modal) {
     const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
     const newBtn = oldBtn.cloneNode(true);
     oldBtn.parentNode.replaceChild(newBtn, oldBtn);
@@ -4829,6 +4829,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
