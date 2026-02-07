@@ -501,25 +501,51 @@ class GradosManager {
         }, 150);
     }
 	
-	openEditSubjectModal() {
-        if (!this.currentSubject) return;
+openEditSubjectModal() {
+        if (!this.currentSubject) {
+            console.error("❌ Ez dago irakasgairik aukeratuta editatzeko.");
+            return;
+        }
         const subj = this.currentSubject;
-        
-        // 1. ELEMENTUAK HAURTADU (Zure ID originalak)
+        console.log("✏️ Irakasgaia editatzen:", subj.subjectTitle);
+
+        // 1. ELEMENTUAK HAUTATU (DOM)
         const codeInput = document.getElementById('subject_edit_code'); 
         const nameInput = document.getElementById('subject_edit_name');
+        const creditsInput = document.getElementById('subject_edit_credits'); // 🆕
+        const langSelect = document.getElementById('subject_edit_language'); // 🆕
+        const semesterSelect = document.getElementById('subject_edit_semester'); // 🆕
         const areaSelect = document.getElementById('subject_edit_area');
         const typeSelect = document.getElementById('subject_edit_type');
         
-        // Balioak bete
-        if(codeInput) codeInput.value = subj.idAsig || subj.subjectCode || '';
-        if(nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
+        // 2. BALIOAK BETE
+        // Testu sinpleak
+        if (codeInput) codeInput.value = subj.idAsig || subj.subjectCode || '';
+        if (nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
         
-        // 2. MOTAK (Types)
+        // Kredituak (Zenbakia dela ziurtatu)
+        if (creditsInput) {
+            creditsInput.value = subj.subjectCredits || subj.credits || 0;
+        }
+
+        // 3. HIZKUNTZA (Language)
+        if (langSelect) {
+            // Balio posibleak: 'eu' (Euskara), 'es' (Gaztelania), 'en' (Ingelesa)
+            // Zure datu-basean nola gordetzen den arabera egokitu (Adib: "Euskara" edo "eu")
+            langSelect.value = subj.language || 'eu'; 
+        }
+
+        // 4. SEIHILEKOA (Semester)
+        if (semesterSelect) {
+            // Balioak: '1', '2', 'urtekoa'
+            semesterSelect.value = subj.semester || '1';
+        }
+
+        // 5. MOTAK (Types)
         if (typeSelect) {
             typeSelect.innerHTML = '';
-            // Memoriatik motak kargatu
-            const dbTypes = this.loadUniqueSubjectTypes();
+            // Kargatu motak (zure funtzioa erabiliz)
+            const dbTypes = this.loadUniqueSubjectTypes ? this.loadUniqueSubjectTypes() : ['Derrigorrezkoa', 'Oinarrizkoa', 'Hautazkoa'];
             
             const defaultOpt = document.createElement('option');
             defaultOpt.value = "";
@@ -530,16 +556,14 @@ class GradosManager {
                 const opt = document.createElement('option');
                 opt.value = tipo;
                 opt.textContent = tipo;
+                if (tipo === (subj.subjectType || subj.tipo)) opt.selected = true;
                 typeSelect.appendChild(opt);
             });
-
-            typeSelect.value = subj.subjectType || subj.tipo || '';
         }
 
-        // 3. AREAK (Areas)
+        // 6. AREAK (Areas)
         if (areaSelect && this.currentDegree) {
             areaSelect.innerHTML = '<option value="">-- Hautatu --</option>';
-            // Area zerrenda graduan bertan dago
             const areas = this.currentDegree.subjectAreas || [];
             
             areas.forEach(area => {
@@ -552,39 +576,42 @@ class GradosManager {
             });
         }
 
-        // 4. KATALOGOAK (Checklist-ak)
-        // window.ui erabiltzen jarraitzen dugu.
-        // Datuak 'this.adminCatalogs'-etik pasatzen dizkiogu (initialize-n kargatuta daude)
+        // 7. KATALOGOAK (Checklist-ak)
+        // UI funtzioak erabiltzen badituzu, ziurtatu 'ui' kargatuta dagoela
         if (window.ui && window.ui.renderChecklistSelector) {
             
             // A. IDU
             window.ui.renderChecklistSelector(
                 'editIduContainer', 
-                this.adminCatalogs.iduGuidelines || [], // <-- ALDAKETA TXIKIA: Hemen daude datuak orain
-                subj.idujar || [], 
+                this.adminCatalogs.iduGuidelines || [], 
+                subj.idujar || [], // Edo subj.content?.idujar
                 'idu_chk'
             );
 
-            // B. ODS
+            // B. ODS (SQL Listatik)
             window.ui.renderChecklistSelector(
                 'editOdsContainer',
-                this.adminCatalogs.odsList || [], // <-- ALDAKETA TXIKIA
-                subj.ods || [],
+                this.adminCatalogs.odsList || [], 
+                subj.detailODS || subj.ods || [], // detailODS lehenetsi
                 'ods_chk'
             );
 
-            // C. PROIEKTUAK
+            // C. KANPO PROIEKTUAK
             window.ui.renderChecklistSelector(
                 'editExtProyContainer',
-                this.adminCatalogs.externalProjects || [], // <-- ALDAKETA TXIKIA
-                subj.extProy || [],
+                this.adminCatalogs.externalProjects || [], 
+                subj.extProy || [], 
                 'ext_chk'
             );
         }
 
-        // 5. ERAKUTSI
+        // 8. MODALA ERAKUTSI
         const modal = document.getElementById('editSubjectModal');
-        if (modal) modal.classList.remove('hidden');
+        if (modal) {
+            modal.classList.remove('hidden');
+        } else {
+            console.error("❌ 'editSubjectModal' ez da aurkitu HTMLan!");
+        }
     }
 	
 	// EN GRADOS-MANAGER.JS
@@ -4795,5 +4822,6 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
