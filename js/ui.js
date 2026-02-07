@@ -484,24 +484,10 @@ renderYearView: (degree, yearNum) => {
     // --- 3. DETALLE DE ASIGNATURA ---
 renderSubjectDetail: async (subject, degree) => {
         if (!subject) return;
-		// =========================================================
-        // 1. BISTAK KUDEATU (Hemen dago gakoa)
-        // =========================================================
-        
-        // 1.1. Grid-a EZKUTATU (Bortxaz)
-        const yearViewPanel = document.getElementById('yearView');
-        if (yearViewPanel) {
-            yearViewPanel.classList.add('hidden');
-            yearViewPanel.style.display = 'none'; // 👈 HAU GEHITU BEHAR DA
-            // 'none' jartzeak aurreko 'block' estiloa baliogabetzen du.
-        }
-
-        // 1.2. Xehetasunak ERAKUTSI
-        const detailView = document.getElementById('subjectDetailView');
-        if (detailView) {
-            detailView.classList.remove('hidden');
-            // detailView.style.display = 'block'; // Aukerakoa, baina lagungarria izan daiteke
-        }
+	    // Horren ordez, HAU ERABILI (sinpleagoa):
+	    console.log("--> Renderizando Detalle:", subject.subjectTitle || subject.name);
+	    document.getElementById('yearView')?.classList.add('hidden');
+	    document.getElementById('subjectDetailView')?.classList.remove('hidden');
         // =========================================================
         // 1. HASIERAKETA ETA BAIMENAK
         // =========================================================
@@ -1565,6 +1551,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
