@@ -392,7 +392,8 @@ renderYearView: (degree, yearNum) => {
             
             // Datu berriak (Semester & Language)
             const semester = subj.semester ? `${subj.semester}.S` : '';
-            const lang = subj.language || ''; 
+            const lang = subj.language || '';
+			const type = subj.type || subj.subjectType || '';
             
             // Hizkuntza txarteltxoa
             let langBadge = '';
@@ -1564,6 +1565,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
