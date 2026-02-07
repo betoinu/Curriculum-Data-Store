@@ -406,31 +406,33 @@ renderYearView: (degree, yearNum) => {
             card.style.borderLeftColor = areaColor;
             
             card.innerHTML = `
-                <div class="h-full flex flex-col gap-2">
-                    <div class="flex justify-between items-start">
+                <div class="h-full flex flex-col">
+                    <div class="flex justify-between items-start mb-3">
                         <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono">${code}</span>
+                            <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
                             ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
                         </div>
-                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[45px] text-center shadow-sm" style="background-color: ${areaColor}">
+                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">
                             ${credits} ECTS
                         </span>
                     </div>
                     
-                    <h3 class="text-sm font-bold text-gray-800 leading-tight line-clamp-3">${subjTitle}</h3>
+                    <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
                     
-                    <div>${langBadge}</div>
+                    <div class="mb-2">${langBadge}</div>
 
-					<div class="mt-auto">
-						<p class="text-xs text-gray-400 truncate mb-2">
-							${subj.subjectArea || 'Eremu gabe'}
-						</p>
-						${type ? `
-						<div class="flex items-center text-[11px] text-gray-500 bg-gray-50 px-2 py-1 rounded w-full">
-							<i class="fas fa-tag mr-2 text-indigo-400 text-[10px] flex-shrink-0"></i>
-							<span class="truncate">${type}</span>
-						</div>
-						` : ''}
+                    <div class="mt-auto pt-2 border-t border-gray-50">
+                        <div class="flex justify-between items-center">
+                            <p class="text-xs text-gray-400 truncate max-w-[60%]">${subj.subjectArea || 'Eremu gabe'}</p>
+                            
+                            ${type ? `
+                            <div class="flex items-center text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
+                                <i class="fas fa-tag mr-1 text-indigo-400"></i>
+                                <span class="truncate max-w-[80px]">${type}</span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
                 </div>
             `;
             
@@ -1562,6 +1564,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
