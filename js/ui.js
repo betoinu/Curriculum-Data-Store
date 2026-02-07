@@ -346,41 +346,31 @@ export const ui = {
 renderYearView: (degree, yearNum) => {
         console.log(`🎨 UI: ${yearNum}. maila marrazten...`);
 
-        // 1. PANELAK KUDEATU (Ziurtatu yearView bakarrik dagoela ikusgai)
-        // Ezkutatu beste guztiak
+        // 1. PANELAK KUDEATU
         ['emptyState', 'subjectDetailView'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('hidden');
         });
 
-        // Erakutsi gurea
         const viewContainer = document.getElementById('yearView');
         if (viewContainer) {
             viewContainer.classList.remove('hidden');
-            // Beste estilo batzuk garbitu badaezpada
             viewContainer.style.display = 'block'; 
         } else {
-            console.error("❌ 'yearView' edukiontzia ez da aurkitu HTMLan!");
             return;
         }
 
-        // Izenburua eguneratu
+        // Izenburua
         const pageTitle = document.getElementById('yearTitle');
         if (pageTitle) pageTitle.textContent = `${yearNum}. Maila - ${degree.selectedDegree || degree.name}`;
 
-        // 2. GRID EDUKIONTZIA LORTU
+        // 2. GRID EDUKIONTZIA
         const container = document.getElementById('subjectsGrid');
-        if (!container) {
-            console.error("❌ 'subjectsGrid' ez da aurkitu!");
-            return;
-        }
-        container.innerHTML = ''; // Garbitu aurrekoa
+        if (!container) return;
+        container.innerHTML = '';
 
-        // 3. DATUAK IRAGAZI (HEMEN ZEN ARAZOA)
-        // String-era bihurtzen dugu bi aldeetan, erroreak saihesteko (1 vs "1")
+        // 3. DATUAK IRAGAZI
         const subjects = (degree.subjects || []).filter(s => String(s.year) === String(yearNum));
-
-        console.log(`📊 ${subjects.length} irakasgai aurkitu dira ${yearNum}. mailarako.`);
 
         if (subjects.length === 0) {
             container.innerHTML = `
@@ -392,38 +382,53 @@ renderYearView: (degree, yearNum) => {
 
         // 4. TXARTELAK SORTU
         subjects.forEach((subj) => {
-            // Segurtasuna balioekin
             const areaColor = ui.getAreaColor ? ui.getAreaColor(subj.subjectArea, degree) : '#ccc';
             const code = subj.subjectCode || subj.code || '---';
             const subjTitle = subj.subjectTitle || subj.name || 'Izena gabe'; 
             const credits = subj.subjectCredits || subj.credits || 0;
-            const type = subj.tipo || subj.subjectType || '';
             const id = subj.idAsig || subj.id;
+            
+            // --- BERRIRO GEHITUTAKO ALDAGAIAK ---
+            const semester = subj.semester ? `${subj.semester}.S` : ''; // Adib: "1.S"
+            const lang = subj.language || ''; 
+            
+            // Hizkuntzaren estiloa (Badge txikia)
+            let langBadge = '';
+            if (lang === 'eu') langBadge = '<span class="text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">EU</span>';
+            else if (lang === 'es') langBadge = '<span class="text-[10px] font-bold text-yellow-600 bg-yellow-50 border border-yellow-100 px-1.5 py-0.5 rounded">ES</span>';
+            else if (lang === 'en') langBadge = '<span class="text-[10px] font-bold text-purple-600 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded">EN</span>';
+            else if (lang) langBadge = `<span class="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">${lang}</span>`;
 
             const card = document.createElement('div');
-            // Zure klaseak mantendu ditut
-            card.className = 'group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-5 cursor-pointer border-l-4 h-full flex flex-col justify-between relative';
+            card.className = 'group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 cursor-pointer border-l-4 h-full flex flex-col justify-between relative';
             card.style.borderLeftColor = areaColor;
             
             card.innerHTML = `
-                <div class="h-full flex flex-col">
-                    <div class="flex justify-between items-start mb-3">
-                        <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
-                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">${credits} EC</span>
+                <div class="h-full flex flex-col gap-2">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono">${code}</span>
+                            ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
+                        </div>
+                        <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[45px] text-center shadow-sm" style="background-color: ${areaColor}">
+                            ${credits} EC
+                        </span>
                     </div>
                     
-                    <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
+                    <h3 class="text-sm font-bold text-gray-800 leading-tight line-clamp-3">${subjTitle}</h3>
                     
+                    <div>${langBadge}</div>
+
                     <div class="mt-auto pt-2 border-t border-gray-50">
-                        <p class="text-xs text-gray-400 truncate">${subj.subjectArea || 'Eremu gabe'}</p>
+                        <p class="text-[11px] text-gray-400 truncate" title="${subj.subjectArea || ''}">
+                            ${subj.subjectArea || 'Eremu gabe'}
+                        </p>
                     </div>
                 </div>
             `;
             
-            // Klik egitean xehetasunak
             card.onclick = (e) => {
                 e.preventDefault();
-                console.log("Klik irakasgaian:", id);
                 if (window.gradosManager && window.gradosManager.selectSubject) {
                     window.gradosManager.selectSubject(subj);
                 }
@@ -1550,6 +1555,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
