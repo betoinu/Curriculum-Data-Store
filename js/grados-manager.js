@@ -1070,7 +1070,18 @@ _setupSaveButtonRaw(modal) {
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
 openOdsSelector(subject) {
-    console.log("🟢 ODS hautatzailea...", subject.subjectTitle);
+    // LEHENENGO: Egiaztatu subject parametroa
+    if (!subject) {
+        console.warn("⚠️ openOdsSelector: subject parametroa undefined");
+        // Probatu this.currentSubject erabiltzea
+        subject = this.currentSubject;
+        if (!subject) {
+            alert("Irakasgai bat hautatu behar duzu lehenik.");
+            return;
+        }
+    }    
+	
+	console.log("🟢 ODS hautatzailea...", subject.subjectTitle);
 
     // 1. Garbitu modalak
     document.querySelectorAll('.catalog-modal-overlay').forEach(m => {
@@ -6001,6 +6012,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
