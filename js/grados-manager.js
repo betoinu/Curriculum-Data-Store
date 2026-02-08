@@ -1302,58 +1302,54 @@ openOdsSelector(subject) {
     content.querySelector('#closeOdsModal').onclick = closeModal;
     content.querySelector('#cancelOds').onclick = closeModal;
 
-    // 8. Gorde (Supabase content barruan)
-    content.querySelector('#finishOds').onclick = async () => {
-        const btn = content.querySelector('#finishOds');
-        if (btn.disabled) return;
-        
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        btn.disabled = true;
-
-        try {
-            // Array berria sortu Masterretik
-            const newDetailODS = masterList
-                .filter(ods => selectedIds.has(String(ods.id)))
-                .map(ods => ({
-                    id: ods.id,
-                    code: ods.code,
-                    name: ods.name,
-                    color: ods.color,
-                    odsCode: ods.code
-                }));
-
-            // Eguneratu subject.content
-            if (!subject.content) subject.content = {};
-            subject.content.detailODS = newDetailODS;
-
-            // Supabase eguneratu - content JSON osoa
-            const { error } = await this.supabase
-                .from('irakasgaiak')
-                .update({ 
-                    content: subject.content,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', subject.id);
-
-            if (error) throw error;
-
-            // Eguneratu lokalak
-            this.currentSubject.content = subject.content;
-            
-            // UI eguneratu
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(subject, this.currentDegree);
-            }
-
-            closeModal();
-
-        } catch (error) {
-            console.error("❌ Errorea ODS gordetzean:", error);
-            alert("Errorea ODS gordetzean: " + error.message);
-            btn.innerHTML = 'Saiatu berriro';
-            btn.disabled = false;
-        }
-    };
+	content.querySelector('#finishOds').onclick = async () => {
+	    const btn = content.querySelector('#finishOds');
+	    if (btn.disabled) return;
+	    
+	    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+	    btn.disabled = true;
+	
+	    try {
+	        // 1. Hautapen berriak lortu
+	        const newDetailODS = masterList
+	            .filter(ods => selectedIds.has(String(ods.id)))
+	            .map(ods => ({
+	                id: ods.id,
+	                code: ods.code,
+	                name: ods.name,
+	                color: ods.color,
+	                odsCode: ods.code
+	            }));
+	
+	        // ✅ 2. EGUNERATU this.currentSubject (LEHENA)
+	        if (!this.currentSubject.content) this.currentSubject.content = {};
+	        this.currentSubject.content.detailODS = newDetailODS;
+	
+	        // ✅ 3. SUPABASE GORDE (this.currentSubject erabiliz)
+	        const { error } = await this.supabase
+	            .from('irakasgaiak')
+	            .update({ 
+	                content: this.currentSubject.content,  // ← HEMEN
+	                updated_at: new Date().toISOString()
+	            })
+	            .eq('id', this.currentSubject.id);  // ← HEMEN
+	
+	        if (error) throw error;
+	        
+	        // ✅ 4. UI EGUNERATU (this.currentSubject erabiliz)
+	        if (window.ui && window.ui.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
+	
+	        closeModal();
+	
+	    } catch (error) {
+	        console.error("❌ Errorea ODS gordetzean:", error);
+	        alert("Errorea ODS gordetzean: " + error.message);
+	        btn.innerHTML = 'Saiatu berriro';
+	        btn.disabled = false;
+	    }
+	};
 
     // Autofocus bilaketan
     setTimeout(() => searchInput.focus(), 100);
@@ -2111,52 +2107,53 @@ openIduSelector() {
     content.querySelector('#closeIduModal').onclick = closeModal;
     content.querySelector('#cancelIdu').onclick = closeModal;
 
-    content.querySelector('#finishIdu').onclick = async () => {
-        const btn = content.querySelector('#finishIdu');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        btn.disabled = true;
-
-        try {
-            // IDen bidez jatorrizko objektuak berreskuratu "Snapshot" egiteko
-            const newSelection = Array.from(selectedIds).map(id => {
-                const item = getFullObject(id);
-                return {
-                    id: item.id,
-                    code: item.code,
-                    name: item.name,
-                    range: item.range,
-                    iduCode: item.code
-                };
-            });
-
-            if (!subject.content) subject.content = {};
-            subject.content.idujar = newSelection;
-
-            const { error } = await this.supabase
-                .from('irakasgaiak')
-                .update({ 
-                    content: subject.content,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', subject.id);
-
-            if (error) throw error;
-
-            this.currentSubject.content = subject.content;
-            
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(subject, this.currentDegree);
-            }
-            
-            closeModal();
-
-        } catch (error) {
-            console.error("❌ Errorea IDU gordetzean:", error);
-            alert("Errorea: " + error.message);
-            btn.innerHTML = 'Saiatu berriro';
-            btn.disabled = false;
-        }
-    };
+	content.querySelector('#finishIdu').onclick = async () => {
+	    const btn = content.querySelector('#finishIdu');
+	    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+	    btn.disabled = true;
+	
+	    try {
+	        // 1. Hautapen berriak lortu
+	        const newSelection = Array.from(selectedIds).map(id => {
+	            const item = getFullObject(id);
+	            return {
+	                id: item.id,
+	                code: item.code,
+	                name: item.name,
+	                range: item.range,
+	                iduCode: item.code
+	            };
+	        });
+	
+	        // 2. ✅ EGUNERATU this.currentSubject (LEHENA)
+	        if (!this.currentSubject.content) this.currentSubject.content = {};
+	        this.currentSubject.content.idujar = newSelection;
+	
+	        // 3. ✅ SUPABASE GORDE
+	        const { error } = await this.supabase
+	            .from('irakasgaiak')
+	            .update({ 
+	                content: this.currentSubject.content,
+	                updated_at: new Date().toISOString()
+	            })
+	            .eq('id', this.currentSubject.id);
+	
+	        if (error) throw error;
+	
+	        // 4. ✅ UI EGUNERATU
+	        if (window.ui && window.ui.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
+	        
+	        closeModal();
+	
+	    } catch (error) {
+	        console.error("❌ Errorea:", error);
+	        alert("Errorea: " + error.message);
+	        btn.innerHTML = 'Saiatu berriro';
+	        btn.disabled = false;
+	    }
+	}; // ← Parentesia ondo
 
     setTimeout(() => searchInput.focus(), 50);
 }
@@ -2835,7 +2832,7 @@ openProjectsSelector() {
     const noResults = content.querySelector('#noProjectResults');
     const filterContainer = content.querySelector('#typeFilterContainer');
     const selectedCountSpan = content.querySelector('#selectedProjectCount');
-    const finishBtn = content.querySelector('#finishProject');
+    const finishBtn = content.querySelector('#finishProject');  // ✅ ZUZENDU HAU!
     
     // Set erabili eraginkortasunerako
     let selectedIds = new Set(currentList.map(item => String(item.id)));
@@ -2986,7 +2983,8 @@ openProjectsSelector() {
     content.querySelector('#closeProjectModal').onclick = closeModal;
     content.querySelector('#cancelProject').onclick = closeModal;
     
-    content.querySelector('#finishProject').onclick = async () => {
+    // 5. GORDE FUNZIOA ZUZENDU:
+    content.querySelector('#finishProject').onclick = async () => {  // ✅ ZUZENDU HAU!
         const btn = content.querySelector('#finishProject');
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
         btn.disabled = true;
@@ -3005,23 +3003,24 @@ openProjectsSelector() {
                 };
             });
             
-            if (!subject.content) subject.content = {};
-            subject.content.extProy = newSelection;
+            // ✅ EGUNERATU this.currentSubject (LEHENA)
+            if (!this.currentSubject.content) this.currentSubject.content = {};
+            this.currentSubject.content.extProy = newSelection;
             
+            // ✅ SUPABASE GORDE (this.currentSubject erabiliz)
             const { error } = await this.supabase
                 .from('irakasgaiak')
                 .update({ 
-                    content: subject.content,
+                    content: this.currentSubject.content,  // ← HEMEN
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', subject.id);
+                .eq('id', this.currentSubject.id);  // ← HEMEN
                 
             if (error) throw error;
             
-            this.currentSubject.content = subject.content;
-            
+            // ✅ UI EGUNERATU (this.currentSubject erabiliz)
             if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(subject, this.currentDegree);
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
             }
             
             closeModal();
@@ -6027,6 +6026,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
