@@ -1974,8 +1974,8 @@ openIduSelector() {
 	        }).filter(Boolean);
 	
 	        // 🔴 1. JSON EGUNERATU - ZURE LEKU ZUZENEAN
-	        if (!subject.context) subject.context = {};
-	        subject.context.idujar = newSelection;  // 🔴 HAU DA ZURE ERABILTZEN DUZUENA!
+	        if (!subject.content) subject.content = {};
+	        subject.content.idujar = newSelection;  // 🔴 HAU DA ZURE ERABILTZEN DUZUENA!
 	        
 	        // 🔴 2. MEMORIA OSOA EGUNERATU
 	        if (this.currentDegreeData) {
@@ -1984,11 +1984,11 @@ openIduSelector() {
 	            );
 	            
 	            if (subjectIndex !== -1) {
-	                if (!this.currentDegreeData[subjectIndex].context) {
-	                    this.currentDegreeData[subjectIndex].context = {};
+	                if (!this.currentDegreeData[subjectIndex].content) {
+	                    this.currentDegreeData[subjectIndex].content = {};
 	                }
-	                this.currentDegreeData[subjectIndex].context.idujar = newSelection;
-	                console.log("✅ Memoria eguneratuta - context.idujar");
+	                this.currentDegreeData[subjectIndex].content.idujar = newSelection;
+	                console.log("✅ Memoria eguneratuta - content.idujar");
 	            }
 	        }
 	
@@ -1996,14 +1996,14 @@ openIduSelector() {
 	        const { error } = await this.supabase
 	            .from('irakasgaiak')
 	            .update({ 
-	                context: subject.context,  // 🔴 JSON osoa gordetzen duzu
+	                content: subject.content,  // 🔴 JSON osoa gordetzen duzu
 	                updated_at: new Date().toISOString()
 	            })
 	            .eq('id', subject.id);
 	
 	        if (error) throw error;
 	
-	        console.log("✅ Supabase-n gordeta - context.idujar");
+	        console.log("✅ Supabase-n gordeta - content.idujar");
 	        closeModal();
 	
 	        // 🔴 4. UI FRESKATU
@@ -2835,8 +2835,8 @@ openProjectsSelector() {
         if (isDegree) {
             currentData = this.currentDegree[field] || [];
         } else {
-            // Soporte para datos viejos y nuevos (context)
-            const ctx = this.currentSubject.context || {};
+            // Soporte para datos viejos y nuevos (content)
+            const ctx = this.currentSubject.content || {};
             currentData = ctx[field] || this.currentSubject[field] || [];
         }
 
@@ -3152,7 +3152,7 @@ openProjectsSelector() {
         // Guardar en el objeto Asignatura
         if (!this.currentSubject) return;
         
-        // ✨ ALDAKETA HEMEN: context erabili beharrean, erroan zuzenean
+        // ✨ ALDAKETA HEMEN: content erabili beharrean, erroan zuzenean
         // Datua erroko propietatean gorde
         this.currentSubject[fieldName] = newList;
 
@@ -4200,13 +4200,13 @@ openSignActEditor() {
             // ✨ ALDAKETA PRINCIPAL: erroan gorde
             this.currentSubject[fieldName] = newList;
             
-            // ✨ BATERAGARRIKOTASUNA: context-ean ere (aukerakoa)
-            // Mantener context si otros módulos lo necesitan
+            // ✨ BATERAGARRIKOTASUNA: content-ean ere (aukerakoa)
+            // Mantener content si otros módulos lo necesitan
             if (fieldName === 'idu' || fieldName === 'ods' || fieldName === 'external_projects') {
-                if (!this.currentSubject.context) {
-                    this.currentSubject.context = {};
+                if (!this.currentSubject.content) {
+                    this.currentSubject.content = {};
                 }
-                this.currentSubject.context[fieldName] = newList;
+                this.currentSubject.content[fieldName] = newList;
             }
 
             // Refrescar Detalle Asignatura
@@ -5748,6 +5748,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
