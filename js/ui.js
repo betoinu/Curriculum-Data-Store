@@ -680,37 +680,57 @@ renderSubjectDetail: async (subject, degree) => {
         // 6. KANPO PROIEKTUAK (ExtProy)
         // =========================================================
         const projContainer = document.getElementById('detailExtProy');
-        if (projContainer) {
-            projContainer.innerHTML = '';
-            // ⚠️ ALDAKETA: Context begiratu lehenengo
-            const list = subject.context?.externalProjects || subject.extProy || [];
-            const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) ? window.gradosManager.adminCatalogs.externalProjects : [];
-
-            if (list.length === 0) {
-                projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
-            } else {
-                projContainer.className = "grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2";
-                list.forEach(item => {
-                    const data = resolveData(item, catalog);
-                    if (!data) return;
-
-                    const color = data.color || '#fdba74';
-                    const agent = data.agent || 'Agente ezezaguna';
-                    const name = data.name || 'Izena falta da';
-
-                    projContainer.innerHTML += `
-                        <div class="flex items-center gap-3 p-3 rounded-lg border-l-4 bg-white shadow hover:shadow-md transition w-full group" style="border-left-color: ${color}">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0" style="background-color: ${color}">
-                                <i class="fas fa-building"></i>
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider truncate group-hover:text-gray-700 transition">${agent}</p>
-                                <p class="text-sm font-bold text-gray-800 truncate mt-1">${name}</p>
-                            </div>
-                        </div>`;
-                });
-            }
-        }
+		// Kanpo Proiektuen atala marrazten duen zatia:
+		if (projContainer) {
+		    projContainer.innerHTML = '';
+		    const list = subject.context?.externalProjects || subject.extProy || [];
+		    
+		    // Katalogo globaletik datu osoak (logoa barne) berreskuratu IDaren bidez
+		    const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) 
+		                    ? window.gradosManager.adminCatalogs.externalProjects 
+		                    : [];
+		
+		    if (list.length === 0) {
+		        projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
+		    } else {
+		        projContainer.className = "grid grid-cols-1 gap-2 mt-2"; // Grid sinplea
+		
+		        list.forEach(item => {
+		            // Bilatu katalogoan datu eguneratuak (logoa lortzeko)
+		            let fullData = catalog.find(c => c.id == item.id) || item;
+		            
+		            const hasLogo = !!fullData.logoBase64;
+		            const initials = (fullData.agent || '?').substring(0, 2).toUpperCase();
+		            
+		            // Txartelaren HTMLa
+		            projContainer.innerHTML += `
+		                <div class="flex items-center gap-3 p-2 bg-white rounded border border-gray-100 shadow-sm hover:shadow-md transition">
+		                    
+		                    <div class="w-10 h-10 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
+		                         style="${!hasLogo ? `background-color: ${fullData.color || '#fdba74'}` : 'background-color: white'}">
+		                        
+		                        ${hasLogo ? 
+		                            `<img src="${fullData.logoBase64}" class="w-full h-full object-contain p-0.5" alt="${fullData.agent}">` :
+		                            `<span class="text-white font-bold text-xs">${initials}</span>`
+		                        }
+		                    </div>
+		
+		                    <div class="min-w-0 flex-1 leading-tight">
+		                        <div class="flex justify-between items-start">
+		                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate pr-2">
+		                                ${fullData.agent || 'Agentea'}
+		                            </span>
+		                            ${fullData.type ? `<span class="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full">${fullData.type}</span>` : ''}
+		                        </div>
+		                        <p class="text-xs font-bold text-gray-800 truncate mt-0.5">
+		                            ${fullData.name || 'Izenik gabe'}
+		                        </p>
+		                    </div>
+		                </div>
+		            `;
+		        });
+		    }
+		}
 
         // =========================================================
         // 7. IDU JARRAIBIDEAK (Idujar)
@@ -1551,6 +1571,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
