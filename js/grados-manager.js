@@ -847,361 +847,210 @@ openOdsCatalogEditor() {
     if(inputTop) inputTop.classList.add('hidden');
     if(titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-blue-500"></i> Editatu ODS Katalogoa (Master)`;
     
-    // ODS irudien direktorioa
     const ODS_IMAGE_DIR = 'assets/ods/';
     
-    // Helper: ODS kodea zenbaki bihurtu ordenatzeko
+    // --- HELPERS ---
     const getOdsNumber = (code) => {
-        if (!code) return 0;
+        if (!code) return 999; // Zenbakirik gabe, amaierara
         const match = code.toString().match(/\d+/);
-        return match ? parseInt(match[0], 10) : 0;
+        return match ? parseInt(match[0], 10) : 999;
     };
     
-    // Helper: Zenbakia 2 digitu bihurtu
-    const formatOdsNumber = (num) => {
-        return String(num).padStart(2, '0');
-    };
+    const formatOdsNumber = (num) => String(num).padStart(2, '0');
     
-    // Helper: ODS kodea normalizatu
-    const normalizeOdsCode = (code) => {
-        if (!code) return 'ODS-01';
-        const num = getOdsNumber(code);
-        return `ODS-${formatOdsNumber(num)}`;
-    };
-    
-    // Helper: Irudiaren URL-a lortu
     const getImageUrl = (ods) => {
         const num = getOdsNumber(ods.code);
-        if (num >= 1 && num <= 17) {
-            return `${ODS_IMAGE_DIR}${formatOdsNumber(num)}.png`;
-        }
+        // 1-17 artean badaude, irudi ofiziala, bestela pertsonalizatua edo default
+        if (num >= 1 && num <= 17) return `${ODS_IMAGE_DIR}${formatOdsNumber(num)}.png`;
         return ods.imageUrl || `${ODS_IMAGE_DIR}default.png`;
     };
-    
-    // ODSak zenbakien arabera ordenatu
+
     const sortOdsList = () => {
-        if (this.adminCatalogs.odsList && Array.isArray(this.adminCatalogs.odsList)) {
-            this.adminCatalogs.odsList.sort((a, b) => {
-                return getOdsNumber(a.code) - getOdsNumber(b.code);
-            });
+        if (this.adminCatalogs.odsList?.length) {
+            this.adminCatalogs.odsList.sort((a, b) => getOdsNumber(a.code) - getOdsNumber(b.code));
         }
     };
-    
-    // Renderizar Tabla de Edición MEJORADA
-    const renderTable = () => {
-        // Ordenar ODSak
+
+    // --- INIT CONTAINER (Behin bakarrik) ---
+    // Goiburua eta zerrendaren edukiontzia bereizten ditugu renderra ez apurtzeko
+    container.innerHTML = `
+        <div class="mb-4">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">ODS Katalogoa</h3>
+                    <p class="text-sm text-gray-500" id="odsCounter">Kargatzen...</p>
+                </div>
+                <button id="btnAddOdsMaster" class="text-sm bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 font-bold flex items-center gap-2">
+                    <i class="fas fa-plus"></i> ODS Berria
+                </button>
+            </div>
+            
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-800">
+                <i class="fas fa-info-circle mr-2"></i>
+                ODSak automatikoki ordenatzen dira kodearen arabera. (1-17 Ofizialak).
+            </div>
+
+            <div id="odsTableBody" class="space-y-3 pb-8"></div>
+        </div>
+    `;
+
+    const listBody = document.getElementById('odsTableBody');
+    const counterEl = document.getElementById('odsCounter');
+
+    // --- RENDER TABLE ---
+    const renderTable = (maintainFocusElementId = null) => {
         sortOdsList();
         
-        container.innerHTML = `
-            <div class="mb-6">
-                <!-- TÍTULO Y CONTADOR -->
-                <div class="flex justify-between items-center mb-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">ODS Katalogoa</h3>
-                        <p class="text-sm text-gray-500">
-                            ${this.adminCatalogs.odsList?.length || 0} ODS · Irudiak <code>assets/ods/</code> direktorioan
-                        </p>
-                    </div>
-                    <button id="btnAddOdsMaster" 
-                            class="text-sm bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 font-bold flex items-center gap-2">
-                        <i class="fas fa-plus"></i> ODS Berria
-                    </button>
-                </div>
-                
-                <!-- INFORMACIÓN -->
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                    <div class="flex items-start gap-3">
-                        <i class="fas fa-info-circle text-blue-500 text-lg mt-0.5"></i>
-                        <div class="text-sm">
-                            <p class="font-bold text-blue-800 mb-1">OHARRAK:</p>
-                            <ul class="list-disc list-inside text-blue-700 space-y-1">
-                                <li>ODSak automatikoki ordenatzen dira kodea zenbakiaren arabera (ODS-01, ODS-02...)</li>
-                                <li>Irudiak automatikoki kargatzen dira <code>assets/ods/01.png</code>, <code>02.png</code>...</li>
-                                <li>1etik 17ra bitarteko ODSek irudi ofizialak dituzte</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- TABLA DE ODSs -->
-                <div id="odsTableBody" class="space-y-3"></div>
-                
-                <!-- PIE DE PÁGINA -->
-                <div class="mt-6 pt-4 border-t border-gray-200">
-                    <div class="text-xs text-gray-500 flex flex-wrap gap-4">
-                        <div class="flex items-center gap-2">
-                            <div class="w-10 h-10 rounded border flex items-center justify-center bg-gray-100">
-                                <i class="fas fa-image text-gray-400"></i>
-                            </div>
-                            <span>Irudiak automatikoki konektatuta</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-10 h-10 rounded border flex items-center justify-center bg-blue-100">
-                                <span class="text-xs font-bold text-blue-700">01</span>
-                            </div>
-                            <span>Zenbakiaren arabera ordenatuta</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+        // Eguneratu kontagailua
+        const total = this.adminCatalogs.odsList?.length || 0;
+        counterEl.innerHTML = `${total} ODS · Irudiak <code>assets/ods/</code> direktorioan`;
 
-        const body = document.getElementById('odsTableBody');
-        
-        // Egiaztatu array-a existitzen dela
-        if (!this.adminCatalogs.odsList || this.adminCatalogs.odsList.length === 0) {
-            body.innerHTML = `
-                <div class="text-center py-12 text-gray-400">
-                    <i class="fas fa-globe-americas text-4xl mb-3 text-blue-200"></i>
-                    <p class="text-lg font-medium text-gray-500">Ez dago ODSik katalogoan</p>
-                    <p class="text-sm mt-2">Sakatu "ODS Berria" lehenengoa sortzeko</p>
-                </div>
-            `;
-        } else {
-            // Renderizar cada ODS ordenado
-            this.adminCatalogs.odsList.forEach((ods, index) => {
-                const odsNumber = getOdsNumber(ods.code);
-                const formattedNumber = formatOdsNumber(odsNumber);
-                const imageUrl = getImageUrl(ods);
-                const isOfficialOds = odsNumber >= 1 && odsNumber <= 17;
-                
-                const row = document.createElement('div');
-                row.className = "flex flex-col sm:flex-row gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow";
-                
-                row.innerHTML = `
-                    <!-- COLUMNA IZQUIERDA: IMAGEN Y COLOR -->
-                    <div class="flex flex-col items-center gap-3 sm:w-1/4">
-                        <!-- IMAGEN ODS -->
-                        <div class="relative group">
-                            <div class="w-24 h-24 rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm bg-white">
-                                <img src="${imageUrl}" 
-                                     alt="ODS ${formattedNumber}" 
-                                     class="w-full h-full object-cover ods-image"
-                                     data-index="${index}"
-                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                />
-                                <div class="hidden w-full h-full bg-gradient-to-br ${odsNumber >= 1 && odsNumber <= 17 ? 'from-blue-100 to-blue-50' : 'from-gray-100 to-gray-50'} items-center justify-center text-2xl font-bold text-gray-700">
-                                    ${formattedNumber}
-                                </div>
-                            </div>
-                            <div class="mt-2 text-center">
-                                <span class="text-xs font-bold text-gray-700">${ods.code}</span>
-                                ${isOfficialOds ? 
-                                    `<span class="ml-2 text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Ofiziala</span>` : 
-                                    `<span class="ml-2 text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Pertsonalizatua</span>`
-                                }
-                            </div>
-                        </div>
-                        
-                        <!-- SELECTOR DE COLOR -->
-                        <div class="w-full">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">Kolorea:</label>
-                            <div class="flex items-center gap-2">
-                                <input type="color" 
-                                       class="w-10 h-10 p-0 border border-gray-300 rounded-lg cursor-pointer field-color" 
-                                       value="${ods.color || '#3b82f6'}" 
-                                       title="Aldatu kolorea">
-                                <span class="text-xs text-gray-600 font-mono field-color-value">${ods.color || '#3b82f6'}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- COLUMNA DERECHA: DATOS EDITABLES -->
-                    <div class="flex-1">
-                        <!-- CÓDIGO ODS -->
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">ODS kodea:</label>
-                            <div class="flex items-center gap-2">
-                                <span class="text-sm font-bold text-gray-500">ODS-</span>
-                                <input type="number" 
-                                       min="1" 
-                                       max="99" 
-                                       class="w-20 text-lg font-bold text-gray-800 border-b-2 border-blue-200 focus:border-blue-500 focus:ring-0 outline-none text-center field-number" 
-                                       value="${odsNumber || 1}"
-                                       placeholder="01">
-                                <span class="text-xs text-gray-500">(1-99)</span>
-                            </div>
-                        </div>
-                        
-                        <!-- NOMBRE -->
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">Izena:</label>
-                            <input type="text" 
-                                   class="w-full text-base text-gray-800 border-b border-gray-300 focus:border-blue-500 focus:ring-0 outline-none p-1 field-name" 
-                                   value="${ods.name || ''}" 
-                                   placeholder="ODSaren izena...">
-                        </div>
-                        
-                        <!-- DESCRIPCIÓN (opcional) -->
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">Deskribapena (aukerakoa):</label>
-                            <textarea rows="2" 
-                                      class="w-full text-sm text-gray-600 border border-gray-300 rounded p-2 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none field-description"
-                                      placeholder="Deskribapen gehigarria...">${ods.description || ''}</textarea>
-                        </div>
-                        
-                        <!-- URL IMAGEN PERSONALIZADA -->
-                        <div class="mb-4">
-                            <label class="block text-xs font-bold text-gray-700 mb-1">Irudi pertsonalizatua (aukerakoa):</label>
-                            <div class="flex gap-2">
-                                <input type="text" 
-                                       class="flex-1 text-sm text-gray-600 border border-gray-300 rounded p-2 focus:border-blue-500 outline-none field-image-url" 
-                                       value="${ods.imageUrl || ''}" 
-                                       placeholder="https://... edo assets/ods/nire-irudia.png">
-                                <button class="btn-upload-image text-xs bg-gray-100 text-gray-700 px-3 py-2 rounded border border-gray-300 hover:bg-gray-200" 
-                                        data-index="${index}">
-                                    <i class="fas fa-upload mr-1"></i> Kargatu
-                                </button>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1">
-                                Utzi hutsik automatikoki <code>assets/ods/${formattedNumber}.png</code> erabiltzeko
-                            </p>
-                        </div>
-                        
-                        <!-- BOTONES DE ACCIÓN -->
-                        <div class="flex justify-between items-center pt-3 border-t border-gray-200">
-                            <div class="text-xs text-gray-500">
-                                ${odsNumber >= 1 && odsNumber <= 17 ? 
-                                    `<i class="fas fa-check-circle text-green-500 mr-1"></i> ODS ofiziala` : 
-                                    `<i class="fas fa-user-edit text-blue-500 mr-1"></i> ODS pertsonalizatua`
-                                }
-                            </div>
-                            <button class="btn-delete text-sm text-gray-600 hover:text-red-600 transition px-3 py-1.5 border border-gray-300 hover:border-red-300 rounded-lg" 
-                                    data-index="${index}">
-                                <i class="fas fa-trash mr-1"></i> Ezabatu
-                            </button>
-                        </div>
-                    </div>
-                `;
+        listBody.innerHTML = ''; // Zerrenda garbitu
 
-                // Eventos de edición en tiempo real
-                const updateLocal = () => {
-                    if (this.adminCatalogs.odsList[index]) {
-                        // Actualizar número del código
-                        const numberInput = row.querySelector('.field-number');
-                        const newNumber = parseInt(numberInput.value) || 1;
-                        this.adminCatalogs.odsList[index].code = `ODS-${formatOdsNumber(newNumber)}`;
-                        
-                        // Actualizar otros campos
-                        this.adminCatalogs.odsList[index].color = row.querySelector('.field-color').value;
-                        this.adminCatalogs.odsList[index].name = row.querySelector('.field-name').value;
-                        this.adminCatalogs.odsList[index].description = row.querySelector('.field-description').value;
-                        this.adminCatalogs.odsList[index].imageUrl = row.querySelector('.field-image-url').value;
-                        
-                        // Actualizar visualización del color
-                        row.querySelector('.field-color-value').textContent = row.querySelector('.field-color').value;
-                        
-                        // Re-renderizar si cambia el número (para reordenar)
-                        if (newNumber !== odsNumber) {
-                            setTimeout(renderTable, 300);
-                        }
-                    }
-                };
-
-                // Listeners para todos los campos
-                row.querySelectorAll('input, textarea').forEach(i => {
-                    i.oninput = updateLocal;
-                    i.onchange = updateLocal;
-                });
-                
-                // Listener específico para el color
-                const colorInput = row.querySelector('.field-color');
-                colorInput.addEventListener('input', (e) => {
-                    updateLocal();
-                    row.querySelector('.field-color-value').textContent = e.target.value;
-                });
-                
-                // Botón eliminar
-                row.querySelector('.btn-delete').addEventListener('click', () => {
-                    if(confirm(`Ziur "${ods.code}" ODSa ezabatu nahi duzula?\n\nBehin ezabatuta, ezin izango da berreskuratu.`)) {
-                        this.adminCatalogs.odsList.splice(index, 1);
-                        renderTable();
-                    }
-                });
-                
-                // Botón subir imagen
-                row.querySelector('.btn-upload-image').addEventListener('click', () => {
-                    this._openImageUploadDialog(index, 'ods');
-                });
-
-                body.appendChild(row);
-            });
+        if (total === 0) {
+            listBody.innerHTML = `<div class="text-center py-8 text-gray-400">Ez dago ODSik.</div>`;
+            return;
         }
 
-        // Botón añadir nuevo ODS
-        document.getElementById('btnAddOdsMaster').onclick = () => {
-            if (!this.adminCatalogs.odsList) {
-                this.adminCatalogs.odsList = [];
-            }
+        this.adminCatalogs.odsList.forEach((ods, index) => {
+            const odsNumber = getOdsNumber(ods.code);
+            const formattedNumber = formatOdsNumber(odsNumber);
+            const imageUrl = getImageUrl(ods);
+            const isOfficial = odsNumber >= 1 && odsNumber <= 17;
             
-            // Encontrar el siguiente número disponible
-            let nextNumber = 1;
-            const existingNumbers = this.adminCatalogs.odsList.map(ods => getOdsNumber(ods.code));
-            if (existingNumbers.length > 0) {
-                nextNumber = Math.max(...existingNumbers) + 1;
-            }
+            // Elementua sortu
+            const row = document.createElement('div');
+            row.className = "flex flex-col sm:flex-row gap-4 p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-blue-300 transition-colors group";
             
-            const newOds = { 
-                code: `ODS-${formatOdsNumber(nextNumber)}`, 
-                name: 'ODS Berria', 
-                color: '#3b82f6',
-                description: '',
-                imageUrl: ''
-            };
-            
-            this.adminCatalogs.odsList.push(newOds);
-            renderTable();
-            
-            // Hacer scroll al final y enfocar
-            setTimeout(() => {
-                const lastRow = body.lastElementChild;
-                if (lastRow) {
-                    lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    const nameInput = lastRow.querySelector('.field-name');
-                    if (nameInput) nameInput.focus();
+            row.innerHTML = `
+                <div class="flex flex-col items-center gap-3 sm:w-24 flex-shrink-0">
+                    <div class="w-20 h-20 rounded-lg border border-gray-200 overflow-hidden bg-white relative">
+                        <img src="${imageUrl}" class="w-full h-full object-cover" onerror="this.src='${ODS_IMAGE_DIR}default.png'">
+                        <div class="absolute bottom-0 right-0 bg-blue-600 text-white text-[10px] px-1.5 font-bold rounded-tl">
+                            ${formattedNumber}
+                        </div>
+                    </div>
+                    <input type="color" class="w-full h-6 p-0 border border-gray-300 rounded cursor-pointer field-color" 
+                           value="${ods.color || '#3b82f6'}" title="Kolorea">
+                </div>
+                
+                <div class="flex-1 space-y-3">
+                    <div class="flex gap-4">
+                        <div class="w-24">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">Zenbakia</label>
+                            <input type="number" min="1" max="99" 
+                                   class="w-full text-lg font-bold text-gray-800 border-b-2 border-blue-100 focus:border-blue-500 outline-none field-number" 
+                                   value="${odsNumber}" id="ods-num-${index}">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase">Izena</label>
+                            <input type="text" class="w-full text-base font-medium text-gray-800 border-b border-gray-200 focus:border-blue-500 outline-none field-name" 
+                                   value="${ods.name || ''}" placeholder="ODS Izena" id="ods-name-${index}">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase">Irudi URL (Aukerakoa)</label>
+                        <input type="text" class="w-full text-xs text-gray-500 border-b border-gray-200 focus:border-blue-500 outline-none field-image" 
+                               value="${ods.imageUrl || ''}" placeholder="Utzi hutsik automatikorako...">
+                    </div>
+
+                    <div class="flex justify-between items-end pt-2">
+                        <span class="text-[10px] px-2 py-0.5 rounded-full ${isOfficial ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                            ${isOfficial ? 'Ofiziala' : 'Pertsonalizatua'}
+                        </span>
+                        <button class="text-gray-400 hover:text-red-500 transition text-sm btn-delete" title="Ezabatu">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // EVENTS
+            const updateData = (refreshSort = false) => {
+                const newNum = parseInt(row.querySelector('.field-number').value) || 0;
+                
+                // Datuak eguneratu
+                this.adminCatalogs.odsList[index].code = `ODS-${formatOdsNumber(newNum)}`;
+                this.adminCatalogs.odsList[index].name = row.querySelector('.field-name').value;
+                this.adminCatalogs.odsList[index].color = row.querySelector('.field-color').value;
+                this.adminCatalogs.odsList[index].imageUrl = row.querySelector('.field-image').value;
+
+                // Ordena aldatu bada, taula berritu (baina 'change' gertaeran bakarrik)
+                if (refreshSort && newNum !== odsNumber) {
+                    renderTable();
                 }
-            }, 100);
-        };
+            };
+
+            // Input Events
+            // 1. Zenbakia: 'change' erabiltzen dugu 'input' ordez, idazten den bitartean ez saltatzeko
+            row.querySelector('.field-number').addEventListener('change', () => updateData(true));
+            
+            // 2. Besteak: 'input' erabil dezakegu
+            row.querySelector('.field-name').addEventListener('input', () => updateData(false));
+            row.querySelector('.field-image').addEventListener('input', () => updateData(false));
+            row.querySelector('.field-color').addEventListener('input', () => updateData(false));
+
+            // Delete
+            row.querySelector('.btn-delete').addEventListener('click', () => {
+                if(confirm("Ezabatu ODS hau?")) {
+                    this.adminCatalogs.odsList.splice(index, 1);
+                    renderTable();
+                }
+            });
+
+            listBody.appendChild(row);
+            
+            // Fokua berreskuratu (Render ondoren galdu bada)
+            if (maintainFocusElementId && maintainFocusElementId === `ods-num-${index}`) {
+                const input = document.getElementById(maintainFocusElementId);
+                if(input) input.focus();
+            }
+        });
     };
 
-    // Función auxiliar para subir imágenes (placeholder)
-    this._openImageUploadDialog = (index, type) => {
-        console.log(`Subir imagen para ${type} en índice ${index}`);
-        // TODO: Implementar lógica de subida de imágenes
-        alert('Irudi kargatzea ez dago inplementatuta oraindik.\n\nErabili "Irudi pertsonalizatua" eremuan URL bat sartzeko.');
+    // --- BUTTON HANDLER (Kanpoan definituta) ---
+    document.getElementById('btnAddOdsMaster').onclick = () => {
+        if (!this.adminCatalogs.odsList) this.adminCatalogs.odsList = [];
+        
+        // Hurrengo zenbakia kalkulatu
+        const maxNum = this.adminCatalogs.odsList.reduce((max, item) => Math.max(max, getOdsNumber(item.code)), 0);
+        
+        this.adminCatalogs.odsList.push({
+            // IDrik gabe sortzen dugu, Supabasek jarriko du
+            code: `ODS-${formatOdsNumber(maxNum + 1)}`,
+            name: '',
+            color: '#94a3b8'
+        });
+        
+        renderTable();
+        // Scroll behera
+        setTimeout(() => listBody.lastElementChild?.scrollIntoView({ behavior: 'smooth' }), 100);
     };
 
+    // Render Inicial
     renderTable();
 
-    // GUARDADO A SUPABASE
+    // --- SAVE LOGIC ---
     const saveBtn = this._setupSaveButtonRaw(modal);
     saveBtn.onclick = async () => {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
         try {
-            // Validar antes de guardar
-            const invalidItems = this.adminCatalogs.odsList.filter(item => 
-                !item.code || !item.name
-            );
-            
-            if (invalidItems.length > 0) {
-                throw new Error(`${invalidItems.length} ODS datu faltak dituzte. Bete kodea eta izena guztietan.`);
-            }
-            
-            // Ordenar antes de guardar
-            sortOdsList();
-            
-            // Upsert a Supabase
+            // IDak mantendu behar dira 'upsert' ondo egiteko
+            // Supabasek IDaren arabera eguneratuko du, ez Code-aren arabera (seguruagoa)
             const { error } = await this.supabase
                 .from('catalog_ods')
-                .upsert(this.adminCatalogs.odsList, { onConflict: 'code' });
+                .upsert(this.adminCatalogs.odsList); 
 
             if (error) throw error;
             
-            alert("✅ ODS Katalogoa eguneratuta!");
+            alert("✅ ODS Katalogoa gordeta!");
             modal.classList.add('hidden');
+            this.loadCatalogs(); // Datuak birkargatu ID berriak lortzeko
+
         } catch (e) {
             console.error(e);
-            alert("❌ Errorea gordetzerakoan: " + e.message);
+            alert("Errorea: " + e.message);
         } finally {
             saveBtn.innerHTML = 'Gorde Aldaketak';
         }
@@ -1209,6 +1058,7 @@ openOdsCatalogEditor() {
 
     modal.classList.remove('hidden');
 }
+	
 // Helper simple para limpiar bot¨®n guardar
 _setupSaveButtonRaw(modal) {
     const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
@@ -5300,6 +5150,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
