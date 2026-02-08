@@ -1956,49 +1956,68 @@ openIduSelector() {
     content.querySelector('#cancelIdu').onclick = closeModal;
 
     // GORDE LOGIKA (Bakarrik idujar)
-    finishBtn.onclick = async () => {
-        finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        finishBtn.disabled = true;
-
-        try {
-            const newSelection = Array.from(selectedIds).map(id => {
-                const item = getFullObject(id);
-                return {
-                    id: item.id,
-                    code: item.code,
-                    name: item.name,
-                    range: item.range,
-                    iduCode: item.code
-                };
-            }).filter(Boolean);
-
-            subject.content.idujar = newSelection;
-
-            const { error } = await this.supabase
-                .from('irakasgaiak')
-                .update({ 
-                    content: subject.content,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', subject.id);
-
-            if (error) throw error;
-
-            closeModal();
-
-            if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-                window.ui.renderSubjectDetail(subject, this.currentDegree);
-            } else {
-                window.location.reload();
-            }
-
-        } catch (error) {
-            console.error("❌ Errorea:", error);
-            alert("Errorea: " + error.message);
-            finishBtn.innerHTML = 'Saiatu berriro';
-            finishBtn.disabled = false;
-        }
-    };
+	// Zure `openIduSelector()`-en, GEHITU HAU BAKARRIK:
+	finishBtn.onclick = async () => {
+	    finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+	    finishBtn.disabled = true;
+	
+	    try {
+	        const newSelection = Array.from(selectedIds).map(id => {
+	            const item = getFullObject(id);
+	            return {
+	                id: item.id,
+	                code: item.code,
+	                name: item.name,
+	                range: item.range,
+	                iduCode: item.code
+	            };
+	        }).filter(Boolean);
+	
+	        // 🔴 1. JSON EGUNERATU - ZURE LEKU ZUZENEAN
+	        if (!subject.context) subject.context = {};
+	        subject.context.idujar = newSelection;  // 🔴 HAU DA ZURE ERABILTZEN DUZUENA!
+	        
+	        // 🔴 2. MEMORIA OSOA EGUNERATU
+	        if (this.currentDegreeData) {
+	            const subjectIndex = this.currentDegreeData.findIndex(
+	                s => s.idAsig === subject.idAsig
+	            );
+	            
+	            if (subjectIndex !== -1) {
+	                if (!this.currentDegreeData[subjectIndex].context) {
+	                    this.currentDegreeData[subjectIndex].context = {};
+	                }
+	                this.currentDegreeData[subjectIndex].context.idujar = newSelection;
+	                console.log("✅ Memoria eguneratuta - context.idujar");
+	            }
+	        }
+	
+	        // 🔴 3. SUPABASE-N GORDE (ZUZENEAN)
+	        const { error } = await this.supabase
+	            .from('irakasgaiak')
+	            .update({ 
+	                context: subject.context,  // 🔴 JSON osoa gordetzen duzu
+	                updated_at: new Date().toISOString()
+	            })
+	            .eq('id', subject.id);
+	
+	        if (error) throw error;
+	
+	        console.log("✅ Supabase-n gordeta - context.idujar");
+	        closeModal();
+	
+	        // 🔴 4. UI FRESKATU
+	        if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
+	            window.ui.renderSubjectDetail(subject, this.currentDegree);
+	        }
+	
+	    } catch (error) {
+	        console.error("❌ Errorea:", error);
+	        alert("Errorea: " + error.message);
+	        finishBtn.innerHTML = 'Saiatu berriro';
+	        finishBtn.disabled = false;
+	    }
+	};
 
     setTimeout(() => searchInput.focus(), 50);
 }
@@ -5729,6 +5748,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
