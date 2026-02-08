@@ -2259,12 +2259,11 @@ openProjectsCatalogEditor() {
         }
     };
 
-    // --- 3. RENDER TABLE (BERRIA ETA SINPLIFIKATUA) ---
+// --- 3. RENDER TABLE (ALDAKETEKIN) ---
     const renderTable = () => {
         const container = document.getElementById('catalogListContainer');
         container.innerHTML = '';
-		const cacheBuster = Date.now(); // Cache busting timestamp
-		
+
         if (this.adminCatalogs.externalProjects.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-16 text-gray-400">
@@ -2279,13 +2278,15 @@ openProjectsCatalogEditor() {
         const typeColorMap = {};
         tiposUnicos.forEach(t => typeColorMap[t] = getColorForType(t));
 
+        // Cachea saihesteko aldagaia behin definitu render bakoitzean
+        const cacheBuster = Date.now();
+
         this.adminCatalogs.externalProjects.forEach((item, index) => {
             const row = document.createElement('div');
             row.className = 'project-row-item bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3 flex items-center gap-4 group hover:shadow-md transition-all duration-200';
             
-            // Bidea kalkulatu
-            const timestamp = Date.now(); // gehitu renderTable() funtzioaren hasieran
-			const logoPath = item.logoFileName ? `assets/logos/${item.logoFileName}?v=${cacheBuster}` : null;
+            // Bidea kalkulatu (cacheBuster erabiliz)
+            const logoPath = item.logoFileName ? `assets/logos/${item.logoFileName}?v=${cacheBuster}` : null;
             const initials = (item.agent || '?').substring(0, 2).toUpperCase();
             const itemColor = typeColorMap[item.type] || item.color || '#6366f1';
 
@@ -2341,7 +2342,8 @@ openProjectsCatalogEditor() {
             `;
             container.appendChild(row);
 
-            // Event Listeners
+            // --- EVENT LISTENERS ---
+            
             const updateData = (e, field) => {
                 const idx = parseInt(e.target.dataset.index);
                 const val = e.target.value;
@@ -2356,10 +2358,10 @@ openProjectsCatalogEditor() {
                     const span = row.querySelector('.logo-preview span');
                     if(val) {
                         if(img) { 
-                            img.src = `assets/logos/${val}`; 
+                            img.src = `assets/logos/${val}?v=${Date.now()}`; 
                             img.style.display = 'block'; 
                             if(span) span.style.display = 'none';
-                        } else { renderTable(); } // Irudiaren taga ez bazegoen, birkargatu
+                        } else { renderTable(); } 
                     } else {
                         if(img) img.style.display = 'none';
                         if(span) span.style.display = 'block';
@@ -2372,23 +2374,27 @@ openProjectsCatalogEditor() {
                 else if (field === 'color') {
                     project.color = val;
                     row.querySelector('.logo-preview').style.backgroundColor = val;
-                    // Sinkronizazioa (aukerakoa)
-				    const currentType = project.type;
-				    if (currentType && currentType.trim() !== '') {
-				        // 1. Eguneratu proiektu guztiak mota berekoak
-				        this.adminCatalogs.externalProjects.forEach(p => {
-				            if (p.type === currentType) {
-				                p.color = val;
-				            }
-				        });
-				        
-				        // 2. Taula freskatu koloreak guztietan ikusteko
-				        setTimeout(() => {
-				            renderTable();
-				        }, 50);
-				    }
-				}
+                    
+                    // Kolore sinkronizazioa
+                    const currentType = project.type;
+                    if (currentType && currentType.trim() !== '') {
+                        // 1. Eguneratu proiektu guztiak mota berekoak
+                        this.adminCatalogs.externalProjects.forEach(p => {
+                            if (p.type === currentType) {
+                                p.color = val;
+                            }
+                        });
+                        
+                        // 2. Taula freskatu (debounce txiki batekin)
+                        if(row.renderTimeout) clearTimeout(row.renderTimeout);
+                        row.renderTimeout = setTimeout(() => {
+                            renderTable();
+                        }, 500); // 500ms itxaron erabiltzaileak kolorea aukeratzen amaitu dezan
+                    }
+                }
+            }; // <--- HEMEN FALTA ZEN GILTZA IXTEA
 
+            // Input listenerrak esleitu
             row.querySelectorAll('input').forEach(input => {
                 if(input.classList.contains('field-agent')) input.oninput = (e) => updateData(e, 'agent');
                 if(input.classList.contains('field-logo-name')) input.oninput = (e) => updateData(e, 'logoFileName');
@@ -2397,15 +2403,16 @@ openProjectsCatalogEditor() {
                 if(input.classList.contains('field-color')) input.oninput = (e) => updateData(e, 'color');
             });
 
-			row.querySelector('.field-logo-name').addEventListener('blur', (e) => {
-			    const val = e.target.value;
-			    if (val && !/\.(png|jpg|jpeg|svg|webp|gif)$/i.test(val)) {
-			        alert("Mesedez, erabili formato hauetan: .png, .jpg, .jpeg, .svg, .webp edo .gif");
-			        e.target.focus();
-			        e.target.select();
-			    }
-			});
+            // Luzapen balidazioa (Blur egitean)
+            row.querySelector('.field-logo-name').addEventListener('blur', (e) => {
+                const val = e.target.value;
+                if (val && !/\.(png|jpg|jpeg|svg|webp|gif)$/i.test(val)) {
+                    alert("Mesedez, erabili formato hauetan: .png, .jpg, .jpeg, .svg, .webp edo .gif");
+                    e.target.focus();
+                }
+            });
 
+            // Ezabatu botoia
             row.querySelector('.btn-delete').onclick = () => {
                 if(confirm("Ziur ezabatu?")) {
                     this.adminCatalogs.externalProjects.splice(index, 1);
@@ -2417,7 +2424,7 @@ openProjectsCatalogEditor() {
     };
 
     renderTable();
-
+	
     // --- 4. BOTOIEN KUDEAKETA ---
 
     // Gehitu Proiektua
@@ -5740,6 +5747,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
