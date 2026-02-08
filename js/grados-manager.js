@@ -1126,114 +1126,316 @@ openOdsSelector(subject) {
     }
 	
 	// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO IDU (Para el Sidebar - Master)
-    openIduCatalogEditor() {
-        const modal = document.getElementById('listEditorModal');
-        const container = document.getElementById('listEditorContainer');
-        const titleEl = document.getElementById('listEditorTitle');
-        const inputTop = document.getElementById('newItemInput')?.parentElement;
+openIduCatalogEditor() {
+    const modal = document.getElementById('listEditorModal');
+    const container = document.getElementById('listEditorContainer');
+    const titleEl = document.getElementById('listEditorTitle');
+    const inputTop = document.getElementById('newItemInput')?.parentElement;
+    
+    // Configuración visual
+    if(inputTop) inputTop.classList.add('hidden');
+    if(titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-yellow-500"></i> Editatu IDU Katalogoa (Master)`;
+    
+    // Variables para filtrado
+    let currentFilter = 'GUZTIAK'; // 'GUZTIAK', 'IRUDIKAPENA', 'EKINTZA', 'INPLIKAZIOA'
+    let currentSearch = '';
+    
+    // Renderizar Tabla de Edición CON FILTROS
+    const renderTable = () => {
+        // 1. FILTRAR los items según búsqueda y categoría
+        const filteredItems = this.adminCatalogs.iduGuidelines.filter(item => {
+            // Filtro por categoría
+            const categoryMatch = 
+                currentFilter === 'GUZTIAK' || 
+                (item.range && item.range.includes(currentFilter.split(' ')[0]));
+            
+            // Filtro por búsqueda
+            const searchMatch = !currentSearch || 
+                (item.code && item.code.toLowerCase().includes(currentSearch.toLowerCase())) ||
+                (item.name && item.name.toLowerCase().includes(currentSearch.toLowerCase())) ||
+                (item.range && item.range.toLowerCase().includes(currentSearch.toLowerCase()));
+            
+            return categoryMatch && searchMatch;
+        });
         
-        // Configuraci¨®n visual
-        if(inputTop) inputTop.classList.add('hidden');
-        if(titleEl) titleEl.innerHTML = `<i class="fas fa-edit mr-2 text-yellow-500"></i> Editatu IDU Katalogoa (Master)`;
-        
-        // Renderizar Tabla de Edici¨®n
-        const renderTable = () => {
-            container.innerHTML = `
-                <div class="flex justify-between items-center mb-3">
-                    <span class="text-xs text-gray-500 italic">Aldaketak katalogo orokorrean gordeko dira.</span>
-                    <button id="btnAddIduMaster" class="text-xs bg-yellow-50 text-yellow-600 px-3 py-1 rounded border border-yellow-200 hover:bg-yellow-100 font-bold">
-                        + IDU Pauta Berria
+        container.innerHTML = `
+            <div class="mb-4 space-y-3">
+                <!-- FILTROS Y BÚSQUEDA -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <!-- BUSCADOR -->
+                    <div class="flex-1">
+                        <div class="relative">
+                            <input type="text" 
+                                   id="iduSearchInput" 
+                                   placeholder="Bilatu IDU kodea edo izenarekin..."
+                                   class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 outline-none"
+                                   value="${currentSearch}">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            ${currentSearch ? `
+                                <button id="clearSearch" class="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <!-- FILTRO CATEGORÍAS -->
+                    <div class="flex gap-1">
+                        <button class="filter-btn ${currentFilter === 'GUZTIAK' ? 'bg-yellow-500 text-white' : 'bg-gray-100 text-gray-700'} px-3 py-2 text-xs font-bold rounded-lg transition-colors" 
+                                data-filter="GUZTIAK">
+                            Guztiak
+                        </button>
+                        <button class="filter-btn ${currentFilter === 'IRUDIKAPENA' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-700'} px-3 py-2 text-xs font-bold rounded-lg transition-colors" 
+                                data-filter="IRUDIKAPENA">
+                            Irudikapena
+                        </button>
+                        <button class="filter-btn ${currentFilter === 'EKINTZA' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'} px-3 py-2 text-xs font-bold rounded-lg transition-colors" 
+                                data-filter="EKINTZA">
+                            Ekintza
+                        </button>
+                        <button class="filter-btn ${currentFilter === 'INPLIKAZIOA' ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-700'} px-3 py-2 text-xs font-bold rounded-lg transition-colors" 
+                                data-filter="INPLIKAZIOA">
+                            Inplikazioa
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- CONTADOR Y ESTADÍSTICAS -->
+                <div class="flex flex-wrap justify-between items-center text-xs text-gray-600">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold">${filteredItems.length} / ${this.adminCatalogs.iduGuidelines.length} IDU</span>
+                        <div class="flex gap-2">
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                                <span>${this.adminCatalogs.iduGuidelines.filter(i => i.range && i.range.includes('IRUDIKAPENA')).length} Irudikapena</span>
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                                <span>${this.adminCatalogs.iduGuidelines.filter(i => i.range && i.range.includes('EKINTZA')).length} Ekintza</span>
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                <span>${this.adminCatalogs.iduGuidelines.filter(i => i.range && i.range.includes('INPLIKAZIOA')).length} Inplikazioa</span>
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <button id="btnAddIduMaster" 
+                            class="text-xs bg-yellow-50 text-yellow-600 px-3 py-1.5 rounded-lg border border-yellow-200 hover:bg-yellow-100 font-bold flex items-center gap-2">
+                        <i class="fas fa-plus"></i> IDU Pauta Berria
                     </button>
                 </div>
-                <div id="iduTableBody" class="space-y-3 pb-4"></div>
-            `;
-
-            const body = document.getElementById('iduTableBody');
+            </div>
             
-            // Usamos el cat¨¢logo cargado en memoria
-            this.adminCatalogs.iduGuidelines.forEach((item, index) => {
+            <!-- TABLA DE IDUs -->
+            <div id="iduTableBody" class="space-y-3 pb-4">
+                ${filteredItems.length === 0 ? `
+                    <div class="text-center py-10 text-gray-400">
+                        <i class="fas fa-search text-2xl mb-2"></i>
+                        <p class="text-sm">Ez da IDUrik aurkitu</p>
+                        <p class="text-xs mt-1">${currentSearch ? 'Saiatu beste bilaketa bat' : 'Erabili "+ IDU Pauta Berria" botoia'}</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        const body = document.getElementById('iduTableBody');
+        
+        // 2. RENDERIZAR items filtrados
+        if (filteredItems.length > 0) {
+            filteredItems.forEach((item, originalIndex) => {
+                // Encontrar índice original en el array completo
+                const globalIndex = this.adminCatalogs.iduGuidelines.findIndex(i => i === item);
+                
                 const row = document.createElement('div');
-                row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group";
+                
+                // Determinar color según categoría
+                let borderColor = 'border-gray-200';
+                let bgColor = 'bg-white';
+                if (item.range && item.range.includes('IRUDIKAPENA')) {
+                    borderColor = 'border-l-4 border-l-purple-400';
+                    bgColor = 'bg-purple-50/30';
+                } else if (item.range && item.range.includes('EKINTZA')) {
+                    borderColor = 'border-l-4 border-l-blue-400';
+                    bgColor = 'bg-blue-50/30';
+                } else if (item.range && item.range.includes('INPLIKAZIOA')) {
+                    borderColor = 'border-l-4 border-l-emerald-400';
+                    bgColor = 'bg-emerald-50/30';
+                }
+                
+                row.className = `flex flex-col gap-2 p-3 ${bgColor} border ${borderColor} rounded shadow-sm relative group transition-all hover:shadow-md`;
                 
                 row.innerHTML = `
-                    <div class="flex gap-2">
-                        <input type="text" class="w-20 text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-yellow-500 outline-none field-code" 
-                               value="${item.code}" placeholder="Kodea">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <!-- CÓDIGO -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-gray-500">Kodea:</span>
+                            <input type="text" 
+                                   class="w-24 text-sm font-bold text-gray-700 border-b border-gray-300 focus:border-yellow-500 outline-none bg-transparent field-code" 
+                                   value="${item.code || ''}" 
+                                   placeholder="IDU-XX">
+                        </div>
                         
-                        <select class="flex-1 text-xs text-gray-500 border-b border-gray-200 focus:border-yellow-500 outline-none bg-transparent field-range">
-                            <option value="IRUDIKAPENA (Zer Ikasi)">IRUDIKAPENA (Zer Ikasi)</option>
-                            <option value="EKINTZA ETA ADIERAZPENA (Nola Ikasi)">EKINTZA ETA ADIERAZPENA (Nola Ikasi)</option>
-                            <option value="INPLIKAZIOA (Zergatik Ikasi)">INPLIKAZIOA (Zergatik Ikasi)</option>
-                        </select>
+                        <!-- CATEGORÍA -->
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-gray-500">Kategoria:</span>
+                            <select class="text-sm text-gray-600 border-b border-gray-300 focus:border-yellow-500 outline-none bg-transparent field-range">
+                                <option value="IRUDIKAPENA (Zer Ikasi)">IRUDIKAPENA (Zer Ikasi)</option>
+                                <option value="EKINTZA ETA ADIERAZPENA (Nola Ikasi)">EKINTZA ETA ADIERAZPENA (Nola Ikasi)</option>
+                                <option value="INPLIKAZIOA (Zergatik Ikasi)">INPLIKAZIOA (Zergatik Ikasi)</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <textarea rows="2" class="w-full text-sm text-gray-600 border border-gray-100 rounded p-1 focus:border-yellow-500 outline-none resize-none field-name"
-                              placeholder="Deskribapena...">${item.name}</textarea>
+                    <!-- DESCRIPCIÓN -->
+                    <div>
+                        <span class="text-xs font-bold text-gray-500 block mb-1">Deskribapena:</span>
+                        <textarea rows="3" 
+                                  class="w-full text-sm text-gray-700 border border-gray-200 rounded p-2 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 outline-none resize-none field-name bg-white"
+                                  placeholder="IDUaren deskribapena sartu...">${item.name || ''}</textarea>
+                    </div>
 
-                    <button class="absolute top-2 right-2 text-gray-200 hover:text-red-500 transition btn-delete" title="Ezabatu">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                    <!-- BOTONES DE ACCIÓN -->
+                    <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <div class="text-xs text-gray-500">
+                            ${item.range || 'Kategoria zehaztu gabe'}
+                        </div>
+                        <button class="btn-delete text-gray-300 hover:text-red-500 transition px-3 py-1 text-sm" 
+                                title="Ezabatu">
+                            <i class="fas fa-trash mr-1"></i> Ezabatu
+                        </button>
+                    </div>
                 `;
 
                 // Setear valor del select
-                row.querySelector('.field-range').value = item.range;
+                const rangeSelect = row.querySelector('.field-range');
+                if (rangeSelect && item.range) {
+                    rangeSelect.value = item.range;
+                }
 
-                // Eventos de edici¨®n en tiempo real
+                // Eventos de edición en tiempo real
                 const updateLocal = () => {
-                    this.adminCatalogs.iduGuidelines[index].code = row.querySelector('.field-code').value;
-                    this.adminCatalogs.iduGuidelines[index].range = row.querySelector('.field-range').value;
-                    this.adminCatalogs.iduGuidelines[index].name = row.querySelector('.field-name').value;
+                    if (globalIndex !== -1 && this.adminCatalogs.iduGuidelines[globalIndex]) {
+                        this.adminCatalogs.iduGuidelines[globalIndex].code = row.querySelector('.field-code').value;
+                        this.adminCatalogs.iduGuidelines[globalIndex].range = row.querySelector('.field-range').value;
+                        this.adminCatalogs.iduGuidelines[globalIndex].name = row.querySelector('.field-name').value;
+                        
+                        // Si cambia la categoría, re-render para actualizar colores
+                        if (item.range !== row.querySelector('.field-range').value) {
+                            setTimeout(renderTable, 100);
+                        }
+                    }
                 };
 
-                row.querySelectorAll('input, select, textarea').forEach(i => i.oninput = updateLocal);
+                row.querySelectorAll('input, select, textarea').forEach(i => {
+                    i.oninput = updateLocal;
+                    i.onchange = updateLocal;
+                });
                 
+                // Botón eliminar
                 row.querySelector('.btn-delete').onclick = () => {
-                    if(confirm(`Ziur "${item.code}" ezabatu nahi duzula?`)) {
-                        this.adminCatalogs.iduGuidelines.splice(index, 1);
+                    if(confirm(`Ziur "${item.code || 'IDU hau'}" ezabatu nahi duzula?\n\nBehin ezabatuta, ezin izango da berreskuratu.`)) {
+                        this.adminCatalogs.iduGuidelines.splice(globalIndex, 1);
                         renderTable();
                     }
                 };
 
                 body.appendChild(row);
             });
+        }
 
-            // Bot¨®n a?adir nuevo
-            document.getElementById('btnAddIduMaster').onclick = () => {
-                this.adminCatalogs.iduGuidelines.unshift({ 
-                    code: 'IDU-XX', 
-                    range: 'IRUDIKAPENA (Zer Ikasi)', 
-                    name: '' 
+        // 3. EVENT LISTENERS para filtros y búsqueda
+        setTimeout(() => {
+            // Buscador
+            const searchInput = document.getElementById('iduSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    currentSearch = e.target.value;
+                    setTimeout(renderTable, 300); // Debounce
                 });
-                renderTable();
-            };
-        };
-
-        renderTable();
-
-        // GUARDADO A SUPABASE (Tabla catalog_idu)
-        const saveBtn = this._setupSaveButtonRaw(modal);
-        saveBtn.onclick = async () => {
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-            try {
-                // Upsert a Supabase
-                const { error } = await this.supabase
-                    .from('catalog_idu')
-                    .upsert(this.adminCatalogs.iduGuidelines, { onConflict: 'code' });
-
-                if (error) throw error;
                 
-                alert("IDU Katalogoa eguneratuta!");
-                modal.classList.add('hidden');
-            } catch (e) {
-                console.error(e);
-                alert("Errorea gordetzerakoan: " + e.message);
-            } finally {
-                saveBtn.innerHTML = 'Gorde Aldaketak';
+                // Botón limpiar búsqueda
+                const clearBtn = document.getElementById('clearSearch');
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', () => {
+                        currentSearch = '';
+                        renderTable();
+                    });
+                }
             }
-        };
+            
+            // Filtros por categoría
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    currentFilter = btn.dataset.filter;
+                    renderTable();
+                });
+            });
+            
+            // Botón añadir nuevo
+            const addBtn = document.getElementById('btnAddIduMaster');
+            if (addBtn) {
+                addBtn.onclick = () => {
+                    // Determinar categoría según filtro actual
+                    let defaultRange = 'IRUDIKAPENA (Zer Ikasi)';
+                    if (currentFilter === 'EKINTZA') defaultRange = 'EKINTZA ETA ADIERAZPENA (Nola Ikasi)';
+                    if (currentFilter === 'INPLIKAZIOA') defaultRange = 'INPLIKAZIOA (Zergatik Ikasi)';
+                    
+                    const newItem = { 
+                        code: `IDU-${this.adminCatalogs.iduGuidelines.length + 1}`, 
+                        range: defaultRange, 
+                        name: 'Deskribapen berria sartu...' 
+                    };
+                    
+                    this.adminCatalogs.iduGuidelines.unshift(newItem);
+                    currentSearch = ''; // Limpiar búsqueda para ver el nuevo
+                    renderTable();
+                    
+                    // Hacer scroll al nuevo elemento
+                    setTimeout(() => {
+                        const firstInput = document.querySelector('.field-code');
+                        if (firstInput) firstInput.focus();
+                    }, 100);
+                };
+            }
+        }, 10);
+    };
 
-        modal.classList.remove('hidden');
-    }
+    renderTable();
+
+    // GUARDADO A SUPABASE (Tabla catalog_idu)
+    const saveBtn = this._setupSaveButtonRaw(modal);
+    saveBtn.onclick = async () => {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        try {
+            // Validar datos antes de guardar
+            const invalidItems = this.adminCatalogs.iduGuidelines.filter(item => 
+                !item.code || !item.name || !item.range
+            );
+            
+            if (invalidItems.length > 0) {
+                throw new Error(`${invalidItems.length} IDUk datu faltak dituzte. Bete kodea, izena eta kategoria guztietan.`);
+            }
+            
+            // Upsert a Supabase
+            const { error } = await this.supabase
+                .from('catalog_idu')
+                .upsert(this.adminCatalogs.iduGuidelines, { onConflict: 'code' });
+
+            if (error) throw error;
+            
+            alert("✅ IDU Katalogoa eguneratuta!");
+            modal.classList.add('hidden');
+        } catch (e) {
+            console.error(e);
+            alert("❌ Errorea gordetzerakoan: " + e.message);
+        } finally {
+            saveBtn.innerHTML = 'Gorde Aldaketak';
+        }
+    };
+
+    modal.classList.remove('hidden');
+}
 	
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist con Filtro)
@@ -4830,6 +5032,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
