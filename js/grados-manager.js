@@ -2263,7 +2263,8 @@ openProjectsCatalogEditor() {
     const renderTable = () => {
         const container = document.getElementById('catalogListContainer');
         container.innerHTML = '';
-
+		const cacheBuster = Date.now(); // Cache busting timestamp
+		
         if (this.adminCatalogs.externalProjects.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-16 text-gray-400">
@@ -2283,7 +2284,8 @@ openProjectsCatalogEditor() {
             row.className = 'project-row-item bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3 flex items-center gap-4 group hover:shadow-md transition-all duration-200';
             
             // Bidea kalkulatu
-            const logoPath = item.logoFileName ? `assets/logos/${item.logoFileName}` : null;
+            const timestamp = Date.now(); // gehitu renderTable() funtzioaren hasieran
+			const logoPath = item.logoFileName ? `assets/logos/${item.logoFileName}?v=${cacheBuster}` : null;
             const initials = (item.agent || '?').substring(0, 2).toUpperCase();
             const itemColor = typeColorMap[item.type] || item.color || '#6366f1';
 
@@ -2371,11 +2373,21 @@ openProjectsCatalogEditor() {
                     project.color = val;
                     row.querySelector('.logo-preview').style.backgroundColor = val;
                     // Sinkronizazioa (aukerakoa)
-                    this.adminCatalogs.externalProjects.forEach(p => { 
-                        if(p.type === project.type) p.color = val; 
-                    });
-                }
-            };
+				    const currentType = project.type;
+				    if (currentType && currentType.trim() !== '') {
+				        // 1. Eguneratu proiektu guztiak mota berekoak
+				        this.adminCatalogs.externalProjects.forEach(p => {
+				            if (p.type === currentType) {
+				                p.color = val;
+				            }
+				        });
+				        
+				        // 2. Taula freskatu koloreak guztietan ikusteko
+				        setTimeout(() => {
+				            renderTable();
+				        }, 50);
+				    }
+				}
 
             row.querySelectorAll('input').forEach(input => {
                 if(input.classList.contains('field-agent')) input.oninput = (e) => updateData(e, 'agent');
@@ -2384,6 +2396,15 @@ openProjectsCatalogEditor() {
                 if(input.classList.contains('field-type')) input.oninput = (e) => updateData(e, 'type');
                 if(input.classList.contains('field-color')) input.oninput = (e) => updateData(e, 'color');
             });
+
+			row.querySelector('.field-logo-name').addEventListener('blur', (e) => {
+			    const val = e.target.value;
+			    if (val && !/\.(png|jpg|jpeg|svg|webp|gif)$/i.test(val)) {
+			        alert("Mesedez, erabili formato hauetan: .png, .jpg, .jpeg, .svg, .webp edo .gif");
+			        e.target.focus();
+			        e.target.select();
+			    }
+			});
 
             row.querySelector('.btn-delete').onclick = () => {
                 if(confirm("Ziur ezabatu?")) {
@@ -5719,6 +5740,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
