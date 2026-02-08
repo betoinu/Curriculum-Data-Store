@@ -1602,12 +1602,25 @@ openOdsSelector(subject) {
 					});
 					
 					// Botón eliminar
-					row.querySelector('.btn-delete').addEventListener('click', () => {
-						if(confirm(`Ziur "${item.code || 'IDU hau'}" ezabatu nahi duzula?\n\nKategoria: ${item.range || 'Ez dago'}\n\nBehin ezabatuta, ezin izango da berreskuratu.`)) {
-							this.adminCatalogs.iduGuidelines.splice(globalIndex, 1);
-							sortIduList();
-							renderTable();
-						}
+					row.querySelector('.btn-delete').addEventListener('click', async () => {
+					    if(confirm(`Ziur "${item.code}" ezabatu nahi duzula?`)) {
+					        // 1. UI-tik kendu berehala (feedback azkarra)
+					        this.adminCatalogs.iduGuidelines.splice(globalIndex, 1);
+					        renderTable();
+					
+					        // 2. Atzeko planoan Supabase-tik ezabatu (ez itxaron gordetzeko botoiari)
+					        // Honek arazoak saihesten ditu upsert-arekin
+					        const { error } = await this.supabase
+					            .from('catalog_idu')
+					            .delete()
+					            .eq('code', item.code); // Ziurtatu 'code' dela zure Primary Key edo IDa erabili
+					
+					        if (error) {
+					            console.error("Errorea ezabatzean", error);
+					            alert("Errorea egon da datu-basetik ezabatzean.");
+					            // Aukerakoa: Item-a berreskuratu errore kasuan
+					        }
+					    }
 					});
 
 					body.appendChild(row);
@@ -5329,6 +5342,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
