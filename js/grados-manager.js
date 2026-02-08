@@ -3766,658 +3766,673 @@ openProjectsSelector() {
     }
 
 	
-	openPreReqEditor() {
-		if (!this.currentSubject) return;
+openPreReqEditor() {
+    if (!this.currentSubject || !this.currentDegree) {
+        alert("Irakasgai edo gradu bat hautatu behar duzu lehenik.");
+        return;
+    }
 
-		// 1. Setup del Modal
-		const modal = document.getElementById('listEditorModal');
-		const container = document.getElementById('listEditorContainer');
-		const titleEl = document.getElementById('listEditorTitle');
-		const inputTop = document.getElementById('newItemInput')?.parentElement;
+    console.log("📚 Aurre-ezagutzen editorea:", this.currentSubject.subjectTitle);
+
+    // 1. Modal setup
+    const modal = document.getElementById('listEditorModal');
+    const container = document.getElementById('listEditorContainer');
+    const titleEl = document.getElementById('listEditorTitle');
+    const inputTop = document.getElementById('newItemInput')?.parentElement;
+    
+    if (inputTop) inputTop.classList.add('hidden');
+    if (titleEl) {
+        titleEl.innerHTML = `
+            <i class="fas fa-layer-group mr-2 text-indigo-500"></i>
+            Aurre-ezagutzak - ${this.currentSubject.subjectTitle}
+        `;
+    }
+
+    // 2. Datuak kargatu subject.content-etik
+    let localList = [];
+    try {
+        localList = JSON.parse(JSON.stringify(
+            this.currentSubject.content?.preReq || []
+        ));
+    } catch (e) {
+        console.warn("❌ preReq datuak kargatzean errorea:", e);
+        localList = [];
+    }
+
+    // 3. Eremuen koloreak lortzeko funtzio sinplea
+    const getAreaColors = () => {
+        const colors = {};
+        
+        // Graduko eremuak
+        if (this.currentDegree?.subjectAreas) {
+            this.currentDegree.subjectAreas.forEach(area => {
+                if (area?.name) {
+                    colors[area.name] = area.color || 'hsl(0, 0%, 70%)';
+                }
+            });
+        }
+        
+        // Subject-eko eremuak (content barruan)
+        const subjectAreas = this.currentSubject.content?.areas || [];
+        subjectAreas.forEach(area => {
+            if (area?.name) {
+                colors[area.name] = area.color || colors[area.name] || 'hsl(0, 0%, 70%)';
+            }
+        });
+        
+        console.log(`🎨 ${Object.keys(colors).length} eremu aurkituak`);
+        return colors;
+    };
+
+    const areaColors = getAreaColors();
+    const areaNames = Object.keys(areaColors).sort((a, b) => a.localeCompare(b, 'eu'));
+
+    // 4. Kodea sortzeko helper
+    const generateCode = (index) => {
+        const subjectCode = this.currentSubject.subjectCode || 
+                          this.currentSubject.code || 
+                          'ASIG';
+        const cleanCode = subjectCode.replace(/[^A-Z0-9]/g, '').substring(0, 6);
+        const seq = String(index + 1).padStart(2, '0');
+        return `PR-${cleanCode}-${seq}`;
+    };
+
+    // 5. Render function
+    const renderEditor = () => {
+        container.innerHTML = `
+            <div class="space-y-4">
+                <!-- Header -->
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-gray-800">Aurre-ezagutzak</h4>
+                        <p class="text-xs text-gray-500">
+                            Definitu irakasgai hau ikasteko beharrezkoak diren aurretiko ezagutzak
+                        </p>
+                    </div>
+                    <button id="btnAddPreReq" 
+                            class="text-sm bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 font-bold flex items-center gap-2">
+                        <i class="fas fa-plus"></i> Gehitu
+                    </button>
+                </div>
+                
+                <!-- Eremu informazioa -->
+                ${areaNames.length > 0 ? `
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-indigo-800">
+                                <i class="fas fa-palette mr-2"></i>
+                                <span class="font-bold">${areaNames.length}</span> eremu eskuragarri
+                            </div>
+                            <select id="quickAreaSelect" class="text-xs border border-indigo-300 rounded px-3 py-1 bg-white">
+                                <option value="">Gehitu eremua...</option>
+                                ${areaNames.map(area => `
+                                    <option value="${area}">${area}</option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-exclamation-triangle text-yellow-500 text-lg mt-0.5"></i>
+                            <div class="text-sm">
+                                <p class="font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
+                                <p class="text-yellow-700">
+                                    Eremuak lehenik definitu behar dira graduan edo irakasgaian.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `}
+                
+                <!-- Zerrenda -->
+                <div class="border rounded-lg overflow-hidden">
+                    <!-- Goiburuak -->
+                    <div class="grid grid-cols-12 gap-2 p-3 bg-gray-50 border-b text-xs font-bold text-gray-600">
+                        <div class="col-span-3">Kodea</div>
+                        <div class="col-span-5">Deskribapena</div>
+                        <div class="col-span-3">Eremua</div>
+                        <div class="col-span-1"></div>
+                    </div>
+                    
+                    <!-- Datuak -->
+                    <div id="preReqList" class="max-h-[50vh] overflow-y-auto">
+                        ${localList.length === 0 ? `
+                            <div class="text-center py-10 text-gray-400">
+                                <i class="fas fa-inbox text-3xl mb-3"></i>
+                                <p>Ez dago aurre-ezagutzarik</p>
+                                <p class="text-sm mt-1">Erabili "Gehitu" botoia lehenengoa sortzeko</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <!-- Datalist -->
+                <datalist id="areaOptions">
+                    ${areaNames.map(area => `<option value="${area}"></option>`).join('')}
+                </datalist>
+            </div>
+        `;
+
+        const listContainer = document.getElementById('preReqList');
+        
+        // Datuak marraztu
+        if (localList.length > 0) {
+            listContainer.innerHTML = '';
+            
+            localList.forEach((item, index) => {
+                // Kodea sortu/bete
+                if (!item.code) {
+                    item.code = generateCode(index);
+                }
+                
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-12 gap-2 p-3 border-b hover:bg-gray-50 items-center';
+                
+                // Kolorea lortu
+                const areaColor = areaColors[item.area] || item.color || '#94a3b8';
+                
+                row.innerHTML = `
+                    <!-- Kodea -->
+                    <div class="col-span-3">
+                        <input type="text"
+                               class="w-full text-xs font-mono bg-gray-100 border border-gray-300 rounded px-2 py-1.5 outline-none"
+                               value="${item.code}"
+                               readonly
+                               title="Kode automatikoa">
+                    </div>
+                    
+                    <!-- Deskribapena -->
+                    <div class="col-span-5">
+                        <input type="text"
+                               class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-name"
+                               value="${item.name || ''}"
+                               placeholder="Deskribapena..."
+                               data-index="${index}">
+                    </div>
+                    
+                    <!-- Eremua -->
+                    <div class="col-span-3">
+                        <div class="flex items-center gap-2">
+                            <input type="text"
+                                   list="areaOptions"
+                                   class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-area"
+                                   value="${item.area || ''}"
+                                   placeholder="Eremua..."
+                                   data-index="${index}"
+                                   style="border-left: 3px solid ${areaColor}">
+                            <div class="w-4 h-4 rounded-full border border-gray-300" 
+                                 style="background-color: ${areaColor}"
+                                 title="${item.area || 'Eremurik gabe'}"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ezabatu -->
+                    <div class="col-span-1 text-center">
+                        <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn"
+                                data-index="${index}"
+                                title="Ezabatu">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                
+                listContainer.appendChild(row);
+                
+                // Event listeners
+                const nameInput = row.querySelector('.field-name');
+                const areaInput = row.querySelector('.field-area');
+                const deleteBtn = row.querySelector('.delete-btn');
+                
+                nameInput.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    localList[idx].name = e.target.value;
+                });
+                
+                areaInput.addEventListener('input', (e) => {
+                    const idx = parseInt(e.target.dataset.index);
+                    localList[idx].area = e.target.value;
+                    
+                    // Kolorea eguneratu
+                    const newColor = areaColors[e.target.value] || '#94a3b8';
+                    e.target.style.borderLeftColor = newColor;
+                    row.querySelector('.w-4.h-4').style.backgroundColor = newColor;
+                    localList[idx].color = newColor;
+                });
+                
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
+                        localList.splice(index, 1);
+                        renderEditor();
+                    }
+                });
+            });
+        }
+        
+        // Quick area select
+        const quickSelect = document.getElementById('quickAreaSelect');
+        if (quickSelect) {
+            quickSelect.addEventListener('change', function() {
+                if (this.value) {
+                    const lastIndex = localList.length - 1;
+                    if (lastIndex >= 0) {
+                        const lastAreaInput = listContainer.querySelector(`[data-index="${lastIndex}"]`);
+                        if (lastAreaInput) {
+                            lastAreaInput.value = this.value;
+                            lastAreaInput.dispatchEvent(new Event('input'));
+                        }
+                    }
+                    this.value = '';
+                }
+            });
+        }
+    };
+
+    // 6. Gehitu botoia
+    container.addEventListener('click', (e) => {
+        if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
+            localList.push({
+                code: generateCode(localList.length),
+                name: '',
+                area: '',
+                color: '#94a3b8'
+            });
+            renderEditor();
+            
+            // Fokua jarri berrian
+            setTimeout(() => {
+                const lastInput = document.querySelector('.field-name:last-child');
+                if (lastInput) lastInput.focus();
+            }, 100);
+        }
+    });
+
+    // 7. Gorde botoia
+    const saveBtn = this._setupSaveButtonRaw(modal);
+    saveBtn.onclick = async () => {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
+        
+        try {
+            // 1. Filtroak
+            const filteredList = localList.filter(item => 
+                item.name && item.name.trim() && item.area && item.area.trim()
+            );
+            
+            if (filteredList.length === 0) {
+                alert("Mesedez, definitu gutxienez aurre-ezagutza bat (izena eta eremua).");
+                saveBtn.innerHTML = 'Gorde';
+                saveBtn.disabled = false;
+                return;
+            }
+            
+            // 2. Eguneratu subject.content
+            if (!this.currentSubject.content) {
+                this.currentSubject.content = {};
+            }
+            this.currentSubject.content.preReq = filteredList;
+            
+            // 3. Supabase eguneratu
+            const { error } = await this.supabase
+                .from('irakasgaiak')
+                .update({ 
+                    content: this.currentSubject.content,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', this.currentSubject.id);
+            
+            if (error) throw error;
+            
+            // 4. UI eguneratu
+            if (window.ui && window.ui.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+            
+            // 5. Modal itxi
+            modal.classList.add('hidden');
+            
+            // 6. Feedback
+            console.log(`✅ ${filteredList.length} aurre-ezagutza gorde dira`);
+            alert(`✅ ${filteredList.length} aurre-ezagutza gorde dira!`);
+            
+        } catch (error) {
+            console.error('❌ Errorea aurre-ezagutza gordetzean:', error);
+            alert(`Errorea gordetzean: ${error.message}`);
+        } finally {
+            saveBtn.innerHTML = 'Gorde';
+            saveBtn.disabled = false;
+        }
+    };
+
+    // Hasieratu
+    renderEditor();
+    modal.classList.remove('hidden');
+}
 		
-		if (inputTop) inputTop.classList.add('hidden');
-		if (titleEl) titleEl.innerHTML = `<i class="fas fa-layer-group mr-2 text-indigo-500"></i> Aurre-ezagutzak (Automatikoa)`;
+openSignActEditor() {
+    if (!this.currentSubject) {
+        alert("Irakasgai bat hautatu behar duzu.");
+        return;
+    }
 
-		// 2. Inicializar datos locales - ✨ ALDAKETA: erroan zuzenean
-		if (!Array.isArray(this.currentSubject.preReq)) {
-			this.currentSubject.preReq = []; // Erroan hasieratu
-		}
-		const localList = this.currentSubject.preReq; // ✨ context erabili gabe
+    console.log("⭐ Jarduera esanguratsuen editorea:", this.currentSubject.subjectTitle);
 
-		// ---------------------------------------------------------
-		// 3. FUNCIÓN PARA LEER ÁREAS DINÁMICAMENTE
-		// ---------------------------------------------------------
-		const getAreasFromSystem = () => {
-			const areaColorMap = {};
-			
-			console.log("🔍 Eremuak bilatzen...");
-			
-			// currentDegree-tik hartu (gradu bakoitzak bere eremuak ditu)
-			if (this.currentDegree?.subjectAreas) {
-				const areas = this.currentDegree.subjectAreas;
-				
-				console.log(`${areas.length} eremu aurkituak currentDegree.subjectAreas-en`);
-				
-				areas.forEach(area => {
-					if (area && area.name) {
-						areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
-						console.log(`  ✅ "${area.name}" -> ${areaColorMap[area.name]}`);
-					}
-				});
-			} 
-			// cloudModel-en bilatu fallback gisa
-			else if (this.cloudModel?.degrees) {
-				console.log("🔍 CloudModel-en bilatzen...");
-				
-				const currentDegreeId = this.currentDegree?.id || this.currentSubject.degreeId;
-				if (currentDegreeId) {
-					const degreeInCloud = this.cloudModel.degrees.find(d => d.id === currentDegreeId);
-					if (degreeInCloud?.subjectAreas) {
-						degreeInCloud.subjectAreas.forEach(area => {
-							if (area && area.name) {
-								areaColorMap[area.name] = area.color || 'hsl(0, 0%, 70%)';
-							}
-						});
-					}
-				}
-			}
-			
-			console.log(`📊 Guztira ${Object.keys(areaColorMap).length} eremu eskuragarri`);
-			return areaColorMap;
-		};
+    // 1. Modal setup
+    const modal = document.getElementById('listEditorModal');
+    const container = document.getElementById('listEditorContainer');
+    const titleEl = document.getElementById('listEditorTitle');
+    const inputTop = document.getElementById('newItemInput')?.parentElement;
+    
+    if (inputTop) inputTop.classList.add('hidden');
+    if (titleEl) {
+        titleEl.innerHTML = `
+            <i class="fas fa-star mr-2 text-purple-500"></i>
+            Jarduera Esanguratsuak - ${this.currentSubject.subjectTitle}
+        `;
+    }
 
-		const areaColorMap = getAreasFromSystem();
-		const areaCount = Object.keys(areaColorMap).length;
-		const sortedAreaNames = Object.keys(areaColorMap).sort((a, b) => 
-			a.localeCompare(b, 'eu')
-		);
+    // 2. Datuak kargatu
+    let localList = [];
+    try {
+        localList = JSON.parse(JSON.stringify(
+            this.currentSubject.content?.signAct || []
+        ));
+    } catch (e) {
+        console.warn("❌ signAct datuak kargatzean errorea:", e);
+        localList = [];
+    }
 
-		// Kolorea parseatzeko funtzioa
-		const parseColor = (hsl) => {
-			if (!hsl) return '#94a3b8';
-			if (hsl.startsWith('#')) return hsl;
-			if (hsl.startsWith('hsl')) return hsl;
-			return '#94a3b8';
-		};
+    // 3. Proiektu katalogoaren datuak
+    const projectsCatalog = this.adminCatalogs.externalProjects || [];
+    
+    // Mapa: type -> color
+    const typeColorMap = {};
+    const agentsSet = new Set();
+    const typesSet = new Set();
+    
+    projectsCatalog.forEach(proj => {
+        if (proj.type) {
+            typesSet.add(proj.type);
+            if (proj.color) {
+                typeColorMap[proj.type] = proj.color;
+            }
+        }
+        if (proj.agent) {
+            agentsSet.add(proj.agent);
+        }
+    });
+    
+    const allAgents = [...agentsSet].sort();
+    const allTypes = [...typesSet].sort();
 
-		// ---------------------------------------------------------
-		// 4. GENERADOR DE CÓDIGO
-		// ---------------------------------------------------------
-		const generateAutoCode = (index) => {
-			const subjectName = this.currentSubject.name || this.currentSubject.subjectTitle || "ASIG";
-			const cleanName = subjectName.replace(/^[\d\.\s]+/, '').trim();
-			
-			const romanMap = {
-				' VIII': '8', ' VII': '7', ' VI': '6', ' V': '5', 
-				' IV': '4', ' III': '3', ' II': '2', ' I': '1'
-			};
-			
-			let numSuffix = '';
-			let baseName = cleanName;
-			
-			for (const [roman, num] of Object.entries(romanMap)) {
-				if (cleanName.toUpperCase().endsWith(roman)) {
-					numSuffix = num;
-					baseName = cleanName.substring(0, cleanName.length - roman.length).trim();
-					break;
-				}
-			}
-			
-			if (!numSuffix) {
-				const arabicMatch = cleanName.match(/(\d+)$/);
-				if (arabicMatch) {
-					numSuffix = arabicMatch[1];
-					baseName = cleanName.substring(0, cleanName.length - arabicMatch[0].length).trim();
-				}
-			}
-			
-			const letters = baseName.replace(/[^A-Za-z]/g, '').substring(0, 3).toUpperCase();
-			const seq = String(index + 1).padStart(2, '0');
-			
-			return `AE_${numSuffix || ''}${letters}_${seq}`;
-		};
+    // 4. Render function
+    const renderEditor = () => {
+        container.innerHTML = `
+            <div class="space-y-4">
+                <!-- Header -->
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h4 class="font-bold text-gray-800">Jarduera Esanguratsuak</h4>
+                        <p class="text-xs text-gray-500">
+                            Definitu irakasgai honetan burutuko diren jarduera bereziak
+                        </p>
+                    </div>
+                    <button id="btnAddSignAct" 
+                            class="text-sm bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 font-bold flex items-center gap-2">
+                        <i class="fas fa-plus"></i> Gehitu
+                    </button>
+                </div>
+                
+                <!-- Katalogoko informazioa -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-tags text-purple-500"></i>
+                            <div>
+                                <div class="text-xs font-bold text-purple-800">Mota guztiak</div>
+                                <div class="text-sm text-purple-700">${allTypes.length} mota</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-building text-blue-500"></i>
+                            <div>
+                                <div class="text-xs font-bold text-blue-800">Agente guztiak</div>
+                                <div class="text-sm text-blue-700">${allAgents.length} agente</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Datalists -->
+                <datalist id="agentOptions">
+                    ${allAgents.map(agent => `<option value="${agent}"></option>`).join('')}
+                </datalist>
+                <datalist id="typeOptions">
+                    ${allTypes.map(type => `<option value="${type}"></option>`).join('')}
+                </datalist>
+                
+                <!-- Zerrenda -->
+                <div class="border rounded-lg overflow-hidden">
+                    <!-- Goiburuak -->
+                    <div class="grid grid-cols-12 gap-2 p-3 bg-gray-50 border-b text-xs font-bold text-gray-600">
+                        <div class="col-span-4">Jarduera</div>
+                        <div class="col-span-3">Agentea</div>
+                        <div class="col-span-3">Mota</div>
+                        <div class="col-span-2">Kolorea</div>
+                    </div>
+                    
+                    <!-- Datuak -->
+                    <div id="signActList" class="max-h-[50vh] overflow-y-auto">
+                        ${localList.length === 0 ? `
+                            <div class="text-center py-10 text-gray-400">
+                                <i class="fas fa-clipboard-list text-3xl mb-3"></i>
+                                <p>Ez dago jarduerarik</p>
+                                <p class="text-sm mt-1">Erabili "Gehitu" botoia lehenengoa sortzeko</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
 
-		// ---------------------------------------------------------
-		// 5. RENDERIZAR EDITOR
-		// ---------------------------------------------------------
-		const renderTable = () => {
-			container.innerHTML = `
-				<div class="mb-4">
-					<div class="flex justify-between items-center mb-3">
-						<span class="text-[10px] text-gray-400 italic">
-							<i class="fas fa-robot mr-1"></i> Kodeak automatikoak dira.
-						</span>
-						<button id="btnAddPreReq" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
-							<i class="fas fa-plus mr-1"></i> Gehitu Aurre-ezagutza
-						</button>
-					</div>
-					
-					${areaCount === 0 ? `
-					<div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-3">
-						<div class="flex items-start">
-							<i class="fas fa-exclamation-triangle text-yellow-500 mt-0.5 mr-2"></i>
-							<div>
-								<p class="text-xs font-bold text-yellow-800 mb-1">Ez daude eremuak definituak</p>
-								<p class="text-[11px] text-yellow-700">
-									Eremuak lehenik definitu behar dira graduan (sidebar edo graduaren datuetan).
-								</p>
-							</div>
-						</div>
-					</div>
-					` : `
-					<div class="text-[10px] text-gray-500 mb-2 flex items-center">
-						<i class="fas fa-check-circle text-green-500 mr-1"></i>
-						<span class="mr-2">${areaCount} eremu aurkituak</span>
-						<select id="quickAreaSelect" class="text-xs border border-gray-300 rounded px-2 py-1 ml-auto">
-							<option value="">Hautatu eremua...</option>
-							${sortedAreaNames.map(area => `
-								<option value="${area}">${area}</option>
-							`).join('')}
-						</select>
-					</div>
-					`}
-				</div>
-				
-				<div class="flex gap-2 px-3 mb-1 text-[9px] font-bold text-gray-400 uppercase">
-					<div class="w-1/4">Kodea</div>
-					<div class="w-2/5">Izena</div>
-					<div class="w-2/5">Ezagutza Eremua</div>
-					<div class="w-8"></div>
-				</div>
+        const listContainer = document.getElementById('signActList');
+        
+        // Datuak marraztu
+        if (localList.length > 0) {
+            listContainer.innerHTML = '';
+            
+            localList.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'grid grid-cols-12 gap-2 p-3 border-b hover:bg-gray-50 items-center';
+                
+                // Kolorea zehaztu
+                let displayColor = item.color || '#94a3b8';
+                if (!item.color && item.type && typeColorMap[item.type]) {
+                    displayColor = typeColorMap[item.type];
+                }
+                
+                row.innerHTML = `
+                    <!-- Jarduera -->
+                    <div class="col-span-4">
+                        <input type="text"
+                               class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-name"
+                               value="${item.name || ''}"
+                               placeholder="Jardueraren izena..."
+                               data-index="${index}">
+                    </div>
+                    
+                    <!-- Agentea -->
+                    <div class="col-span-3">
+                        <input type="text"
+                               list="agentOptions"
+                               class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-agent"
+                               value="${item.agent || ''}"
+                               placeholder="Agentea..."
+                               data-index="${index}">
+                    </div>
+                    
+                    <!-- Mota -->
+                    <div class="col-span-3">
+                        <div class="flex items-center gap-2">
+                            <input type="text"
+                                   list="typeOptions"
+                                   class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-type"
+                                   value="${item.type || ''}"
+                                   placeholder="Mota..."
+                                   data-index="${index}">
+                            <div class="w-4 h-4 rounded-full border border-gray-300" 
+                                 style="background-color: ${displayColor}"
+                                 title="Kolorea"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Kolorea -->
+                    <div class="col-span-2">
+                        <div class="flex items-center gap-2">
+                            <input type="color"
+                                   class="w-8 h-8 p-0 border border-gray-300 rounded cursor-pointer field-color"
+                                   value="${displayColor}"
+                                   data-index="${index}"
+                                   title="Aldatu kolorea">
+                            <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn"
+                                    data-index="${index}"
+                                    title="Ezabatu">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                listContainer.appendChild(row);
+                
+                // Event listeners
+                const nameInput = row.querySelector('.field-name');
+                const agentInput = row.querySelector('.field-agent');
+                const typeInput = row.querySelector('.field-type');
+                const colorInput = row.querySelector('.field-color');
+                const colorPreview = row.querySelector('.w-4.h-4');
+                const deleteBtn = row.querySelector('.delete-btn');
+                
+                const updateItem = () => {
+                    localList[index] = {
+                        name: nameInput.value,
+                        agent: agentInput.value,
+                        type: typeInput.value,
+                        color: colorInput.value
+                    };
+                };
+                
+                nameInput.addEventListener('input', updateItem);
+                agentInput.addEventListener('input', updateItem);
+                
+                typeInput.addEventListener('input', (e) => {
+                    const type = e.target.value;
+                    
+                    // Auto-kolorea
+                    if (type && typeColorMap[type]) {
+                        colorInput.value = typeColorMap[type];
+                        colorPreview.style.backgroundColor = typeColorMap[type];
+                    }
+                    
+                    updateItem();
+                });
+                
+                colorInput.addEventListener('input', (e) => {
+                    colorPreview.style.backgroundColor = e.target.value;
+                    updateItem();
+                });
+                
+                deleteBtn.addEventListener('click', () => {
+                    if (confirm("Ziur zaude jarduera hau ezabatu nahi duzula?")) {
+                        localList.splice(index, 1);
+                        renderEditor();
+                    }
+                });
+            });
+        }
+    };
 
-				<div id="preReqTableBody" class="space-y-2 pb-4 max-h-[60vh] overflow-y-auto pr-1"></div>
-				
-				<!-- Datalist para autocompletar -->
-				<datalist id="preReqAreasList">
-					${sortedAreaNames.map(area => `
-						<option value="${area}">${area}</option>
-					`).join('')}
-				</datalist>
-			`;
+    // 5. Gehitu botoia
+    container.addEventListener('click', (e) => {
+        if (e.target.id === 'btnAddSignAct' || e.target.closest('#btnAddSignAct')) {
+            localList.push({
+                name: '',
+                agent: '',
+                type: '',
+                color: '#94a3b8'
+            });
+            renderEditor();
+            
+            setTimeout(() => {
+                const lastInput = document.querySelector('.field-name:last-child');
+                if (lastInput) lastInput.focus();
+            }, 100);
+        }
+    });
 
-			const body = document.getElementById('preReqTableBody');
+    // 6. Gorde botoia
+    const saveBtn = this._setupSaveButtonRaw(modal);
+    saveBtn.onclick = async () => {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
+        
+        try {
+            // 1. Filtroak
+            const filteredList = localList.filter(item => 
+                item.name && item.name.trim()
+            );
+            
+            if (filteredList.length === 0) {
+                alert("Mesedez, definitu gutxienez jarduera bat.");
+                saveBtn.innerHTML = 'Gorde';
+                saveBtn.disabled = false;
+                return;
+            }
+            
+            // 2. Eguneratu subject.content
+            if (!this.currentSubject.content) {
+                this.currentSubject.content = {};
+            }
+            this.currentSubject.content.signAct = filteredList;
+            
+            // 3. Supabase eguneratu
+            const { error } = await this.supabase
+                .from('irakasgaiak')
+                .update({ 
+                    content: this.currentSubject.content,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', this.currentSubject.id);
+            
+            if (error) throw error;
+            
+            // 4. UI eguneratu
+            if (window.ui && window.ui.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+            
+            // 5. Modal itxi
+            modal.classList.add('hidden');
+            
+            // 6. Feedback
+            console.log(`✅ ${filteredList.length} jarduera esanguratsu gorde dira`);
+            alert(`✅ ${filteredList.length} jarduera esanguratsu gorde dira!`);
+            
+        } catch (error) {
+            console.error('❌ Errorea jarduerak gordetzean:', error);
+            alert(`Errorea gordetzean: ${error.message}`);
+        } finally {
+            saveBtn.innerHTML = 'Gorde';
+            saveBtn.disabled = false;
+        }
+    };
 
-			// Azkar aukeratzeko dropdown-a
-			const quickSelect = document.getElementById('quickAreaSelect');
-			if (quickSelect) {
-				quickSelect.addEventListener('change', function() {
-					if (this.value) {
-						const activeInput = document.activeElement;
-						if (activeInput && activeInput.classList.contains('field-area')) {
-							activeInput.value = this.value;
-							const event = new Event('input', { bubbles: true });
-							activeInput.dispatchEvent(event);
-						}
-						this.value = '';
-					}
-				});
-			}
-
-			localList.forEach((item, index) => {
-				// Kode automatikoa sortu
-				const autoCode = generateAutoCode(index);
-				item.code = autoCode;
-				localList[index] = item;
-				
-				// Kolorea zehaztu
-				let displayColor = '#e2e8f0';
-				let areaName = item.area || '';
-				
-				if (areaName && areaColorMap[areaName]) {
-					displayColor = parseColor(areaColorMap[areaName]);
-				} else if (item.color) {
-					displayColor = parseColor(item.color);
-				}
-
-				const row = document.createElement('div');
-				row.className = "flex gap-2 p-2 bg-white border border-gray-200 rounded-lg shadow-sm hover:border-indigo-300 transition items-center";
-				
-				row.innerHTML = `
-					<div class="w-1/4">
-						<input type="text" 
-							   class="w-full text-xs font-mono font-bold text-gray-700 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 outline-none cursor-not-allowed" 
-							   value="${item.code}" 
-							   readonly
-							   title="Kode automatikoa (AE_numeroLETRAS_secuencia)">
-					</div>
-					<div class="w-2/5">
-						<input type="text" 
-							   class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 field-name" 
-							   value="${item.name || ''}" 
-							   placeholder="Aurre-ezagutzaren izena..."
-							   data-index="${index}"
-							   autocomplete="off">
-					</div>
-					<div class="w-2/5 relative">
-						<input type="text" 
-							   list="preReqAreasList"
-							   class="w-full text-sm font-medium text-gray-800 border-b border-gray-300 focus:border-indigo-500 focus:outline-none bg-transparent py-1.5 px-1 pr-7 field-area" 
-							   value="${areaName}" 
-							   placeholder="Idatzi eremuaren izena..."
-							   autocomplete="off"
-							   data-index="${index}"
-							   id="areaInput_${index}">
-						
-						<div class="absolute right-0 top-2.5 w-4 h-4 rounded-full area-color-preview border border-gray-300"
-							 style="background-color: ${displayColor}"
-							 title="${areaName || 'Ez dago eremurik'}"></div>
-					</div>
-					<button class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition btn-delete" 
-							title="Ezabatu aurre-ezagutza hau"
-							data-index="${index}">
-						<i class="fas fa-trash-alt text-sm"></i>
-					</button>
-				`;
-
-				const nameInput = row.querySelector('.field-name');
-				const areaInput = row.querySelector('.field-area');
-				const colorPreview = row.querySelector('.area-color-preview');
-				const deleteBtn = row.querySelector('.btn-delete');
-
-				const updateRow = () => {
-					const newName = nameInput.value.trim();
-					const newArea = areaInput.value.trim();
-					
-					// Kolorea eguneratu
-					let matchedColor = '#94a3b8';
-					if (newArea && areaColorMap[newArea]) {
-						matchedColor = parseColor(areaColorMap[newArea]);
-					}
-					
-					colorPreview.style.backgroundColor = matchedColor;
-					colorPreview.title = newArea || 'Ez dago eremurik';
-					
-					// Datuak eguneratu
-					localList[index] = {
-						code: autoCode,
-						name: newName,
-						area: newArea,
-						color: matchedColor
-					};
-				};
-
-				// Event listeners
-				nameInput.addEventListener('input', updateRow);
-				nameInput.addEventListener('blur', updateRow);
-				
-				areaInput.addEventListener('input', updateRow);
-				areaInput.addEventListener('blur', updateRow);
-				areaInput.addEventListener('change', updateRow);
-				
-				// Autocomplete
-				areaInput.addEventListener('input', function(e) {
-					const value = this.value.toLowerCase();
-					const hasMatch = sortedAreaNames.some(area => 
-						area.toLowerCase().includes(value)
-					);
-					
-					if (value && hasMatch) {
-						this.style.borderColor = '#10b981';
-					} else {
-						this.style.borderColor = value ? '#ef4444' : '#d1d5db';
-					}
-					updateRow();
-				});
-
-				deleteBtn.addEventListener('click', (e) => {
-					e.stopPropagation();
-					if (localList.length <= 1) {
-						alert("Gutxienez aurre-ezagutza bat egon behar da.");
-						return;
-					}
-					if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
-						localList.splice(index, 1);
-						renderTable();
-					}
-				});
-
-				body.appendChild(row);
-			});
-
-			// Fila hutsa gehitu behar bada
-			if (localList.length === 0) {
-				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
-				renderTable();
-				return;
-			}
-		};
-
-		// Gehitu botoia
-		container.addEventListener('click', (e) => {
-			if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
-				localList.push({ code: '', name: '', area: '', color: '#94a3b8' });
-				renderTable();
-				
-				setTimeout(() => {
-					const lastRow = document.querySelector('#preReqTableBody .field-name:last-child');
-					if (lastRow) lastRow.focus();
-				}, 50);
-			}
-		});
-
-		// Renderizar
-		renderTable();
-
-		// ---------------------------------------------------------
-		// 6. CONFIGURAR BOTÓN GUARDAR
-		// ---------------------------------------------------------
-		const saveBtn = this._setupSaveButtonRaw(modal);
-		saveBtn.onclick = async () => {
-			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-			saveBtn.disabled = true;
-			
-			try {
-				// Filtroak
-				const filteredList = localList.filter(item => item.name && item.name.trim());
-				
-				if (filteredList.length === 0) {
-					alert("Gutxienez aurre-ezagutza bat definitu behar duzu.");
-					saveBtn.innerHTML = 'Gorde Aldaketak';
-					saveBtn.disabled = false;
-					return;
-				}
-				
-				// ✨ ALDAKETA: Datuak erroan gorde soilik
-				this.currentSubject.preReq = filteredList;
-				
-				// ✨ OHARRA: context ez da behar, baina mantentzeko kodea
-				if (!this.currentSubject.context) {
-					this.currentSubject.context = {};
-				}
-				// Hemen soilik context-ean ere gorde nahi baduzu:
-				// this.currentSubject.context.preReq = filteredList;
-				
-				// Datuak gorde
-				await this.saveData();
-				modal.classList.add('hidden');
-				
-				// Vista eguneratu
-				if (window.ui && window.ui.renderSubjectDetail) {
-					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-				}
-				
-				// Berri ona
-				if (this.showNotification) {
-					this.showNotification('Aurre-ezagutzak gorde dira!', 'success');
-				} else {
-					alert('✅ Aurre-ezagutzak gorde dira!');
-				}
-				
-			} catch (error) {
-				console.error('Errorea gordetzean:', error);
-				alert("Errorea gordetzerakoan: " + error.message);
-			} finally {
-				saveBtn.innerHTML = 'Gorde Aldaketak';
-				saveBtn.disabled = false;
-			}
-		};
-
-		// Modal erakutsi
-		modal.classList.remove('hidden');
-	}
-		
-	openSignActEditor() {
-		if (!this.currentSubject) return;
-
-		// 1. Preparar Modal
-		const modal = document.getElementById('listEditorModal');
-		const container = document.getElementById('listEditorContainer');
-		const titleEl = document.getElementById('listEditorTitle');
-		const inputTop = document.getElementById('newItemInput')?.parentElement;
-		
-		// Ocultar la parte superior antigua y poner título
-		if (inputTop) inputTop.classList.add('hidden');
-		if (titleEl) titleEl.innerHTML = `<i class="fas fa-star mr-2 text-indigo-500"></i> Jarduera Esanguratsuak`;
-
-		// 2. Inicializar datos locales (signAct) - ✨ ALDAKETA: erroan zuzenean
-		// Lehenik erroan bilatu
-		if (!Array.isArray(this.currentSubject.signAct)) {
-			// Fallback: context-ean badaude, erro-ra kopiatu
-			if (this.currentSubject.context && Array.isArray(this.currentSubject.context.signAct)) {
-				this.currentSubject.signAct = [...this.currentSubject.context.signAct];
-			} else {
-				this.currentSubject.signAct = []; // Erroan hasieratu
-			}
-		}
-		const localList = this.currentSubject.signAct; // ✨ context erabili gabe
-
-		// 3. PREPARAR LA INTELIGENCIA (Datos Globales)
-		const globalProjects = this.adminCatalogs.externalProjects || [];
-		
-		// Mapa rápido: Tipo -> Color
-		const typeColorMap = {};
-		const agentsSet = new Set();
-		const typesSet = new Set();
-
-		globalProjects.forEach(p => {
-			if (p.type) {
-				typesSet.add(p.type);
-				if (p.color && p.color !== '#94a3b8') {
-					typeColorMap[p.type] = p.color;
-				}
-			}
-			if (p.agent) agentsSet.add(p.agent);
-		});
-
-		const uniqueTypes = [...typesSet].sort();
-		const uniqueAgents = [...agentsSet].sort();
-
-		// Función auxiliar para obtener color
-		const getColorForType = (type) => typeColorMap[type] || null;
-
-		// 4. Renderizar Editor
-		const renderTable = () => {
-			container.innerHTML = `
-				<div class="flex justify-between items-center mb-3">
-					<span class="text-[10px] text-gray-400 italic">
-						<i class="fas fa-magic mr-1"></i> Kolorea automatikoki aldatuko da motaren arabera.
-					</span>
-					<button id="btnAddSignAct" class="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100 font-bold transition">
-						+ Gehitu Jarduera
-					</button>
-				</div>
-				<div id="signActTableBody" class="space-y-3 pb-4 max-h-[60vh] overflow-y-auto pr-2"></div>
-			`;
-
-			const body = document.getElementById('signActTableBody');
-
-			localList.forEach((item, index) => {
-				// Normalizar datos si eran strings
-				if (typeof item === 'string') {
-					item = { name: item, agent: '', type: '', color: '#94a3b8' };
-					localList[index] = item;
-				}
-
-				// Si el item no tiene color propio, intentamos deducirlo del tipo
-				let displayColor = item.color;
-				if ((!displayColor || displayColor === '#94a3b8') && item.type) {
-					const suggested = getColorForType(item.type);
-					if (suggested) displayColor = suggested;
-				}
-				// Fallback final
-				if (!displayColor) displayColor = '#94a3b8';
-
-				const row = document.createElement('div');
-				row.className = "flex flex-col gap-2 p-3 bg-white border border-gray-200 rounded shadow-sm relative group hover:border-indigo-300 transition";
-				
-				row.innerHTML = `
-					<div class="flex gap-2">
-						<div class="w-1/3">
-							<label class="block text-[9px] font-bold text-gray-400 uppercase">Agentea</label>
-							<input type="text" list="signActAgentSuggestions" 
-								class="w-full text-xs font-bold text-gray-700 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-agent" 
-								value="${item.agent || ''}" placeholder="Erakundea...">
-						</div>
-						<div class="w-2/3">
-							<label class="block text-[9px] font-bold text-gray-400 uppercase">Jardueraren Izena</label>
-							<input type="text" 
-								class="w-full text-sm text-gray-800 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent py-1 field-name" 
-								value="${item.name || ''}" placeholder="Jardueraren izena...">
-						</div>
-					</div>
-					
-					<div class="flex gap-2 items-end">
-						<div class="flex-grow">
-							<label class="block text-[9px] font-bold text-gray-400 uppercase">Mota</label>
-							<div class="flex items-center gap-2">
-								<input type="text" list="signActTypeSuggestions" 
-									class="flex-grow text-xs text-gray-500 border-b border-gray-100 focus:border-indigo-500 outline-none bg-transparent py-1 field-type"
-									value="${item.type || ''}" placeholder="Mota...">
-								
-								<div class="w-4 h-4 rounded-full border border-gray-300 shadow-sm type-color-preview transition-colors duration-300"
-									 style="background-color: ${displayColor}"
-									 title="Kolorea"></div>
-							</div>
-						</div>
-						
-						<div class="w-12 text-right">
-							<input type="color" 
-								class="w-8 h-6 p-0 border-0 rounded cursor-pointer field-color" 
-								value="${displayColor}">
-						</div>
-					</div>
-
-					<button class="absolute top-2 right-2 text-gray-300 hover:text-red-500 transition btn-delete">
-						<i class="fas fa-trash"></i>
-					</button>
-				`;
-
-				// LOGICA DE ACTUALIZACIÓN Y COLORES
-				const agentInput = row.querySelector('.field-agent');
-				const nameInput = row.querySelector('.field-name');
-				const typeInput = row.querySelector('.field-type');
-				const colorInput = row.querySelector('.field-color');
-				const colorPreview = row.querySelector('.type-color-preview');
-
-				const updateModel = () => {
-					localList[index] = {
-						agent: agentInput.value,
-						name: nameInput.value,
-						type: typeInput.value,
-						color: colorInput.value
-					};
-				};
-
-				// Evento especial para el TIPO:
-				typeInput.addEventListener('input', (e) => {
-					const val = e.target.value;
-					const autoColor = getColorForType(val);
-					
-					if (autoColor) {
-						colorInput.value = autoColor;
-						colorPreview.style.backgroundColor = autoColor;
-						updateModel();
-					} else {
-						localList[index].type = val;
-					}
-				});
-
-				// Evento para el color manual
-				colorInput.addEventListener('input', (e) => {
-					const val = e.target.value;
-					colorPreview.style.backgroundColor = val;
-					updateModel();
-				});
-
-				// Resto de eventos
-				[agentInput, nameInput].forEach(inp => inp.addEventListener('input', updateModel));
-				
-				// Eliminar
-				row.querySelector('.btn-delete').addEventListener('click', () => {
-					if(confirm("Ziur zaude jarduera hau ezabatu nahi duzula?")) {
-						localList.splice(index, 1);
-						renderTable();
-					}
-				});
-
-				body.appendChild(row);
-			});
-
-			// 5. Crear Datalists (Autocompletado)
-			const createDatalists = () => {
-				['signActTypeSuggestions', 'signActAgentSuggestions'].forEach(id => {
-					if(document.getElementById(id)) document.getElementById(id).remove();
-				});
-
-				if (uniqueTypes.length) {
-					const dl = document.createElement('datalist');
-					dl.id = 'signActTypeSuggestions';
-					uniqueTypes.forEach(t => {
-						const op = document.createElement('option');
-						op.value = t;
-						if(typeColorMap[t]) op.dataset.color = typeColorMap[t]; 
-						dl.appendChild(op);
-					});
-					document.body.appendChild(dl);
-				}
-
-				if (uniqueAgents.length) {
-					const dl = document.createElement('datalist');
-					dl.id = 'signActAgentSuggestions';
-					uniqueAgents.forEach(a => dl.appendChild(new Option(a)));
-					document.body.appendChild(dl);
-				}
-			};
-			createDatalists();
-		};
-
-		// Inicializar modal
-		document.getElementById('listEditorModal').classList.remove('hidden');
-		
-		// Primera renderización
-		renderTable();
-		
-		// Botón añadir (delegación de eventos)
-		container.addEventListener('click', (e) => {
-			if(e.target.id === 'btnAddSignAct' || e.target.closest('#btnAddSignAct')) {
-				localList.push({ name: '', agent: '', type: '', color: '#94a3b8' });
-				renderTable();
-			}
-		});
-
-		// 6. Botón Guardar
-		const saveBtn = this._setupSaveButtonRaw(modal);
-		saveBtn.onclick = async () => {
-			saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-			saveBtn.disabled = true;
-			
-			try {
-				// ✨ ALDAKETA: guardar en erro
-				// Filtroak: bakarrik izena dutenak
-				const filteredList = localList.filter(item => item.name && item.name.trim());
-				this.currentSubject.signAct = filteredList;
-				
-				// ✨ BATERAGARRIKOTASUNA: context-ean ere gorde (beharrezkoa bada)
-				if (!this.currentSubject.context) {
-					this.currentSubject.context = {};
-				}
-				// Kontsultatu ea context-ean mantendu nahi duzun:
-				// this.currentSubject.context.signAct = filteredList;
-				
-				await this.saveData();
-				modal.classList.add('hidden');
-				
-				// Actualizar vista
-				if (window.ui && this.currentSubject) {
-					window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-				}
-				
-				// Mostrar notificación
-				if (this.showNotification) {
-					this.showNotification('Jarduera esanguratsuak gorde dira!', 'success');
-				} else {
-					alert('✅ Jarduera esanguratsuak gorde dira!');
-				}
-				
-			} catch (e) {
-				console.error(e);
-				alert("Errorea gordetzerakoan: " + e.message);
-			} finally {
-				saveBtn.innerHTML = 'Gorde Aldaketak';
-				saveBtn.disabled = false;
-			}
-		};
-	}
+    // Hasieratu
+    renderEditor();
+    modal.classList.remove('hidden');
+}
 
 /*async saveListEditor() {
     if (!this.currentEditingField) return;
@@ -6012,6 +6027,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
