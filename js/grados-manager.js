@@ -833,43 +833,6 @@ openEditSubjectModal() {
         }
     }
 
-// HELPER: Irudia txikitu (Max 150px) eta JPEG kalitate baxuagoan gorde
-_resizeAndCompressImage(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 150;
-                const MAX_HEIGHT = 150;
-                let width = img.width;
-                let height = img.height;
-
-                if (width > height) {
-                    if (width > MAX_WIDTH) {
-                        height *= MAX_WIDTH / width;
-                        width = MAX_WIDTH;
-                    }
-                } else {
-                    if (height > MAX_HEIGHT) {
-                        width *= MAX_HEIGHT / height;
-                        height = MAX_HEIGHT;
-                    }
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7));
-            };
-        };
-        reader.onerror = reject;
-    });
-}
-
 // --- GESTIÃ“N DE LISTAS (RA, IDU, PROYECTOS) ---    
 // ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO (Para el Sidebar)
     // Permite editar C¨®digo, Nombre y Color
@@ -2195,29 +2158,28 @@ openIduSelector() {
 }
 	
 openProjectsCatalogEditor() {
-    // Ziurtatu katalogoa kargatuta dagoela
+    // Ziurtatu katalogoa hasieratuta dagoela
     if (!this.adminCatalogs.externalProjects) this.adminCatalogs.externalProjects = [];
 
-    // --- MODALAREN HTML OINARRIA (HOBETUA) ---
+    // --- 1. MODALAREN HTML OINARRIA ---
     const modalHtml = `
         <div id="catalogEditorModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                     <div>
                         <h2 class="text-lg font-bold text-gray-800">Kanpo Proiektuen Katalogoa</h2>
-                        <p class="text-xs text-gray-500">Kudeatuak enpresak, koloreak, logoak eta motak.</p>
+                        <p class="text-xs text-gray-500">Kudeatu enpresak, koloreak eta logoen fitxategi izenak.</p>
                     </div>
                     <button id="closeCatalogModal" class="text-gray-400 hover:text-gray-600 transition">
                         <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
 
-                <!-- INFORMATZIO TXOSTENA -->
                 <div class="px-6 py-3 bg-blue-50 border-b border-blue-100">
                     <div class="flex items-center justify-between">
                         <div class="text-xs text-blue-700 flex items-center gap-2">
                             <i class="fas fa-info-circle"></i>
-                            <span>Koloreak automatikoki sinkronizatzen dira mota bereko proiektu guztientzat.</span>
+                            <span>Logoak <b>assets/logos/</b> karpetan egon behar dira. Hemen fitxategiaren izena soilik jarri (adib: <i>enpresa.png</i>).</span>
                         </div>
                         <div class="flex gap-2 text-xs">
                             <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded" id="uniqueTypesCount">0 mota</span>
@@ -2227,22 +2189,15 @@ openProjectsCatalogEditor() {
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50" id="catalogListContainer">
-                    <!-- Hemen proiektuen zerrenda kargatuko da -->
-                </div>
+                    </div>
 
                 <div class="px-6 py-4 border-t border-gray-100 bg-white flex justify-between items-center">
                     <div class="flex gap-2">
                         <button id="addProjectBtn" class="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition flex items-center gap-2">
-                            <i class="fas fa-plus"></i> Gehitu Proiektu Berria
-                        </button>
-                        <button id="addProjectWithLogoBtn" class="px-4 py-2 bg-green-50 text-green-600 rounded-lg text-sm font-bold hover:bg-green-100 transition flex items-center gap-2">
-                            <i class="fas fa-image"></i> Gehitu Logoarekin
+                            <i class="fas fa-plus"></i> Gehitu Proiektua
                         </button>
                     </div>
                     <div class="flex gap-2">
-                        <button id="importExportBtn" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition">
-                            <i class="fas fa-file-export"></i> Inportatu/Esportatu
-                        </button>
                         <button id="saveCatalogBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition">
                             <i class="fas fa-save mr-2"></i>Gorde Aldaketak
                         </button>
@@ -2254,115 +2209,57 @@ openProjectsCatalogEditor() {
 
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const modal = document.getElementById('catalogEditorModal');
-    
-    // --- FUNTSIO LAGUNTZAILEAK (LEHENGO BERTSIOTIK HARTUTAKOAK) ---
-    
-    // Mota desberdinak lortu
+
+    // --- 2. FUNTZIO LAGUNTZAILEAK ---
+
     const getUniqueTypes = () => {
         const tipos = this.adminCatalogs.externalProjects
-            .map(p => p.type)
-            .filter(tipo => tipo && tipo.trim() !== '');
-        
-        return [...new Set(tipos)].sort((a, b) => a.localeCompare(b));
+            .map(p => p.type).filter(t => t && t.trim() !== '');
+        return [...new Set(tipos)].sort();
     };
 
-    // Agente desberdinak lortu
     const getUniqueAgents = () => {
         const agentes = this.adminCatalogs.externalProjects
-            .map(p => p.agent)
-            .filter(agent => agent && agent.trim() !== '');
-        
-        return [...new Set(agentes)].sort((a, b) => a.localeCompare(b));
+            .map(p => p.agent).filter(a => a && a.trim() !== '');
+        return [...new Set(agentes)].sort();
     };
 
-    // Mota bati dagokion kolorea lortu
     const getColorForType = (type) => {
         if (!type) return '#94a3b8';
-        
-        const proyectoConTipo = this.adminCatalogs.externalProjects.find(
-            p => p.type === type && p.color && p.color.trim() !== ''
-        );
-        
-        return proyectoConTipo?.color || '#94a3b8';
+        const project = this.adminCatalogs.externalProjects.find(p => p.type === type && p.color);
+        return project?.color || '#94a3b8';
     };
 
-    // Datalist-ak sortu iradokizunentzat
     const createDataLists = () => {
-        const tiposUnicos = getUniqueTypes();
-        const agentesUnicos = getUniqueAgents();
-        
-        // Kontagailuak eguneratu
-        document.getElementById('uniqueTypesCount').textContent = `${tiposUnicos.length} mota`;
-        document.getElementById('uniqueAgentsCount').textContent = `${agentesUnicos.length} agente`;
-        
-        // Existitzen diren datalist-ak ezabatu
-        const existingLists = ['typeSuggestions', 'agentSuggestions'];
-        existingLists.forEach(id => {
-            const list = document.getElementById(id);
-            if (list) list.remove();
+        // Garbitu zaharrak
+        ['typeSuggestions', 'agentSuggestions'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.remove();
         });
-        
-        // Datalist motentzat
-        if (tiposUnicos.length > 0) {
-            const typeDatalist = document.createElement('datalist');
-            typeDatalist.id = 'typeSuggestions';
-            
-            tiposUnicos.forEach(tipo => {
-                const op = document.createElement('option');
-                op.value = tipo;
-                typeDatalist.appendChild(op);
-            });
-            
-            document.body.appendChild(typeDatalist);
+
+        const types = getUniqueTypes();
+        const agents = getUniqueAgents();
+
+        // UI kontagailuak
+        document.getElementById('uniqueTypesCount').textContent = `${types.length} mota`;
+        document.getElementById('uniqueAgentsCount').textContent = `${agents.length} agente`;
+
+        // Sortu zerrendak
+        if (types.length) {
+            const dl = document.createElement('datalist');
+            dl.id = 'typeSuggestions';
+            types.forEach(t => { const op = document.createElement('option'); op.value = t; dl.appendChild(op); });
+            document.body.appendChild(dl);
         }
-        
-        // Datalist agenterentzat
-        if (agentesUnicos.length > 0) {
-            const agentDatalist = document.createElement('datalist');
-            agentDatalist.id = 'agentSuggestions';
-            
-            agentesUnicos.forEach(agent => {
-                const op = document.createElement('option');
-                op.value = agent;
-                agentDatalist.appendChild(op);
-            });
-            
-            document.body.appendChild(agentDatalist);
+        if (agents.length) {
+            const dl = document.createElement('datalist');
+            dl.id = 'agentSuggestions';
+            agents.forEach(a => { const op = document.createElement('option'); op.value = a; dl.appendChild(op); });
+            document.body.appendChild(dl);
         }
     };
 
-    // Koloreak sinkronizatu motaren arabera
-    const syncColorsByType = (targetType, newColor) => {
-        if (!targetType) return;
-        
-        // Datuetan eguneratu
-        this.adminCatalogs.externalProjects.forEach(p => {
-            if (p.type === targetType) p.color = newColor;
-        });
-        
-        // UI eguneratu
-        const allRows = document.querySelectorAll('.project-row-item');
-        allRows.forEach(row => {
-            const typeVal = row.querySelector('.field-type')?.value;
-            if (typeVal === targetType) {
-                const colorInput = row.querySelector('.field-color');
-                const preview = row.querySelector('.type-color-preview');
-                const logoPreview = row.querySelector('.logo-preview');
-                
-                if (colorInput) {
-                    colorInput.value = newColor;
-                }
-                if (preview) {
-                    preview.style.backgroundColor = newColor;
-                }
-                if (logoPreview && !logoPreview.querySelector('img')) {
-                    logoPreview.style.backgroundColor = newColor;
-                }
-            }
-        });
-    };
-
-    // --- RENDER FUNTZIO NAGUSIA (BI BERTSIOEN KONBINAZIOA) ---
+    // --- 3. RENDER TABLE (BERRIA ETA SINPLIFIKATUA) ---
     const renderTable = () => {
         const container = document.getElementById('catalogListContainer');
         container.innerHTML = '';
@@ -2371,301 +2268,152 @@ openProjectsCatalogEditor() {
             container.innerHTML = `
                 <div class="text-center py-16 text-gray-400">
                     <i class="fas fa-folder-open text-4xl mb-4"></i>
-                    <p class="text-lg">Ez dago proiekturik.</p>
-                    <p class="text-sm mt-2">Klikatu "Gehitu Proiektu Berria" hasteko.</p>
-                </div>
-            `;
+                    <p>Ez dago proiekturik.</p>
+                </div>`;
             return;
         }
 
+        // Mapak sortu
         const tiposUnicos = getUniqueTypes();
         const typeColorMap = {};
-        tiposUnicos.forEach(tipo => {
-            typeColorMap[tipo] = getColorForType(tipo);
-        });
+        tiposUnicos.forEach(t => typeColorMap[t] = getColorForType(t));
 
-        // Proiektu bakoitzaren errenkada sortu
         this.adminCatalogs.externalProjects.forEach((item, index) => {
             const row = document.createElement('div');
-            row.className = 'project-row-item bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3 flex items-center gap-4 group hover:shadow-md transition-all duration-200 hover:border-indigo-300';
+            row.className = 'project-row-item bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3 flex items-center gap-4 group hover:shadow-md transition-all duration-200';
             
-            const hasLogo = !!item.logoBase64;
+            // Bidea kalkulatu
+            const logoPath = item.logoFileName ? `assets/logos/${item.logoFileName}` : null;
             const initials = (item.agent || '?').substring(0, 2).toUpperCase();
-            // Lehenik tipoaren kolorea erabili, gero item-ena
             const itemColor = typeColorMap[item.type] || item.color || '#6366f1';
 
             row.innerHTML = `
-                <!-- LOGO SECTIOA -->
-                <div class="relative shrink-0" title="Klikatu logoa aldatzeko">
-                    <input type="file" accept="image/*" class="hidden logo-input" data-index="${index}">
-                    
-                    <div class="logo-preview w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden cursor-pointer shadow-md ring-1 ring-gray-100 group-hover:ring-indigo-400 transition-all duration-200 relative"
-                         style="${!hasLogo ? `background-color: ${itemColor}` : 'background-color: white'}">
-                        
-                        ${hasLogo ? 
-                            `<img src="${item.logoBase64}" class="w-full h-full object-contain p-0.5" alt="${item.agent || 'Logo'}">` : 
-                            `<span class="text-white font-bold text-base select-none">${initials}</span>`
-                        }
-                        
-                        <div class="logo-overlay absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 backdrop-blur-[1px] rounded-xl">
-                            <i class="fas fa-camera text-white text-sm"></i>
-                        </div>
+                <div class="relative shrink-0">
+                    <div class="logo-preview w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden shadow-sm ring-1 ring-gray-100"
+                         style="background-color: ${itemColor}">
+                        ${logoPath ? 
+                            `<img src="${logoPath}" class="w-full h-full object-contain p-0.5 bg-white" 
+                                  onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` : ''}
+                        <span class="text-white font-bold text-base select-none" style="display: ${logoPath ? 'none' : 'block'}">
+                            ${initials}
+                        </span>
                     </div>
-                    ${hasLogo ? 
-                        `<button class="btn-remove-logo absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow-md hover:bg-red-600 transition" 
-                                data-index="${index}" title="Logoa kendu">
-                            <i class="fas fa-times"></i>
-                         </button>` : 
-                        ''
-                    }
                 </div>
 
-                <!-- DATUAK GRID SISTEMAN -->
-                <div class="flex-1 grid grid-cols-12 gap-4">
-                    <!-- AGENTEA -->
-                    <div class="col-span-4">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1 tracking-wider">
-                            <i class="fas fa-building mr-1"></i>Erakundea
-                        </label>
-                        <div class="relative">
-                            <input type="text" 
-                                   list="agentSuggestions" 
-                                   class="w-full text-sm font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none field-agent transition-all" 
-                                   value="${item.agent || ''}" 
-                                   placeholder="Erakundea..." 
-                                   data-index="${index}"
-                                   title="Aukeratu edo idatzi agente berria">
-                            <div class="absolute right-2 top-2 text-gray-300 group-hover:text-gray-400 tooltip" 
-                                 title="Zure kodea: iradokizunak agente berdinak errepikatzeko saihesteko">
-                                <i class="fas fa-info-circle text-xs"></i>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- PROIEKTU IZENA -->
-                    <div class="col-span-5">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1 tracking-wider">
-                            <i class="fas fa-project-diagram mr-1"></i>Proiektuaren Izena
-                        </label>
-                        <input type="text" 
-                               class="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none field-name transition-all" 
-                               value="${item.name || ''}" 
-                               placeholder="Proiektuaren izena..." 
-                               data-index="${index}">
-                    </div>
-                    
-                    <!-- MOTA -->
+                <div class="flex-1 grid grid-cols-12 gap-3">
                     <div class="col-span-3">
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1 tracking-wider">
-                            <i class="fas fa-tags mr-1"></i>Mota
-                        </label>
-                        <div class="flex items-center gap-2">
-                            <input type="text" 
-                                   list="typeSuggestions" 
-                                   class="flex-grow text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none field-type transition-all"
-                                   value="${item.type || ''}" 
-                                   placeholder="Tipologia..." 
-                                   data-index="${index}"
-                                   title="Kolorea automatikoki sinkronizatuko da mota berdineko proiektu guztietan">
-                            <div class="type-color-preview w-4 h-4 rounded-full border border-gray-300 shadow-sm" 
-                                 style="background-color: ${itemColor}"
-                                 title="Kolorea: ${itemColor}"></div>
-                        </div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Erakundea</label>
+                        <input type="text" list="agentSuggestions" class="w-full text-sm font-semibold text-gray-800 bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 field-agent focus:ring-2 focus:ring-indigo-500 outline-none" 
+                               value="${item.agent || ''}" placeholder="Erakundea..." data-index="${index}">
                     </div>
-                </div>
 
-                <!-- KOLOREA ETA AKZIOAK -->
-                <div class="flex flex-col items-end gap-3 pl-4 border-l border-gray-100">
-                    <div class="flex items-center gap-2">
-                        <label class="text-[10px] font-bold text-gray-500 uppercase">Kolorea</label>
-                        <div class="flex items-center gap-2">
-                            <input type="color" 
-                                   class="w-8 h-8 p-0 border border-gray-300 rounded-lg cursor-pointer field-color shadow-sm hover:shadow-md transition" 
-                                   value="${itemColor}" 
-                                   data-index="${index}" 
-                                   title="Kolorea aldatu. Motaren arabera sinkronizatuko da.">
-                            <span class="text-xs font-mono text-gray-500">${itemColor}</span>
+                    <div class="col-span-3">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Logo Fitxategia</label>
+                        <div class="relative flex items-center">
+                            <span class="absolute left-2 text-xs text-gray-400 select-none">.../</span>
+                            <input type="text" class="w-full text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-lg pl-8 pr-2 py-2 field-logo-name focus:ring-2 focus:ring-blue-500 outline-none" 
+                                   value="${item.logoFileName || ''}" placeholder="logo.png" data-index="${index}" title="Idatzi fitxategiaren izena">
                         </div>
                     </div>
                     
-                    <div class="flex gap-2">
-                        <button class="btn-delete px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 hover:text-red-700 transition flex items-center gap-1" 
-                                data-index="${index}" 
-                                title="Proiektua ezabatu">
-                            <i class="fas fa-trash text-xs"></i> Ezabatu
-                        </button>
+                    <div class="col-span-4">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Proiektua</label>
+                        <input type="text" class="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 field-name focus:ring-2 focus:ring-indigo-500 outline-none" 
+                               value="${item.name || ''}" placeholder="Izena..." data-index="${index}">
                     </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mota</label>
+                        <input type="text" list="typeSuggestions" class="w-full text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-2 field-type focus:ring-2 focus:ring-indigo-500 outline-none"
+                               value="${item.type || ''}" placeholder="Mota..." data-index="${index}">
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-end gap-3 pl-2 border-l border-gray-100">
+                    <input type="color" class="w-8 h-8 p-0 border border-gray-300 rounded-lg cursor-pointer field-color" 
+                           value="${itemColor}" data-index="${index}">
+                    <button class="btn-delete text-gray-400 hover:text-red-500 px-2" data-index="${index}">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             `;
-            
             container.appendChild(row);
 
-            // --- EVENT LISTENERS LERRO BAKOITZEKO ---
+            // Event Listeners
+            const updateData = (e, field) => {
+                const idx = parseInt(e.target.dataset.index);
+                const val = e.target.value;
+                const project = this.adminCatalogs.externalProjects[idx];
 
-            // 1. Logo kudeaketa
-            const previewDiv = row.querySelector('.logo-preview');
-            const fileInput = row.querySelector('.logo-input');
-            const removeLogoBtn = row.querySelector('.btn-remove-logo');
-            
-            previewDiv.addEventListener('click', () => fileInput.click());
-            
-            fileInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                if (file.size > 5 * 1024 * 1024) { // 5MB muga
-                    alert('Irudia handiegia da. 5MB baino txikiagoa izan behar da.');
-                    return;
-                }
-                
-                try {
-                    // Irudia konprimitu (bigarren bertsioaren logika)
-                    const base64 = await this._resizeAndCompressImage(file);
-                    this.adminCatalogs.externalProjects[index].logoBase64 = base64;
-                    renderTable();
-                } catch (err) {
-                    console.error('Error procesando imagen:', err);
-                    alert("Errorea irudia prozesatzean. Saiatu irudi formatoarekin (JPG, PNG).");
-                }
-            });
-            
-            if (removeLogoBtn) {
-                removeLogoBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    if (confirm("Ziur logoa kendu nahi duzula?")) {
-                        this.adminCatalogs.externalProjects[index].logoBase64 = null;
-                        renderTable();
+                if (field === 'agent') project.agent = val;
+                else if (field === 'name') project.name = val;
+                else if (field === 'logoFileName') {
+                    project.logoFileName = val;
+                    // Freskatu irudia berehala
+                    const img = row.querySelector('.logo-preview img');
+                    const span = row.querySelector('.logo-preview span');
+                    if(val) {
+                        if(img) { 
+                            img.src = `assets/logos/${val}`; 
+                            img.style.display = 'block'; 
+                            if(span) span.style.display = 'none';
+                        } else { renderTable(); } // Irudiaren taga ez bazegoen, birkargatu
+                    } else {
+                        if(img) img.style.display = 'none';
+                        if(span) span.style.display = 'block';
                     }
-                });
-            }
-
-            // 2. Input-ak eguneratzeko (LEHENGO BERTSIOAREN LOGIKA)
-            const updateLocalData = (e, field) => {
-                const currentIndex = parseInt(e.target.dataset.index);
-                if (isNaN(currentIndex) || currentIndex < 0 || 
-                    currentIndex >= this.adminCatalogs.externalProjects.length) {
-                    return;
                 }
-                
-                const value = e.target.value;
-                
-                // AGENTE aldatzean
-                if (field === 'agent') {
-                    this.adminCatalogs.externalProjects[currentIndex].agent = value;
-                }
-                // IZENA aldatzean
-                else if (field === 'name') {
-                    this.adminCatalogs.externalProjects[currentIndex].name = value;
-                }
-                // MOTA aldatzean
                 else if (field === 'type') {
-                    const oldType = this.adminCatalogs.externalProjects[currentIndex].type;
-                    const newType = value;
-                    
-                    this.adminCatalogs.externalProjects[currentIndex].type = newType;
-                    
-                    // Mota aldatzean, automatikoki hartu mota berriaren kolorea
-                    if (newType && typeColorMap[newType]) {
-                        const nuevoColor = typeColorMap[newType];
-                        this.adminCatalogs.externalProjects[currentIndex].color = nuevoColor;
-                        
-                        // UI eguneratu
-                        const colorInput = row.querySelector('.field-color');
-                        const preview = row.querySelector('.type-color-preview');
-                        const logoPreview = row.querySelector('.logo-preview');
-                        
-                        if (colorInput) colorInput.value = nuevoColor;
-                        if (preview) preview.style.backgroundColor = nuevoColor;
-                        if (logoPreview && !logoPreview.querySelector('img')) {
-                            logoPreview.style.backgroundColor = nuevoColor;
-                        }
-                    }
+                    project.type = val;
+                    if(val && typeColorMap[val]) { project.color = typeColorMap[val]; renderTable(); }
                 }
-                // KOLOREA aldatzean
                 else if (field === 'color') {
-                    const nuevoColor = value;
-                    this.adminCatalogs.externalProjects[currentIndex].color = nuevoColor;
-                    
-                    // Sinkronizatu mota bereko proiektu guztiak
-                    const currentType = this.adminCatalogs.externalProjects[currentIndex].type;
-                    if (currentType) {
-                        syncColorsByType(currentType, nuevoColor);
-                    }
-                    
-                    // Logo eguneratu (logorik ez badago)
-                    const logoPreview = row.querySelector('.logo-preview');
-                    if (logoPreview && !logoPreview.querySelector('img')) {
-                        logoPreview.style.backgroundColor = nuevoColor;
-                    }
+                    project.color = val;
+                    row.querySelector('.logo-preview').style.backgroundColor = val;
+                    // Sinkronizazioa (aukerakoa)
+                    this.adminCatalogs.externalProjects.forEach(p => { 
+                        if(p.type === project.type) p.color = val; 
+                    });
                 }
             };
 
-            // Input-ak konfiguratu
-            row.querySelector('.field-agent').addEventListener('input', (e) => updateLocalData(e, 'agent'));
-            row.querySelector('.field-name').addEventListener('input', (e) => updateLocalData(e, 'name'));
-            row.querySelector('.field-type').addEventListener('input', (e) => updateLocalData(e, 'type'));
-            row.querySelector('.field-color').addEventListener('input', (e) => updateLocalData(e, 'color'));
+            row.querySelectorAll('input').forEach(input => {
+                if(input.classList.contains('field-agent')) input.oninput = (e) => updateData(e, 'agent');
+                if(input.classList.contains('field-logo-name')) input.oninput = (e) => updateData(e, 'logoFileName');
+                if(input.classList.contains('field-name')) input.oninput = (e) => updateData(e, 'name');
+                if(input.classList.contains('field-type')) input.oninput = (e) => updateData(e, 'type');
+                if(input.classList.contains('field-color')) input.oninput = (e) => updateData(e, 'color');
+            });
 
-            // 3. Ezabatu botoia
-            row.querySelector('.btn-delete').addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (confirm("Ziur proiektu hau ezabatu nahi duzula?")) {
+            row.querySelector('.btn-delete').onclick = () => {
+                if(confirm("Ziur ezabatu?")) {
                     this.adminCatalogs.externalProjects.splice(index, 1);
                     renderTable();
                 }
-            });
+            };
         });
-
-        // Datalist-ak sortu iradokizunentzat
         createDataLists();
     };
 
-    // Hasierako renderizazioa
     renderTable();
 
-    // --- MODALAREN BOTOIEN KONFIGURAZIOA ---
+    // --- 4. BOTOIEN KUDEAKETA ---
 
-    // Gehitu proiektu berria (logorik gabe)
+    // Gehitu Proiektua
     document.getElementById('addProjectBtn').onclick = () => {
-        const newProject = {
+        this.adminCatalogs.externalProjects.unshift({
             id: Date.now(),
             agent: "",
+            logoFileName: "",
             name: "",
             type: "HITZALDIA",
-            color: "#6366f1",
-            logoBase64: null
-        };
-        this.adminCatalogs.externalProjects.unshift(newProject);
+            color: "#6366f1"
+        });
         renderTable();
-        
-        // Fokua lehenengo errenkadako agent inputean jarri
-        setTimeout(() => {
-            const firstAgentInput = document.querySelector('.project-row-item .field-agent');
-            if (firstAgentInput) firstAgentInput.focus();
-        }, 50);
+        setTimeout(() => document.querySelector('.field-agent')?.focus(), 50);
     };
 
-    // Gehitu proiektu berria logoarekin
-    document.getElementById('addProjectWithLogoBtn').onclick = () => {
-        const newProject = {
-            id: Date.now(),
-            agent: "BERRIA",
-            name: "Proiektu berria",
-            type: "HITZALDIA",
-            color: "#10b981", // Verde por defecto para logos
-            logoBase64: null
-        };
-        this.adminCatalogs.externalProjects.unshift(newProject);
-        renderTable();
-        
-        // Automáticamente abrir el selector de logo
-        setTimeout(() => {
-            const firstLogoInput = document.querySelector('.logo-input');
-            if (firstLogoInput) firstLogoInput.click();
-        }, 100);
-    };
-
-    // Gorde botoia
+    // Gorde Supabase-n
     document.getElementById('saveCatalogBtn').onclick = async () => {
         const btn = document.getElementById('saveCatalogBtn');
         const originalText = btn.innerHTML;
@@ -2673,52 +2421,33 @@ openProjectsCatalogEditor() {
         btn.disabled = true;
 
         try {
-            // SUPABASE EGUNERAKETA (zure logika hemen jarri)
-            // Adibidez:
             const { error } = await this.supabase
                 .from('admin_external_projects')
                 .upsert(this.adminCatalogs.externalProjects, { onConflict: 'id' });
 
             if (error) throw error;
-            
-            alert("✅ Proiektu katalogoa ondo gorde da!");
+            alert("✅ Ondo gorde da!");
             modal.remove();
             
-            // Freskatu atzeko bista nagusia
-            if (window.ui && window.ui.renderSubjectDetail && this.currentSubject) {
+            // UI eguneratu behar bada (zuk duzun logika)
+            if (this.currentSubject && window.ui?.renderSubjectDetail) {
                 window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
             }
 
         } catch (error) {
-            console.error('Error guardando:', error);
-            alert(`Errorea gordetzean: ${error.message}`);
+            console.error(error);
+            alert("Errorea gordetzean.");
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     };
 
-    // Itxi modal-a
+    // Itxi
     document.getElementById('closeCatalogModal').onclick = () => {
-        if (JSON.stringify(this.adminCatalogs.externalProjects) !== JSON.stringify(this.originalCatalogBackup)) {
-            if (confirm("Aldaketak ez dituzu gorde. Ziur irten nahi duzula?")) {
-                modal.remove();
-            }
-        } else {
-            modal.remove();
-        }
+        if(confirm("Ziur irten nahi duzula?")) modal.remove();
     };
-
-    // Escape tekla modal-a ixteko
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal) {
-            document.getElementById('closeCatalogModal').click();
-        }
-    });
-
-    // Aldaketak gorde gabe dauden kontrolatzeko backup-a
-    this.originalCatalogBackup = JSON.parse(JSON.stringify(this.adminCatalogs.externalProjects));
 }
-
+	
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
 openProjectsSelector() {
     console.log("🟠 Proiektu hautatzailea...");
@@ -5990,6 +5719,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
