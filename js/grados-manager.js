@@ -1101,8 +1101,13 @@ openOdsSelector(subject) {
         return `assets/ods/${n}.png`;
     };
 
-    // 3. Datuak prestatu
-    const masterList = this.adminCatalogs.odsList || [];
+// 3. Datuak prestatu
+    // Kopia bat egiten dugu [... ] erabiliz jatorrizkoa ez aldatzeko, eta ordenatu egiten dugu
+    const masterList = [...(this.adminCatalogs.odsList || [])].sort((a, b) => {
+        const numA = getCleanNumber(a.code) || 0;
+        const numB = getCleanNumber(b.code) || 0;
+        return numA - numB;
+    });
     
     // Erabili subject.content.detailODS
     const currentSelection = subject.content?.detailODS || [];
@@ -5753,6 +5758,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
