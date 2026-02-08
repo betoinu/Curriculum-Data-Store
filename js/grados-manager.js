@@ -2362,8 +2362,14 @@ openProjectsCatalogEditor() {
 
             if (error) throw error;
             
-            // 2. GARRANTZITSUENA: KARGATU BERRIRO SUPABASE-TIK
-            await this.loadCatalogs(); // Zure funtzioa erabili
+	        // 2. 🔴 GARRANTZITSUENA: GEHITU HIRU LERRO HAU BAKARRIK
+	        // ========================================================
+	        console.log("🔄 Memoria freskatzen...");
+	        const { data: freshData } = await this.supabase
+	            .from('admin_external_projects')
+	            .select('*');
+	        this.adminCatalogs.externalProjects = freshData || [];
+	        console.log(`✅ ${freshData?.length || 0} proiektu memoria freskoan`);
             
             alert("✅ Ondo gorde da!");
             modal.remove();
@@ -5669,6 +5675,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
