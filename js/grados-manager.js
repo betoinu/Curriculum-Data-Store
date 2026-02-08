@@ -1661,28 +1661,48 @@ openIduCatalogEditor() {
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist con Filtro)
 openIduSelector() {
-    console.log("🟡 IDU hautatzailea irekitzen...");
+    console.log("🟡 IDU hautatzailea irekitzen (Dinamikoa)...");
     
-    // 1. Balidazioak
     const subject = this.currentSubject;
-    if (!subject) {
-        console.error("Ez dago irakasgairik aukeratuta");
-        return;
-    }
+    if (!subject) return;
     
-    // Datuak prestatu
-    // Ziurtatu content objektua existitzen dela
+    // 1. Datuak prestatu
     if (!subject.content) subject.content = {};
-    const currentList = subject.content.idu || subject.content.idujar || []; // Badaezpada izen ezberdinak badaude
+    const currentList = subject.content.idujar || []; 
     const catalog = this.adminCatalogs.iduGuidelines || [];
     
-    // 1. Garbitu aurrekoak
-    document.querySelectorAll('.catalog-modal-overlay').forEach(m => {
-        m.style.opacity = '0';
-        setTimeout(() => m.remove(), 100);
+    // ---------------------------------------------------------
+    // A) LOGIKA DINAMIKOA: Kategoriak eta Estiloak kalkulatu
+    // ---------------------------------------------------------
+    
+    // 1. Dauden kategoria bakarrak atera datuetatik
+    const uniqueCategories = [...new Set(catalog.map(item => {
+        // Badaezpada array edo string den
+        return Array.isArray(item.range) ? item.range[0] : (item.range || 'BESTELAKOAK');
+    }))].filter(c => c).sort();
+
+    // 2. Kolore paleta zirkularra (Kategoriak gehitu ahala, koloreak errepikatu egingo dira)
+    const stylePalette = [
+        { name: 'purple',  bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200', hover: 'hover:bg-purple-100' },
+        { name: 'blue',    bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',   hover: 'hover:bg-blue-100' },
+        { name: 'emerald', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', hover: 'hover:bg-emerald-100' },
+        { name: 'amber',   bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   hover: 'hover:bg-amber-100' },
+        { name: 'rose',    bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200',    hover: 'hover:bg-rose-100' }
+    ];
+
+    // 3. Kategoria bakoitzari estilo bat esleitu (Map bat sortu)
+    const categoryStyles = {};
+    uniqueCategories.forEach((cat, index) => {
+        // Moduloa (%) erabiltzen dugu koloreak bukatzen badira berriro hasteko
+        categoryStyles[cat] = stylePalette[index % stylePalette.length];
     });
 
-    // 2. Modalaren egitura
+    // ---------------------------------------------------------
+
+    // Garbitu aurrekoak
+    document.querySelectorAll('.catalog-modal-overlay').forEach(m => m.remove());
+
+    // Modala sortu
     const modal = document.createElement('div');
     modal.className = "catalog-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
     
@@ -1693,7 +1713,7 @@ openIduSelector() {
         <div class="p-5 border-b flex justify-between items-center bg-gray-50">
             <div>
                 <h3 class="font-bold text-xl text-gray-800">IDU Jarraibideak</h3>
-                <p class="text-sm text-gray-500">Hautatu <strong>${subject.subjectTitle}</strong> irakasgaiari dagozkionak</p>
+                <p class="text-sm text-gray-500">Hautatu <strong>${subject.subjectTitle || subject.name}</strong> irakasgaiari dagozkionak</p>
             </div>
             <button id="closeIduModal" class="p-2 hover:bg-gray-200 rounded-full transition">
                 <i class="fas fa-times text-xl"></i>
@@ -1702,15 +1722,11 @@ openIduSelector() {
         
         <div class="p-4 border-b bg-white flex flex-col sm:flex-row gap-3">
             <div class="flex-1 relative">
-                <input type="text" id="iduSearch" placeholder="Bilatu..." class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none">
+                <input type="text" id="iduSearch" placeholder="Bilatu kodea edo izena..." class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none">
                 <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
             </div>
-            <div class="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-                <button class="category-filter px-3 py-2 text-xs font-bold rounded bg-gray-800 text-white shadow-md transition-colors whitespace-nowrap" data-category="all">Guztiak</button>
-                <button class="category-filter px-3 py-2 text-xs font-bold rounded bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 whitespace-nowrap" data-category="IRUDIKAPENA">Irudikapena</button>
-                <button class="category-filter px-3 py-2 text-xs font-bold rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 whitespace-nowrap" data-category="EKINTZA">Ekintza</button>
-                <button class="category-filter px-3 py-2 text-xs font-bold rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 whitespace-nowrap" data-category="INPLIKAZIOA">Inplikazioa</button>
-            </div>
+            <div id="categoryFilters" class="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
+                </div>
         </div>
         
         <div class="p-6 overflow-y-auto bg-gray-50 flex-1 relative">
@@ -1737,35 +1753,98 @@ openIduSelector() {
     modal.appendChild(content);
     document.body.appendChild(modal);
 
-    // 3. Logika eta Aldagaiak
+    // 3. UI Elementuak
     const container = content.querySelector('#iduContent');
     const searchInput = content.querySelector('#iduSearch');
+    const filtersContainer = content.querySelector('#categoryFilters');
     const noResults = content.querySelector('#noIduResults');
     const selectedCountSpan = content.querySelector('#selectedIduCount');
     const finishBtn = content.querySelector('#finishIdu');
     
-    // Set erabili eraginkortasunerako (IDuak bakarrik)
     let selectedIds = new Set(currentList.map(item => String(item.id)));
-    
-    // Array originaletik datu osoak berreskuratzeko helperra
     const getFullObject = (id) => catalog.find(c => String(c.id) === String(id));
 
     let currentFilter = 'all';
     let currentSearch = '';
 
+    // ---------------------------------------------------------
+    // B) FILTRO BOTOIAK SORTU (Loops erabiliz, ez eskuz)
+    // ---------------------------------------------------------
+    const renderFilters = () => {
+        filtersContainer.innerHTML = '';
+        
+        // 1. 'Guztiak' botoia (beti finkoa)
+        const allBtn = document.createElement('button');
+        allBtn.textContent = 'Guztiak';
+        allBtn.dataset.category = 'all';
+        // Hasierako egoera
+        const isAllActive = currentFilter === 'all';
+        allBtn.className = `category-filter px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap ${
+            isAllActive 
+            ? 'bg-gray-800 text-white shadow-md' 
+            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+        }`;
+        
+        allBtn.onclick = () => { currentFilter = 'all'; updateFilterStyles(); renderContent(); };
+        filtersContainer.appendChild(allBtn);
+
+        // 2. Kategoria dinamikoen botoiak
+        uniqueCategories.forEach(cat => {
+            const style = categoryStyles[cat]; // Lehen kalkulatutako estiloa berreskuratu
+            const btn = document.createElement('button');
+            btn.textContent = cat; // "IRUDIKAPENA", "EKINTZA", etab.
+            btn.dataset.category = cat;
+            
+            // Hasierako klaseak (Aktibo/Ez aktibo kalkulatuko dira gero)
+            btn.className = `category-filter px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap ${style.bg} ${style.text} ${style.border} ${style.hover} opacity-60 hover:opacity-100`;
+            
+            btn.onclick = () => { currentFilter = cat; updateFilterStyles(); renderContent(); };
+            filtersContainer.appendChild(btn);
+        });
+    };
+
+    // Estiloak eguneratu klik egitean
+    const updateFilterStyles = () => {
+        const btns = filtersContainer.querySelectorAll('.category-filter');
+        btns.forEach(btn => {
+            const cat = btn.dataset.category;
+            const isActive = cat === currentFilter;
+            
+            if (cat === 'all') {
+                btn.className = `category-filter px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap ${
+                    isActive ? 'bg-gray-800 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200'
+                }`;
+            } else {
+                const style = categoryStyles[cat];
+                if (isActive) {
+                    // Aktibo dagoenean: Kolore "betea" (adibidez botoi iluna testu zuriarekin) edo estilo nabarmena
+                    // Kasu honetan zure estilo originala mantentzen dugu baina opazitaterik gabe eta itzalarekin
+                    btn.className = `category-filter px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap ${style.bg} ${style.text} ${style.border} shadow-md ring-2 ring-offset-1 ring-${style.name}-200`;
+                } else {
+                    // Inaktibo
+                    btn.className = `category-filter px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap bg-white text-gray-500 border-gray-200 hover:${style.bg} hover:${style.text}`;
+                }
+            }
+        });
+    };
+
     const renderContent = () => {
         container.innerHTML = '';
         
-        // Iragazketa
-        const filtered = catalog.filter(item => {
+        // 1. Iragazi
+        let filtered = catalog.filter(item => {
             const matchesSearch = !currentSearch || 
                 (item.code?.toLowerCase().includes(currentSearch.toLowerCase()) || 
                  item.name?.toLowerCase().includes(currentSearch.toLowerCase()));
             
-            const matchesCategory = currentFilter === 'all' || item.range?.includes(currentFilter);
+            const itemRange = Array.isArray(item.range) ? item.range[0] : (item.range || 'BESTELAKOAK');
+            const matchesCategory = currentFilter === 'all' || itemRange === currentFilter;
             
             return matchesSearch && matchesCategory;
         });
+        
+        // 2. Ordenatu
+        filtered.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true, sensitivity: 'base' }));
         
         if (filtered.length === 0) {
             noResults.classList.remove('hidden');
@@ -1773,37 +1852,31 @@ openIduSelector() {
         }
         noResults.classList.add('hidden');
 
-        // Multzokatu
-        const categories = ['IRUDIKAPENA', 'EKINTZA', 'INPLIKAZIOA'];
+        // 3. Multzokatu (Dinamikoki)
         const groups = {};
-        
-        // Datuak antolatu
         filtered.forEach(item => {
-            let cat = categories.find(c => item.range?.includes(c)) || 'BESTELAKOAK';
+            const cat = Array.isArray(item.range) ? item.range[0] : (item.range || 'BESTELAKOAK');
             if (!groups[cat]) groups[cat] = [];
             groups[cat].push(item);
         });
 
-        // HTML sortu
-        Object.entries(groups).forEach(([category, items]) => {
-            if (items.length === 0) return;
+        // 4. HTML Sortu (Loop bidez)
+        // Ordena mantentzeko 'uniqueCategories' erabiltzen dugu gida gisa
+        const categoriesToShow = currentFilter === 'all' ? uniqueCategories : [currentFilter];
 
+        categoriesToShow.forEach(category => {
+            const items = groups[category];
+            if (!items || items.length === 0) return;
+
+            const style = categoryStyles[category]; // <--- HEMEN DAGO GAKOA, ez if/else
             const section = document.createElement('div');
-            
-            // Goiburuko koloreak
-            const styles = {
-                'IRUDIKAPENA': 'text-purple-700 bg-purple-50 border-purple-200',
-                'EKINTZA': 'text-blue-700 bg-blue-50 border-blue-200',
-                'INPLIKAZIOA': 'text-emerald-700 bg-emerald-50 border-emerald-200',
-                'BESTELAKOAK': 'text-gray-700 bg-gray-100 border-gray-200'
-            }[category] || 'text-gray-700 bg-gray-100';
 
             section.innerHTML = `
-                <div class="flex items-center gap-2 mb-3 px-2">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold border ${styles}">
+                <div class="flex items-center gap-2 mb-3 px-2 sticky top-0 bg-gray-50/95 py-2 z-10">
+                    <span class="px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}">
                         ${category}
                     </span>
-                    <span class="text-xs text-gray-400 font-medium">${items.length} jarraibide</span>
+                    <span class="text-xs text-gray-400 font-medium">${items.length}</span>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"></div>
             `;
@@ -1815,7 +1888,6 @@ openIduSelector() {
                 const isSelected = selectedIds.has(idStr);
                 
                 const card = document.createElement('div');
-                // IDU txartela
                 card.className = `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
                     isSelected 
                     ? 'bg-yellow-50 border-yellow-400 shadow-md' 
@@ -1838,72 +1910,43 @@ openIduSelector() {
                     </p>
                 `;
 
-                // CLICK EKINTZA (HEMEN DAGO HOBEKUNTZA)
-                // Ez dugu renderContent() deitzen, DOM-a bakarrik aldatzen dugu
                 card.onclick = () => {
                     const checkCircle = card.querySelector('.check-circle');
-                    
                     if (selectedIds.has(idStr)) {
-                        // Desautatu
                         selectedIds.delete(idStr);
                         card.className = "group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm";
                         checkCircle.classList.remove('bg-yellow-500', 'text-white', 'scale-100');
                         checkCircle.classList.add('bg-gray-100', 'text-transparent', 'scale-90');
                     } else {
-                        // Hautatu
                         selectedIds.add(idStr);
                         card.className = "group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 bg-yellow-50 border-yellow-400 shadow-md";
                         checkCircle.classList.remove('bg-gray-100', 'text-transparent', 'scale-90');
                         checkCircle.classList.add('bg-yellow-500', 'text-white', 'scale-100');
                     }
 
-                    // Footer eguneratu
                     const count = selectedIds.size;
                     selectedCountSpan.textContent = count;
                     finishBtn.innerHTML = `Gorde (${count})`;
-                    
-                    // Animazio txiki bat botoian
                     finishBtn.classList.add('scale-105');
                     setTimeout(() => finishBtn.classList.remove('scale-105'), 150);
                 };
-
                 grid.appendChild(card);
             });
-            
             container.appendChild(section);
         });
     };
 
+    // Hasieratu
+    renderFilters();
+    updateFilterStyles(); // Hasierako egoera
     renderContent();
 
-    // 4. Event Listeners (Bilaketa eta Kategoriak)
+    // Listeners
     searchInput.addEventListener('input', (e) => {
         currentSearch = e.target.value;
         renderContent();
     });
 
-    const filterBtns = content.querySelectorAll('.category-filter');
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            // Estiloak garbitu
-            filterBtns.forEach(b => {
-                b.className = "category-filter px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap " + 
-                    (b.dataset.category === 'all' ? "bg-white text-gray-600 border-gray-200 hover:bg-gray-50" : 
-                     b.dataset.category === 'IRUDIKAPENA' ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100" :
-                     b.dataset.category === 'EKINTZA' ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" :
-                     "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100");
-            });
-
-            // Aukeratua nabarmendu
-            currentFilter = btn.dataset.category;
-            if(currentFilter === 'all') btn.className = "category-filter px-3 py-2 text-xs font-bold rounded bg-gray-800 text-white shadow-md transition-colors whitespace-nowrap";
-            // (Hemen logika sinplifikatu dut, baina kolore bakoitza bere botoian mantendu daiteke "active" egoeran)
-            
-            renderContent();
-        });
-    });
-
-    // 5. Itxiera eta Gordetzea
     const closeModal = () => {
         modal.style.opacity = '0';
         setTimeout(() => modal.remove(), 200);
@@ -1912,59 +1955,50 @@ openIduSelector() {
     content.querySelector('#closeIduModal').onclick = closeModal;
     content.querySelector('#cancelIdu').onclick = closeModal;
 
-// KODE BERRIA (Ordezkatu zatia honekin):
-content.querySelector('#finishIdu').onclick = async () => {
-    const btn = content.querySelector('#finishIdu');
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-    btn.disabled = true;
+    // GORDE LOGIKA (Bakarrik idujar)
+    finishBtn.onclick = async () => {
+        finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        finishBtn.disabled = true;
 
-    try {
-        // 1. Datuak prestatu
-        const newSelection = Array.from(selectedIds).map(id => {
-            const item = getFullObject(id);
-            return {
-                id: item.id,
-                code: item.code,
-                name: item.name,
-                range: item.range,
-                iduCode: item.code
-            };
-        }).filter(Boolean);
+        try {
+            const newSelection = Array.from(selectedIds).map(id => {
+                const item = getFullObject(id);
+                return {
+                    id: item.id,
+                    code: item.code,
+                    name: item.name,
+                    range: item.range,
+                    iduCode: item.code
+                };
+            }).filter(Boolean);
 
-        // 2. MEMORIA EGUNERATU (Hau lehenago egiten dugu)
-        this.currentSubject.content.idujar = newSelection;
+            subject.content.idujar = newSelection;
 
-        // 3. SUPABASE DEIA (⚠️ ADI: Taularen izena)
-        // Zure kodean 'irakasgaiak' zegoen, nik 'subjects' jarri dut estandar gisa.
-        const { error } = await this.supabase
-            .from('irakasgaiak') // <--- HEMEN BEGIRATU
-            .update({ 
-                content: this.currentSubject.content,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', this.currentSubject.id);
+            const { error } = await this.supabase
+                .from('irakasgaiak')
+                .update({ 
+                    content: subject.content,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', subject.id);
 
-        if (error) throw error;
+            if (error) throw error;
 
-        // 4. MODALA ITXI (UI eguneratu aurretik)
-        closeModal();
+            closeModal();
 
-        // 5. UI EGUNERATU (Pantaila freskatu gabe)
-        if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-            console.log("🎨 UI freskatzen...");
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        } else {
-            // UI modulua topatzen ez badu, orria kargatu
-            window.location.reload();
+            if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
+                window.ui.renderSubjectDetail(subject, this.currentDegree);
+            } else {
+                window.location.reload();
+            }
+
+        } catch (error) {
+            console.error("❌ Errorea:", error);
+            alert("Errorea: " + error.message);
+            finishBtn.innerHTML = 'Saiatu berriro';
+            finishBtn.disabled = false;
         }
-
-    } catch (error) {
-        console.error("❌ Errorea:", error);
-        alert("Errorea: " + error.message);
-        btn.innerHTML = 'Saiatu berriro';
-        btn.disabled = false;
-    }
-};
+    };
 
     setTimeout(() => searchInput.focus(), 50);
 }
@@ -2633,15 +2667,22 @@ openProjectsSelector() {
     content.querySelector('#cancelProject').onclick = closeModal;
     
     // 5. GORDE FUNZIOA ZUZENDU:
-    content.querySelector('#finishProject').onclick = async () => {  // ✅ ZUZENDU HAU!
+// ---------------------------------------------------------
+    // ALDAKETA KIRURJIKOA: GORDE BOTOIAREN LOGIKA BAKARRIK
+    // ---------------------------------------------------------
+    content.querySelector('#finishProject').onclick = async () => {
         const btn = content.querySelector('#finishProject');
+        const originalText = btn.innerHTML;
+        
+        // 1. UI blokeatu
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
         btn.disabled = true;
-        
+
         try {
-            // Sortu objektuen array berria ID-etatik abiatuta
+            // 2. Objektu berriak sortu (Zure filtro eta guzti aukeratutako ID-etatik)
+            // 'selectedIds' zure funtzioan definituta dago jada
             const newSelection = Array.from(selectedIds).map(id => {
-                const item = getFullObject(id);
+                const item = getFullObject(id); // Zure helper funtzioa erabiltzen du
                 return {
                     id: item.id,
                     name: item.name,
@@ -2651,33 +2692,46 @@ openProjectsSelector() {
                     extProyCodigo: item.code || `EXT-${item.id}`
                 };
             });
+
+            // =============================================================
+            // 3. GAKOA: MEMORIA LOKALA EGUNERATU (Hau falta zen)
+            // Supabase deitu aurretik, zure 'subject' aldagaia eguneratu
+            // =============================================================
             
-            // ✅ EGUNERATU this.currentSubject (LEHENA)
-            if (!this.currentSubject.content) this.currentSubject.content = {};
-            this.currentSubject.content.extProy = newSelection;
+            // Ziurtatu content existitzen dela
+            if (!subject.content) subject.content = {};
             
-            // ✅ SUPABASE GORDE (this.currentSubject erabiliz)
+            // Eguneratu memoriako erreferentzia zuzenean
+            subject.content.extProy = newSelection; 
+            subject.extProy = newSelection; // Badaezpada bi lekuetan
+
+            console.log("✅ Memoria eguneratuta, orain Supabase...", newSelection.length);
+
+            // 4. SUPABASE EGUNERATU
             const { error } = await this.supabase
                 .from('irakasgaiak')
                 .update({ 
-                    content: this.currentSubject.content,  // ← HEMEN
+                    content: subject.content, // Orain JSON eguneratua bidaltzen dugu
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', this.currentSubject.id);  // ← HEMEN
-                
+                .eq('id', subject.id);
+
             if (error) throw error;
-            
-            // ✅ UI EGUNERATU (this.currentSubject erabiliz)
+
+            // 5. MODALA ITXI
+            closeModal(); // Zure funtzioan definituta dagoen itxiera
+
+            // 6. PANTAILA EGUNERATU (Render deitu)
+            // Orain memoriako 'subject' eguneratuta dagoenez, ondo pintatuko du
             if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+                console.log("🔄 Pantaila freskatzen datu berriekin...");
+                await window.ui.renderSubjectDetail(subject, this.currentDegree);
             }
-            
-            closeModal();
-            
+
         } catch (error) {
-            console.error("❌ Errorea:", error);
-            alert("Errorea gordetzean: " + error.message);
-            btn.innerHTML = 'Saiatu berriro';
+            console.error("❌ Errorea gordetzean:", error);
+            alert("Errorea: " + error.message);
+            btn.innerHTML = originalText; // Testua berreskuratu
             btn.disabled = false;
         }
     };
@@ -5675,6 +5729,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
