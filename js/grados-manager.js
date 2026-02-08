@@ -1973,10 +1973,11 @@ openProjectsCatalogEditor() {
     // Ziurtatu katalogoa hasieratuta dagoela
     if (!this.adminCatalogs.externalProjects) this.adminCatalogs.externalProjects = [];
 
-    // ALDAGAI BERRIA: Bilaketarako
+    // ALDAGAI BERRIAK: Bilaketa eta ordena
     let currentSearch = "";
+    let currentSort = "";
 
-    // --- 1. MODALAREN HTML OINARRIA ---
+    // --- 1. MODALAREN HTML OINARRIA (HOBETUA) ---
     const modalHtml = `
         <div id="catalogEditorModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 backdrop-blur-sm">
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden">
@@ -1991,18 +1992,39 @@ openProjectsCatalogEditor() {
                     </button>
                 </div>
 
+                <!-- BILAKETA ATALA (HOBETUA) -->
                 <div class="px-6 py-3 bg-white border-b border-gray-100">
-                    <div class="relative">
-                        <input type="text" id="projectSearchInput" 
-                               placeholder="Bilatu erakundea, proiektua edo mota..." 
-                               class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                               value="">
-                        <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                    <div class="flex flex-col md:flex-row gap-3">
+                        <!-- Bilaketa testua -->
+                        <div class="flex-1">
+                            <div class="relative">
+                                <input type="text" id="projectSearchInput" 
+                                       placeholder="Bilatu erakundea, proiektuak edo mota..." 
+                                       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                       value="">
+                                <i class="fas fa-search absolute left-3 top-2.5 text-gray-400"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- Ordenatze aukera (GEHITUTA) -->
+                        <div class="md:w-48">
+                            <select id="sortOrder" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                                <option value="">Ordenatu...</option>
+                                <option value="agent_asc">Erakundea (A-Z)</option>
+                                <option value="agent_desc">Erakundea (Z-A)</option>
+                                <option value="name_asc">Proiektua (A-Z)</option>
+                                <option value="type_asc">Mota (A-Z)</option>
+                                <option value="newest">Berrienak lehenik</option>
+                                <option value="oldest">Zaharrenak lehenik</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
+                <!-- INFORMATZIO ATALA -->
                 <div class="px-6 py-3 bg-blue-50 border-b border-blue-100">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col md:flex-row items-center justify-between gap-2">
                         <div class="text-xs text-blue-700 flex items-center gap-2">
                             <i class="fas fa-info-circle"></i>
                             <span>Logoak <b>assets/logos/</b> karpetan. Idatzi izena soilik (adib: <i>enpresa.png</i>).</span>
@@ -2010,13 +2032,18 @@ openProjectsCatalogEditor() {
                         <div class="flex gap-2 text-xs">
                             <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded" id="uniqueTypesCount">0 mota</span>
                             <span class="px-2 py-1 bg-green-100 text-green-700 rounded" id="uniqueAgentsCount">0 agente</span>
+                            <!-- Emaitza kontagailua (GEHITUTA) -->
+                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded" id="resultCount">0 proiektu</span>
                         </div>
                     </div>
                 </div>
 
+                <!-- KATALOGO EDUKIA -->
                 <div class="flex-1 overflow-y-auto p-6 bg-gray-50/50" id="catalogListContainer">
-                    </div>
+                    <!-- Hemen proiektuen zerrenda kargatuko da -->
+                </div>
 
+                <!-- BOTOIAK -->
                 <div class="px-6 py-4 border-t border-gray-100 bg-white flex justify-between items-center">
                     <div class="flex gap-2">
                         <button id="addProjectBtn" class="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-bold hover:bg-indigo-100 transition flex items-center gap-2">
@@ -2036,7 +2063,7 @@ openProjectsCatalogEditor() {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     const modal = document.getElementById('catalogEditorModal');
 
-    // --- 2. FUNTZIO LAGUNTZAILEAK ---
+    // --- 2. FUNTZIO LAGUNTZAILEAK (ZURE KODEA BERDIN) ---
 
     const getUniqueTypes = () => {
         const tipos = this.adminCatalogs.externalProjects
@@ -2082,13 +2109,13 @@ openProjectsCatalogEditor() {
         }
     };
 
-    // --- 3. RENDER TABLE (FILTROAREKIN) ---
+    // --- 3. RENDER TABLE (HOBETUA ORDENATZEAREKIN) ---
     const renderTable = () => {
         const container = document.getElementById('catalogListContainer');
         container.innerHTML = '';
 
-        // FILTROA APLIKATU
-        const filteredItems = this.adminCatalogs.externalProjects.filter(item => {
+        // 1. FILTRATU (zure kodea berdina)
+        let filteredItems = this.adminCatalogs.externalProjects.filter(item => {
             const term = currentSearch.toLowerCase();
             return !term || 
                    (item.agent && item.agent.toLowerCase().includes(term)) ||
@@ -2096,11 +2123,51 @@ openProjectsCatalogEditor() {
                    (item.type && item.type.toLowerCase().includes(term));
         });
 
+        // 2. ORDENATU (GEHITUTA)
+        if (currentSort) {
+            switch(currentSort) {
+                case 'agent_asc':
+                    filteredItems.sort((a, b) => (a.agent || '').localeCompare(b.agent || ''));
+                    break;
+                case 'agent_desc':
+                    filteredItems.sort((a, b) => (b.agent || '').localeCompare(a.agent || ''));
+                    break;
+                case 'name_asc':
+                    filteredItems.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                    break;
+                case 'type_asc':
+                    filteredItems.sort((a, b) => (a.type || '').localeCompare(b.type || ''));
+                    break;
+                case 'newest':
+                    filteredItems.sort((a, b) => (b.id || 0) - (a.id || 0));
+                    break;
+                case 'oldest':
+                    filteredItems.sort((a, b) => (a.id || 0) - (b.id || 0));
+                    break;
+            }
+        }
+
+        // 3. KONTAGAILUA EGUNERATU (GEHITUTA)
+        const resultCount = document.getElementById('resultCount');
+        if (resultCount) {
+            const total = this.adminCatalogs.externalProjects.length;
+            const filtered = filteredItems.length;
+            if (currentSearch || currentSort) {
+                resultCount.textContent = `${filtered}/${total} proiektuak`;
+                resultCount.className = "px-2 py-1 bg-amber-100 text-amber-700 rounded";
+            } else {
+                resultCount.textContent = `${total} proiektuak`;
+                resultCount.className = "px-2 py-1 bg-gray-100 text-gray-700 rounded";
+            }
+        }
+
+        // 4. RENDERIZATU (zure kodea berdina, baina filteredItems erabiliz)
         if (filteredItems.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-16 text-gray-400">
                     <i class="fas fa-search text-4xl mb-4"></i>
                     <p>${this.adminCatalogs.externalProjects.length === 0 ? 'Ez dago proiekturik.' : 'Ez da emaitzarik aurkitu.'}</p>
+                    ${currentSearch ? `<p class="text-sm mt-2">Bilaketa: "${currentSearch}"</p>` : ''}
                 </div>`;
             return;
         }
@@ -2112,7 +2179,7 @@ openProjectsCatalogEditor() {
 
         // Iteratu FILTRATUTAKO item-en gainean
         filteredItems.forEach((item) => {
-            // Indize erreala bilatu array originalean (editatzeko/ezabatzeko beharrezkoa)
+            // Indize erreala bilatu array originalean
             const globalIndex = this.adminCatalogs.externalProjects.indexOf(item);
             
             const row = document.createElement('div');
@@ -2174,7 +2241,7 @@ openProjectsCatalogEditor() {
             `;
             container.appendChild(row);
 
-            // EVENT LISTENERS
+            // EVENT LISTENERS (zure kodea berdina)
             const updateData = (e, field) => {
                 const idx = parseInt(e.target.dataset.index);
                 const val = e.target.value;
@@ -2234,10 +2301,12 @@ openProjectsCatalogEditor() {
         createDataLists();
     };
 
-    // BILATZAILEAREN EVENT LISTENER-A
-    renderTable(); // Hasierako karga
+    // --- 4. BILAKETA ETA ORDENA EVENT LISTENER-RAK (GEHITUTA) ---
     
-    // Bilatzailea aktibatu
+    // Hasierako renderizazioa
+    renderTable();
+    
+    // Bilatzailearen event listener-a (zure kodea berdina)
     setTimeout(() => {
         const searchInput = document.getElementById('projectSearchInput');
         if (searchInput) {
@@ -2249,7 +2318,18 @@ openProjectsCatalogEditor() {
         }
     }, 50);
     
-    // --- 4. BOTOIEN KUDEAKETA ---
+    // Ordenatze select-aren event listener-a (GEHITUTA)
+    setTimeout(() => {
+        const sortSelect = document.getElementById('sortOrder');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', (e) => {
+                currentSort = e.target.value;
+                renderTable();
+            });
+        }
+    }, 50);
+    
+    // --- 5. BOTOIEN KONFIGURAZIOA (HOBETUA UI EGUNERAKETA) ---
 
     document.getElementById('addProjectBtn').onclick = () => {
         this.adminCatalogs.externalProjects.unshift({
@@ -2260,8 +2340,10 @@ openProjectsCatalogEditor() {
             type: "HITZALDIA",
             color: "#6366f1"
         });
-        currentSearch = ""; // Bilaketa garbitu berria gehitzean
+        currentSearch = ""; // Bilaketa garbitu
+        currentSort = ""; // Ordena garbitu
         document.getElementById('projectSearchInput').value = "";
+        document.getElementById('sortOrder').value = "";
         renderTable();
         setTimeout(() => document.querySelector('.field-agent')?.focus(), 50);
     };
@@ -2273,17 +2355,33 @@ openProjectsCatalogEditor() {
         btn.disabled = true;
 
         try {
+            // 1. GORDE SUPABASE-N
             const { error } = await this.supabase
                 .from('admin_external_projects')
                 .upsert(this.adminCatalogs.externalProjects, { onConflict: 'id' });
 
             if (error) throw error;
+            
+            // 2. GARRANTZITSUENA: KARGATU BERRIRO SUPABASE-TIK
+            await this.loadCatalogs(); // Zure funtzioa erabili
+            
             alert("✅ Ondo gorde da!");
             modal.remove();
             
-            if (this.currentSubject && window.ui?.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            // 3. UI FRESKATU (konfiantzaz)
+            if (this.currentSubject && this.currentDegree) {
+                // Saiatu zure klaseko funtzioa
+                if (typeof this.renderSubjectDetail === 'function') {
+                    this.renderSubjectDetail(this.currentSubject, this.currentDegree);
+                }
+                // Bestela, window.ui bidez
+                else if (window.ui?.renderSubjectDetail) {
+                    window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+                }
             }
+            
+            // 4. EVENT GLOBALA (aukerakoa baina onuragarria)
+            document.dispatchEvent(new Event('externalProjectsUpdated'));
 
         } catch (error) {
             console.error(error);
@@ -2294,7 +2392,9 @@ openProjectsCatalogEditor() {
     };
 
     document.getElementById('closeCatalogModal').onclick = () => {
-        if(confirm("Ziur irten nahi duzula?")) modal.remove();
+        if(confirm("Aldaketak ez dituzu gorde. Ziur irten nahi duzula?")) {
+            modal.remove();
+        }
     };
 }
 	
@@ -5569,6 +5669,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
