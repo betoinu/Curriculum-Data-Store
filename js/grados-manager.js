@@ -1453,7 +1453,7 @@ openOdsSelector(subject) {
 						</button>
 					</div>
 					
-					<!-- INFORMACIÓN DE ORDENACIÓN -->
+		<!--		<!-- INFORMACIÓN DE ORDENACIÓN -->
 					<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
 						<div class="flex items-start gap-3">
 							<i class="fas fa-sort-amount-up text-yellow-500 text-lg mt-0.5"></i>
@@ -1466,7 +1466,7 @@ openOdsSelector(subject) {
 								</ul>
 							</div>
 						</div>
-					</div>
+					</div>  -->
 					
 					<!-- FILTROS Y BÚSQUEDA -->
 					<div class="mb-6">
@@ -5747,6 +5747,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
