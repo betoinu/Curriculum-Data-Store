@@ -3594,12 +3594,12 @@ openPreReqEditor() {
                                 <i class="fas fa-palette mr-2"></i>
                                 <span class="font-bold">${areaNames.length}</span> eremu eskuragarri
                             </div>
-                            <select id="quickAreaSelect" class="text-xs border border-indigo-300 rounded px-3 py-1 bg-white">
+                     <!--   <select id="quickAreaSelect" class="text-xs border border-indigo-300 rounded px-3 py-1 bg-white">
                                 <option value="">Gehitu eremua...</option>
                                 ${areaNames.map(area => `
                                     <option value="${area}">${area}</option>
                                 `).join('')}
-                            </select>
+                            </select> -->
                         </div>
                     </div>
                 ` : `
@@ -5758,6 +5758,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
