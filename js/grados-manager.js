@@ -2463,7 +2463,7 @@ openProjectsCatalogEditor() {
 }
 	
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
-openProjectSelector() {
+openProjectsSelector() {
     console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
     const subject = this.currentSubject;
     if (!subject) return;
@@ -5758,6 +5758,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
