@@ -2243,7 +2243,7 @@ openProjectsCatalogEditor() {
             const row = document.createElement('div');
             row.className = 'project-row-item bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-3 flex items-center gap-4 group hover:shadow-md transition-all duration-200';
             
-            const logoPath = item.logoFileName ? `assets/logos/${item.logoFileName}?v=${cacheBuster}` : null;
+            const logoPath = item.logoFile? `assets/logos/${item.logoFile}?v=${cacheBuster}` : null;
             const initials = (item.agent || '?').substring(0, 2).toUpperCase();
             const itemColor = typeColorMap[item.type] || item.color || '#6366f1';
 
@@ -2272,7 +2272,7 @@ openProjectsCatalogEditor() {
                         <div class="relative flex items-center">
                             <span class="absolute left-2 text-xs text-gray-400 select-none">.../</span>
                             <input type="text" class="w-full text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-lg pl-8 pr-2 py-2 field-logo-name focus:ring-2 focus:ring-blue-500 outline-none" 
-                                   value="${item.logoFileName || ''}" placeholder="logo.png" data-index="${globalIndex}">
+                                   value="${item.logoFile || ''}" placeholder="logo.png" data-index="${globalIndex}">
                         </div>
                     </div>
                     
@@ -2307,8 +2307,8 @@ openProjectsCatalogEditor() {
 
                 if (field === 'agent') project.agent = val;
                 else if (field === 'name') project.name = val;
-                else if (field === 'logoFileName') {
-                    project.logoFileName = val;
+                else if (field === 'logoFile') {
+                    project.logoFile = val;
                     const img = row.querySelector('.logo-preview img');
                     const span = row.querySelector('.logo-preview span');
                     if(val) {
@@ -2343,7 +2343,7 @@ openProjectsCatalogEditor() {
 
             row.querySelectorAll('input').forEach(input => {
                 if(input.classList.contains('field-agent')) input.oninput = (e) => updateData(e, 'agent');
-                if(input.classList.contains('field-logo-name')) input.oninput = (e) => updateData(e, 'logoFileName');
+                if(input.classList.contains('field-logo-name')) input.oninput = (e) => updateData(e, 'logoFile');
                 if(input.classList.contains('field-name')) input.oninput = (e) => updateData(e, 'name');
                 if(input.classList.contains('field-type')) input.oninput = (e) => updateData(e, 'type');
                 if(input.classList.contains('field-color')) input.oninput = (e) => updateData(e, 'color');
@@ -2393,7 +2393,7 @@ openProjectsCatalogEditor() {
         this.adminCatalogs.externalProjects.unshift({
             id: Date.now(),
             agent: "",
-            logoFileName: "",
+            logoFile: "",
             name: "",
             type: "HITZALDIA",
             color: "#6366f1"
@@ -5758,6 +5758,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
