@@ -677,67 +677,75 @@ renderSubjectDetail: async (subject, degree) => {
         }
 
 		// =========================================================
-        // 6. KANPO PROIEKTUAK (ExtProy) - KODE ZUZENDUA (logoFile)
-        // =========================================================
-        const projContainer = document.getElementById('detailExtProy');
-        
-        if (projContainer) {
-            projContainer.innerHTML = '';
-            // Datuen jatorria: externalProjects edo extProy
-            const list = subject.content?.externalProjects || subject.content?.extProy || [];
-            
-            // Katalogoa kargatu
-            const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) 
-                            ? window.gradosManager.adminCatalogs.externalProjects 
-                            : [];
-
-            if (list.length === 0) {
-                projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
-            } else {
-                projContainer.className = "grid grid-cols-1 gap-2 mt-2"; 
-
-                list.forEach(item => {
-                    // 1. Bilatu katalogoan IDaren bidez (String bihurtuta segurtasunez)
-                    let fullData = catalog.find(c => String(c.id) === String(item.id)) || item;
-                    
-                    // 2. LOGOA: Orain badakigu 'logoFile' dela gakoa
-                    const logoSrc = fullData.logoFile; 
-                    const hasLogo = logoSrc && logoSrc.length > 10; // Ziurtatu ez dela hutsik edo oso laburra
-
-                    // Initials (Irudirik ez badago)
-                    const agentName = fullData.agent || fullData.name || '?';
-                    const initials = agentName.substring(0, 2).toUpperCase();
-                    
-                    // Txartelaren HTMLa
-                    projContainer.innerHTML += `
-                        <div class="flex items-center gap-3 p-2 bg-white rounded border border-gray-100 shadow-sm hover:shadow-md transition">
-                            
-                            <div class="w-10 h-10 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
-                                 style="${!hasLogo ? `background-color: ${fullData.color || '#fdba74'}` : 'background-color: white'}">
-                                
-                                ${hasLogo ? 
-                                    `<img src="${logoSrc}" class="w-full h-full object-contain p-0.5" alt="${agentName}">` :
-                                    `<span class="text-white font-bold text-xs">${initials}</span>`
-                                }
-                            </div>
-
-                            <div class="min-w-0 flex-1 leading-tight">
-                                <div class="flex justify-between items-start">
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate pr-2">
-                                        ${agentName}
-                                    </span>
-                                    ${fullData.type ? `<span class="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full">${fullData.type}</span>` : ''}
-                                </div>
-                                <p class="text-xs font-bold text-gray-800 truncate mt-0.5">
-                                    ${fullData.name || 'Izenik gabe'}
-                                </p>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-        }
-
+		// 6. KANPO PROIEKTUAK (ExtProy) - KODE ZUZENDUA (logoFile)
+		// =========================================================
+		const projContainer = document.getElementById('detailExtProy');
+		
+		if (projContainer) {
+		    projContainer.innerHTML = '';
+		    // Datuen jatorria: externalProjects edo extProy
+		    const list = subject.content?.externalProjects || subject.content?.extProy || [];
+		    
+		    // Katalogoa kargatu
+		    const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) 
+		                    ? window.gradosManager.adminCatalogs.externalProjects 
+		                    : [];
+		
+		    if (list.length === 0) {
+		        projContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Ez da kanpo proiekturik zehaztu.</span>';
+		    } else {
+		        projContainer.className = "grid grid-cols-1 gap-2 mt-2"; 
+		
+		        list.forEach(item => {
+		            // 1. Bilatu katalogoan IDaren bidez (String bihurtuta segurtasunez)
+		            let fullData = catalog.find(c => String(c.id) === String(item.id)) || item;
+		            
+		            // 2. 🎯 ALDAKETA HEMEN: logoFile izen laburra dela jakin
+		            const logoFileName = fullData.logoFile; 
+		            // Ziurtatu izena baduela, baina ez luzera 10 baino handiagoa denik
+		            const hasLogo = logoFileName && logoFileName.trim().length > 0;
+		            
+		            // 🎯 LOGO-aren URL OSOA sortu
+		            const logoSrc = hasLogo ? `assets/logos/${logoFileName}` : '';
+		            
+		            // Initials (Irudirik ez badago)
+		            const agentName = fullData.agent || fullData.name || '?';
+		            const initials = agentName.substring(0, 2).toUpperCase();
+		            
+		            // Txartelaren HTMLa
+		            projContainer.innerHTML += `
+		                <div class="flex items-center gap-3 p-2 bg-white rounded border border-gray-100 shadow-sm hover:shadow-md transition">
+		                    
+		                    <div class="w-10 h-10 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
+		                         style="${!hasLogo ? `background-color: ${fullData.color || '#fdba74'}` : 'background-color: white'}">
+		                        
+		                        ${hasLogo ? 
+		                            `<img src="${logoSrc}" 
+		                                 class="w-full h-full object-contain p-0.5" 
+		                                 alt="${agentName}"
+		                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">` :
+		                            ''}
+		                        <span class="text-white font-bold text-xs" style="display: ${hasLogo ? 'none' : 'block'}">
+		                            ${initials}
+		                        </span>
+		                    </div>
+		
+		                    <div class="min-w-0 flex-1 leading-tight">
+		                        <div class="flex justify-between items-start">
+		                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate pr-2">
+		                                ${agentName}
+		                            </span>
+		                            ${fullData.type ? `<span class="text-[9px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full">${fullData.type}</span>` : ''}
+		                        </div>
+		                        <p class="text-xs font-bold text-gray-800 truncate mt-0.5">
+		                            ${fullData.name || 'Izenik gabe'}
+		                        </p>
+		                    </div>
+		                </div>
+		            `;
+		        });
+		    }
+		}
         // =========================================================
         // 7. IDU JARRAIBIDEAK (Idujar)
         // =========================================================
@@ -1577,6 +1585,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
