@@ -3397,7 +3397,6 @@ openProjectsSelector() {
 	}
 
 // Aldaketak egiteko funtzio temporala:
-
 	
 	saveRaChanges() {
 		const s = this.currentSubject;
@@ -5740,6 +5739,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
