@@ -617,23 +617,31 @@ renderSubjectDetail: async (subject, degree) => {
         const colorBar = document.getElementById('subjectColorBar');
         if(colorBar) colorBar.style.backgroundColor = areaColor;
 
-        // =========================================================
-        // 4. PRE-REQUISITOS
+// =========================================================
+        // 4. PRE-REQUISITOS (ZUZENDUA)
         // =========================================================
         const preReqContainer = document.getElementById('detailPreReq');
         if (preReqContainer) {
             preReqContainer.innerHTML = '';
             const list = subject.content?.preReq || [];
+            
             if (list.length === 0) {
                 preReqContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago aurre-ezagutzarik zehaztuta.</div>';
             } else {
                 list.forEach(item => {
-                    const isObj = typeof item === 'object';
-                    const name = isObj ? item.name : item;
-                    const reqCode = isObj ? (item.preReqCode || item.reqCode || '') : '';
+                    const isObj = typeof item === 'object' && item !== null;
+                    
+                    // 1. DATUEN MAPAKETA ZUZENA (Hemen zegoen arazoa)
+                    // Editore berriak 'name' eta 'code' erabiltzen ditu.
+                    const name = isObj ? (item.name || item.text || 'Izengabea') : item;
+                    
+                    // GEHITUA: item.code (editore berriarena)
+                    const reqCode = isObj ? (item.code || item.preReqCode || item.reqCode || '') : '';
+                    
                     const area = isObj ? (item.area || '') : '';
                     const color = isObj ? (item.color || '#9ca3af') : '#9ca3af';
 
+                    // 2. HTML RENDERIZAZIOA
                     preReqContainer.innerHTML += `
                         <div class="flex items-center text-sm p-2 bg-slate-50 border border-slate-100 rounded mb-1 hover:bg-white hover:shadow-sm transition" style="border-left: 3px solid ${color};">
                             ${reqCode ? `<span class="font-mono text-xs font-bold text-slate-500 mr-2 bg-slate-200 px-1 rounded">${reqCode}</span>` : ''}
@@ -1585,6 +1593,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
