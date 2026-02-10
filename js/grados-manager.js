@@ -311,6 +311,26 @@ class GradosManager {
             if (saveBtn) saveBtn.disabled = false;
         }
     }
+
+    async saveData(subjectData = null) {
+        console.log("💾 saveData (legacy) -> saveSubject deitzen");
+        
+        const subjectToSave = subjectData || this.currentSubject;
+        
+        if (!subjectToSave) {
+            console.error("❌ Ez dago irakasgairik gordetzeko.");
+            return false;
+        }
+        
+        try {
+            // Deitu saveSubject funtzio berriari
+            const result = await this.saveSubject(subjectToSave);
+            return result;
+        } catch (error) {
+            console.error("❌ Errorea saveData-n:", error);
+            return false;
+        }
+    }	
 	
 	// --- CARGA DE GRADO ESPECÃFICO ---
 	async loadDegreeData(degreeId) {
@@ -5739,6 +5759,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
