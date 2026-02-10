@@ -3358,64 +3358,107 @@ openProjectsSelector() {
 
 	
 // ************** FUNTZIO BERRIA: KODEAK NORMALIZATU GORDETZERAKO **************
-	normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
-		if (!subject) return;
-		
-		// Obtener prefijo base desde autoCode (como en generateUnitAutoCode)
-		let basePrefix = '';
-		if (subject.autoCode) {
-			const parts = subject.autoCode.split('_');
-			if (parts.length >= 2) {
-				basePrefix = parts.slice(0, 2).join('_'); // "BD1_1NEU"
-			}
-		}
-		
-		// Si no hay autoCode, calcularlo
-		if (!basePrefix) {
-			const grado = subject.degreeCode || "BD";
-			const curso = subject.course || subject.year || "1";
-			const periodo = subject.term || subject.semester || "1";
-			const rawName = subject.name || subject.subjectTitle || "ASIG";
-			const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
-			const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
-			
-			basePrefix = `${grado}${curso}_${periodo}${acronimo}`;
-		}
-		
-		// Normalizar RAs t¨¦cnicos
-		tecRAs.forEach((ra, index) => {
-			if (ra.code && !ra.code.startsWith(basePrefix)) {
-				// Mantener el n¨²mero secuencial si existe
-				const match = ra.code.match(/(RA|ZH)(\d+)$/);
-				if (match) {
-					const tipo = "RA"; // Siempre RA para t¨¦cnicos
-					const numero = match[2] || String(index + 1).padStart(2, '0');
-					ra.code = `${basePrefix}_${tipo}${numero}`;
-					ra.id = ra.code; // Tambi¨¦n actualizar ID
-				} else {
-					ra.code = `${basePrefix}_RA${String(index + 1).padStart(2, '0')}`;
-					ra.id = ra.code;
-				}
-			}
-		});
-		
-		// Normalizar RAs transversales (ZH)
-		zhRAs.forEach((zh, index) => {
-			if (zh.code && !zh.code.startsWith(basePrefix)) {
-				const match = zh.code.match(/(RA|ZH)(\d+)$/);
-				if (match) {
-					const tipo = "ZH"; // Siempre ZH para transversales
-					const numero = match[2] || String(index + 1).padStart(2, '0');
-					zh.code = `${basePrefix}_${tipo}${numero}`;
-					zh.id = zh.code;
-				} else {
-					zh.code = `${basePrefix}_ZH${String(index + 1).padStart(2, '0')}`;
-					zh.id = zh.code;
-				}
-			}
-		});
-	}
-
+normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
+    if (!subject) return;
+    
+    // 🎯 ALDAKETA: Erabili generateUnitAutoCode logika berdina
+    // ---------------------------------------------------------
+    let basePrefix = '';
+    
+    // 1. Grado kodea
+    const grado = subject.degreeCode || "BD";
+    
+    // 2. Urtea (curso)
+    const curso = subject.course || subject.year || "1";
+    
+    // 3. Irakasgaiaren izena - ERROMATAR ZENBAKIA ATERATZEKO (generateUnitAutoCode logika)
+    const rawName = subject.name || subject.subjectTitle || "ASIG";
+    
+    // Erromatar zenbakiak arabiarretara bihurtzeko mapa
+    const romanToArabic = {
+        'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+        'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
+    };
+    
+    let romanNumber = "";
+    let baseName = "";
+    
+    // Bilatu erromatar zenbakia izenaren amaieran (generateUnitAutoCode logika)
+    Object.keys(romanToArabic).forEach(roman => {
+        const regex = new RegExp(`\\s+${roman}(\\s|$)`, 'gi');
+        const match = rawName.match(regex);
+        
+        if (match) {
+            romanNumber = roman;
+            baseName = rawName.replace(regex, '').trim();
+        }
+    });
+    
+    // Ez bada erromatar zenbakia aurkitu, bilatu arabiar zenbakia
+    if (!romanNumber) {
+        const arabicMatch = rawName.match(/\s+(\d+)(\s|$)/);
+        if (arabicMatch) {
+            romanNumber = arabicMatch[1];
+            baseName = rawName.replace(/\s+\d+(\s|$)/, '').trim();
+        } else {
+            baseName = rawName.trim();
+        }
+    }
+    
+    // Erromatar zenbakia arabiarrera bihurtu
+    let numberCode = "";
+    if (romanNumber) {
+        if (romanToArabic[romanNumber.toUpperCase()]) {
+            numberCode = romanToArabic[romanNumber.toUpperCase()];
+        } else {
+            numberCode = romanNumber; // Jada arabiar zenbakia bada
+        }
+    }
+    
+    // Akronimoa sortu (3 letra) - generateUnitAutoCode berdina
+    const cleanName = baseName.replace(/[0-9\.\s]/g, '').toUpperCase();
+    const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
+    
+    // 🎯 PREFIXO BERRIA: generateUnitAutoCode-ren antzekoa
+    if (numberCode && numberCode !== "") {
+        basePrefix = `${grado}${curso}_${numberCode}${acronimo}`;
+    } else {
+        basePrefix = `${grado}${curso}_${acronimo}`;
+    }
+    // ---------------------------------------------------------
+    
+    // Normalizar RAs t¨¦cnicos (hau mantendu)
+    tecRAs.forEach((ra, index) => {
+        if (ra.code && !ra.code.startsWith(basePrefix)) {
+            const match = ra.code.match(/(RA|ZH)(\d+)$/);
+            if (match) {
+                const tipo = "RA";
+                const numero = match[2] || String(index + 1).padStart(2, '0');
+                ra.code = `${basePrefix}_${tipo}${numero}`;
+                ra.id = ra.code;
+            } else {
+                ra.code = `${basePrefix}_RA${String(index + 1).padStart(2, '0')}`;
+                ra.id = ra.code;
+            }
+        }
+    });
+    
+    // Normalizar RAs transversales (ZH) (hau mantendu)
+    zhRAs.forEach((zh, index) => {
+        if (zh.code && !zh.code.startsWith(basePrefix)) {
+            const match = zh.code.match(/(RA|ZH)(\d+)$/);
+            if (match) {
+                const tipo = "ZH";
+                const numero = match[2] || String(index + 1).padStart(2, '0');
+                zh.code = `${basePrefix}_${tipo}${numero}`;
+                zh.id = zh.code;
+            } else {
+                zh.code = `${basePrefix}_ZH${String(index + 1).padStart(2, '0')}`;
+                zh.id = zh.code;
+            }
+        }
+    });
+}
 // Aldaketak egiteko funtzio temporala:
 	
 	saveRaChanges() {
@@ -4672,32 +4715,78 @@ openSignActEditor() {
         return '???';
     }
 
-	generateUnitAutoCode(index) {
-		const subj = this.currentSubject || {};
-
-		// 1. Grado (BD): Usa degreeCode o un valor por defecto
-		const grado = this.currentDegree?.code || subj.degreeCode || "BD"; 
-
-		// 2. Curso y Periodo
-		const curso = subj.course || subj.year || "1";
-		const periodo = subj.term || subj.semester || "1";
-
-		// 3. ACR¨®NIMO (Correcci¨®n):
-		// Priorizamos el nombre visual (ej: "Proiektuak I")
-		const rawName = subj.name || subj.subjectTitle || subj.title || "ASIG";
-		
-		// Limpiamos el nombre: Quitamos n¨²meros, puntos y espacios para que "Proiektuak 1" sea "PRO"
-		const cleanName = rawName.replace(/[0-9IVX\.\s]/g, '').toUpperCase();
-		
-		// Cogemos las 3 primeras letras. Si es muy corto, rellenamos con X.
-		const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
-
-		// 4. Secuencia (UD01)
-		const secuencia = String(index + 1).padStart(2, '0');
-
-		// Resultado: BD1_3PRO_UD01
-		return `${grado}${curso}_${periodo}${acronimo}_UD${secuencia}`;
-	}
+generateUnitAutoCode(index) {
+    const subj = this.currentSubject || {};
+    
+    // 1. Grado kodea
+    const grado = this.currentDegree?.code || subj.degreeCode || "BD";
+    
+    // 2. Urtea (curso) - Soilik zenbakia
+    const curso = subj.course || subj.year || "1";
+    
+    // 3. Seihilekoa (semester) - EZIKUSI EGIN, ez sartu kodean
+    // const periodoRaw = subj.term || subj.semester || "1"; // <-- Ez erabili
+    
+    // 4. Irakasgaiaren izena - ERROMATAR ZENBAKIA ATERATZEKO
+    const rawName = subj.name || subj.subjectTitle || subj.title || "ASIG";
+    
+    // Erromatar zenbakiak arabiarretara bihurtzeko mapa
+    const romanToArabic = {
+        'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+        'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
+    };
+    
+    let romanNumber = "";
+    let baseName = "";
+    
+    // Bilatu erromatar zenbakia izenaren amaieran
+    Object.keys(romanToArabic).forEach(roman => {
+        // "Proiektuak III" edo "Proiektuak III " formatua
+        const regex = new RegExp(`\\s+${roman}(\\s|$)`, 'gi');
+        const match = rawName.match(regex);
+        
+        if (match) {
+            romanNumber = roman;
+            // Kendu erromatar zenbakia izenetik
+            baseName = rawName.replace(regex, '').trim();
+        }
+    });
+    
+    // Ez bada erromatar zenbakia aurkitu, bilatu arabiar zenbakia
+    if (!romanNumber) {
+        const arabicMatch = rawName.match(/\s+(\d+)(\s|$)/);
+        if (arabicMatch) {
+            romanNumber = arabicMatch[1];
+            baseName = rawName.replace(/\s+\d+(\s|$)/, '').trim();
+        } else {
+            baseName = rawName.trim();
+        }
+    }
+    
+    // Erromatar zenbakia arabiarrera bihurtu
+    let numberCode = "";
+    if (romanNumber) {
+        if (romanToArabic[romanNumber.toUpperCase()]) {
+            numberCode = romanToArabic[romanNumber.toUpperCase()];
+        } else {
+            numberCode = romanNumber; // Jada arabiar zenbakia bada
+        }
+    }
+    
+    // Akronimoa sortu (3 letra)
+    const cleanName = baseName.replace(/[0-9\.\s]/g, '').toUpperCase();
+    const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
+    
+    // 5. Sekuentzia
+    const secuencia = String(index + 1).padStart(2, '0');
+    
+    // 6. Kodea osatu: BD1_3PRO_UD01 (erromatar zenbakia bigarren zatian)
+    if (numberCode && numberCode !== "") {
+        return `${grado}${curso}_${numberCode}${acronimo}_UD${secuencia}`;
+    } else {
+        return `${grado}${curso}_${acronimo}_UD${secuencia}`;
+    }
+}
 
 	addUnitRow(data = {}, index = null) {
 		const tbody = document.getElementById('unitEditorBody');
@@ -5759,6 +5848,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
