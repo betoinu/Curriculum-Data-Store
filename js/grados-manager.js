@@ -3907,11 +3907,25 @@ openSignActEditor() {
                             Definitu irakasgai honetan burutuko diren jarduera bereziak
                         </p>
                     </div>
-                    <button id="btnAddSignAct" 
-                            class="text-sm bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 font-bold flex items-center gap-2">
-                        <i class="fas fa-plus"></i> Gehitu
-                    </button>
-                </div>
+			    <!-- ==================== HEMEN GEHITU ==================== -->
+			    <div class="flex items-center gap-3">
+			        <select id="quickAgentSelect" 
+			                class="text-xs border border-purple-300 rounded px-3 py-1 bg-white">
+			            <option value="">Agentea...</option>
+			            ${allAgents.map(agent => `<option value="${agent}">${agent}</option>`).join('')}
+			        </select>
+			        
+			        <select id="quickTypeSelect" 
+			                class="text-xs border border-purple-300 rounded px-3 py-1 bg-white">
+			            <option value="">Mota...</option>
+			            ${allTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
+			        </select>
+			        
+			        <button id="btnAddSignAct" 
+			                class="text-sm bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 font-bold flex items-center gap-2">
+			            <i class="fas fa-plus"></i> Gehitu
+			        </button>
+			    </div>
                 
                 <!-- Katalogoko informazioa -->
          <!--   <div class="grid grid-cols-2 gap-3">
@@ -3936,12 +3950,12 @@ openSignActEditor() {
                 </div>   -->
                 
                 <!-- Datalists -->
-                <datalist id="agentOptions">
+    	<!--   <datalist id="agentOptions">
                     ${allAgents.map(agent => `<option value="${agent}"></option>`).join('')}
                 </datalist>
                 <datalist id="typeOptions">
                     ${allTypes.map(type => `<option value="${type}"></option>`).join('')}
-                </datalist>
+                </datalist>  -->
                 
                 <!-- Zerrenda -->
                 <div class="border rounded-lg overflow-hidden">
@@ -3968,7 +3982,46 @@ openSignActEditor() {
         `;
 
         const listContainer = document.getElementById('signActList');
-        
+
+		// 2. Quick Agent Select listener
+		const quickAgentSelect = document.getElementById('quickAgentSelect');
+		if (quickAgentSelect) {
+		    quickAgentSelect.addEventListener('change', function() {
+		        if (this.value) {
+		            // Aurkitu azken item-a
+		            const lastIndex = localList.length - 1;
+		            if (lastIndex >= 0) {
+		                const lastAgentSelect = listContainer.querySelector(`.field-agent[data-index="${lastIndex}"]`);
+		                if (lastAgentSelect) {
+		                    lastAgentSelect.value = this.value;
+		                    lastAgentSelect.dispatchEvent(new Event('change'));
+		                    console.log(`✅ Agente "${this.value}" gehitu azken jarduerari`);
+		                }
+		            }
+		            this.value = ''; // Reset dropdown
+		        }
+		    });
+		}
+		
+		// 3. Quick Type Select listener
+		const quickTypeSelect = document.getElementById('quickTypeSelect');
+		if (quickTypeSelect) {
+		    quickTypeSelect.addEventListener('change', function() {
+		        if (this.value) {
+		            const lastIndex = localList.length - 1;
+		            if (lastIndex >= 0) {
+		                const lastTypeSelect = listContainer.querySelector(`.field-type[data-index="${lastIndex}"]`);
+		                if (lastTypeSelect) {
+		                    lastTypeSelect.value = this.value;
+		                    lastTypeSelect.dispatchEvent(new Event('change'));
+		                    console.log(`✅ Mota "${this.value}" gehitu azken jarduerari`);
+		                }
+		            }
+		            this.value = ''; // Reset dropdown
+		        }
+		    });
+		}
+		
         // Datuak marraztu
         if (localList.length > 0) {
             listContainer.innerHTML = '';
@@ -3995,23 +4048,25 @@ openSignActEditor() {
                     
                     <!-- Agentea -->
                     <div class="col-span-3">
-                        <input type="text"
-                               list="agentOptions"
-                               class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-agent"
-                               value="${item.agent || ''}"
-                               placeholder="Agentea..."
-                               data-index="${index}">
+						<select class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-agent cursor-pointer bg-transparent"
+						        data-index="${index}">
+						    <option value="">Aukeratu...</option>
+						    ${allAgents.map(agent => `
+						        <option value="${agent}" ${agent === item.agent ? 'selected' : ''}>${agent}</option>
+						    `).join('')}
+						</select>
                     </div>
                     
                     <!-- Mota -->
                     <div class="col-span-3">
                         <div class="flex items-center gap-2">
-                            <input type="text"
-                                   list="typeOptions"
-                                   class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-type"
-                                   value="${item.type || ''}"
-                                   placeholder="Mota..."
-                                   data-index="${index}">
+							<select class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-type cursor-pointer bg-transparent"
+							        data-index="${index}">
+							    <option value="">Aukeratu...</option>
+							    ${allTypes.map(type => `
+							        <option value="${type}" ${type === item.type ? 'selected' : ''}>${type}</option>
+							    `).join('')}
+							</select>
                             <div class="w-4 h-4 rounded-full border border-gray-300" 
                                  style="background-color: ${displayColor}"
                                  title="Kolorea"></div>
@@ -4055,19 +4110,8 @@ openSignActEditor() {
                 };
                 
                 nameInput.addEventListener('input', updateItem);
-                agentInput.addEventListener('input', updateItem);
-                
-                typeInput.addEventListener('input', (e) => {
-                    const type = e.target.value;
-                    
-                    // Auto-kolorea
-                    if (type && typeColorMap[type]) {
-                        colorInput.value = typeColorMap[type];
-                        colorPreview.style.backgroundColor = typeColorMap[type];
-                    }
-                    
-                    updateItem();
-                });
+				agentInput.addEventListener('change', updateItem); // 'change' erabili select-erako
+				typeInput.addEventListener('change', updateItem);  // 'change' erabili select-erako
                 
                 colorInput.addEventListener('input', (e) => {
                     colorPreview.style.backgroundColor = e.target.value;
@@ -5757,6 +5801,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
