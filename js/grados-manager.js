@@ -3651,7 +3651,7 @@ openPreReqEditor() {
         if (localList.length > 0) {
             listContainer.innerHTML = '';
             
-            localList.forEach((item, index) => {
+			localList.forEach((item, index) => {
                 // Kodea sortu/bete
                 if (!item.code) {
                     item.code = generateCode(index);
@@ -3664,7 +3664,6 @@ openPreReqEditor() {
                 const areaColor = areaColors[item.area] || item.color || '#94a3b8';
                 
                 row.innerHTML = `
-                    <!-- Kodea -->
                     <div class="col-span-3">
                         <input type="text"
                                class="w-full text-xs font-mono bg-gray-100 border border-gray-300 rounded px-2 py-1.5 outline-none"
@@ -3673,7 +3672,6 @@ openPreReqEditor() {
                                title="Kode automatikoa">
                     </div>
                     
-                    <!-- Deskribapena -->
                     <div class="col-span-5">
                         <input type="text"
                                class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-name"
@@ -3682,23 +3680,23 @@ openPreReqEditor() {
                                data-index="${index}">
                     </div>
                     
-                    <!-- Eremua -->
                     <div class="col-span-3">
                         <div class="flex items-center gap-2">
-                            <input type="text"
-                                   list="areaOptions"
-                                   class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-area"
-                                   value="${item.area || ''}"
-                                   placeholder="Eremua..."
-                                   data-index="${index}"
-                                   style="border-left: 3px solid ${areaColor}">
-                            <div class="w-4 h-4 rounded-full border border-gray-300" 
+                            <select class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-area cursor-pointer bg-transparent"
+                                    data-index="${index}"
+                                    style="border-left: 3px solid ${areaColor}">
+                                <option value="">Aukeratu...</option>
+                                ${areaNames.map(name => `
+                                    <option value="${name}" ${name === item.area ? 'selected' : ''}>${name}</option>
+                                `).join('')}
+                            </select>
+                            
+                            <div class="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0" 
                                  style="background-color: ${areaColor}"
                                  title="${item.area || 'Eremurik gabe'}"></div>
                         </div>
                     </div>
                     
-                    <!-- Ezabatu -->
                     <div class="col-span-1 text-center">
                         <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn"
                                 data-index="${index}"
@@ -3712,7 +3710,7 @@ openPreReqEditor() {
                 
                 // Event listeners
                 const nameInput = row.querySelector('.field-name');
-                const areaInput = row.querySelector('.field-area');
+                const areaInput = row.querySelector('.field-area'); // Orain SELECT bat da
                 const deleteBtn = row.querySelector('.delete-btn');
                 
                 nameInput.addEventListener('input', (e) => {
@@ -3720,7 +3718,8 @@ openPreReqEditor() {
                     localList[idx].name = e.target.value;
                 });
                 
-                areaInput.addEventListener('input', (e) => {
+                // 'change' erabiltzen dugu select-erako
+                areaInput.addEventListener('change', (e) => {
                     const idx = parseInt(e.target.dataset.index);
                     localList[idx].area = e.target.value;
                     
@@ -3915,7 +3914,7 @@ openSignActEditor() {
                 </div>
                 
                 <!-- Katalogoko informazioa -->
-                <div class="grid grid-cols-2 gap-3">
+         <!--   <div class="grid grid-cols-2 gap-3">
                     <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
                         <div class="flex items-center gap-2">
                             <i class="fas fa-tags text-purple-500"></i>
@@ -3934,7 +3933,7 @@ openSignActEditor() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>   -->
                 
                 <!-- Datalists -->
                 <datalist id="agentOptions">
@@ -5758,6 +5757,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
