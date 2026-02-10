@@ -3897,9 +3897,9 @@ openSignActEditor() {
 
     // 4. Render function
     const renderEditor = () => {
+        // HTML Egitura nagusia
         container.innerHTML = `
             <div class="space-y-4">
-                <!-- Header -->
                 <div class="flex justify-between items-center">
                     <div>
                         <h4 class="font-bold text-gray-800">Jarduera Esanguratsuak</h4>
@@ -3907,67 +3907,35 @@ openSignActEditor() {
                             Definitu irakasgai honetan burutuko diren jarduera bereziak
                         </p>
                     </div>
-			    <!-- ==================== HEMEN GEHITU ==================== -->
-			    <div class="flex items-center gap-3">
-			        <select id="quickAgentSelect" 
-			                class="text-xs border border-purple-300 rounded px-3 py-1 bg-white">
-			            <option value="">Agentea...</option>
-			            ${allAgents.map(agent => `<option value="${agent}">${agent}</option>`).join('')}
-			        </select>
-			        
-			        <select id="quickTypeSelect" 
-			                class="text-xs border border-purple-300 rounded px-3 py-1 bg-white">
-			            <option value="">Mota...</option>
-			            ${allTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
-			        </select>
-			        
-			        <button id="btnAddSignAct" 
-			                class="text-sm bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 font-bold flex items-center gap-2">
-			            <i class="fas fa-plus"></i> Gehitu
-			        </button>
-			    </div>
-                
-                <!-- Katalogoko informazioa -->
-         <!--   <div class="grid grid-cols-2 gap-3">
-                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-tags text-purple-500"></i>
-                            <div>
-                                <div class="text-xs font-bold text-purple-800">Mota guztiak</div>
-                                <div class="text-sm text-purple-700">${allTypes.length} mota</div>
-                            </div>
-                        </div>
+                    
+                    <div class="flex items-center gap-3">
+                        <select id="quickAgentSelect" 
+                                class="text-xs border border-purple-300 rounded px-3 py-1 bg-white cursor-pointer outline-none focus:border-purple-500">
+                            <option value="">Agente azkarra...</option>
+                            ${allAgents.map(agent => `<option value="${agent}">${agent}</option>`).join('')}
+                        </select>
+                        
+                        <select id="quickTypeSelect" 
+                                class="text-xs border border-purple-300 rounded px-3 py-1 bg-white cursor-pointer outline-none focus:border-purple-500">
+                            <option value="">Mota azkarra...</option>
+                            ${allTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
+                        </select>
+                        
+                        <button id="btnAddSignAct" 
+                                class="text-sm bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 font-bold flex items-center gap-2 transition-colors">
+                            <i class="fas fa-plus"></i> Gehitu
+                        </button>
                     </div>
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-building text-blue-500"></i>
-                            <div>
-                                <div class="text-xs font-bold text-blue-800">Agente guztiak</div>
-                                <div class="text-sm text-blue-700">${allAgents.length} agente</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>   -->
+                </div>
                 
-                <!-- Datalists -->
-    	<!--   <datalist id="agentOptions">
-                    ${allAgents.map(agent => `<option value="${agent}"></option>`).join('')}
-                </datalist>
-                <datalist id="typeOptions">
-                    ${allTypes.map(type => `<option value="${type}"></option>`).join('')}
-                </datalist>  -->
-                
-                <!-- Zerrenda -->
-                <div class="border rounded-lg overflow-hidden">
-                    <!-- Goiburuak -->
-                    <div class="grid grid-cols-12 gap-2 p-3 bg-gray-50 border-b text-xs font-bold text-gray-600">
+                <div class="border rounded-lg overflow-hidden bg-white shadow-sm">
+                    <div class="grid grid-cols-12 gap-2 p-3 bg-gray-50 border-b text-xs font-bold text-gray-600 uppercase tracking-wider">
                         <div class="col-span-4">Jarduera</div>
                         <div class="col-span-3">Agentea</div>
                         <div class="col-span-3">Mota</div>
                         <div class="col-span-2">Kolorea</div>
                     </div>
                     
-                    <!-- Datuak -->
                     <div id="signActList" class="max-h-[50vh] overflow-y-auto">
                         ${localList.length === 0 ? `
                             <div class="text-center py-10 text-gray-400">
@@ -3983,97 +3951,102 @@ openSignActEditor() {
 
         const listContainer = document.getElementById('signActList');
 
-		// 2. Quick Agent Select listener
-		const quickAgentSelect = document.getElementById('quickAgentSelect');
-		if (quickAgentSelect) {
-		    quickAgentSelect.addEventListener('change', function() {
-		        if (this.value) {
-		            // Aurkitu azken item-a
-		            const lastIndex = localList.length - 1;
-		            if (lastIndex >= 0) {
-		                const lastAgentSelect = listContainer.querySelector(`.field-agent[data-index="${lastIndex}"]`);
-		                if (lastAgentSelect) {
-		                    lastAgentSelect.value = this.value;
-		                    lastAgentSelect.dispatchEvent(new Event('change'));
-		                    console.log(`✅ Agente "${this.value}" gehitu azken jarduerari`);
-		                }
-		            }
-		            this.value = ''; // Reset dropdown
-		        }
-		    });
-		}
-		
-		// 3. Quick Type Select listener
-		const quickTypeSelect = document.getElementById('quickTypeSelect');
-		if (quickTypeSelect) {
-		    quickTypeSelect.addEventListener('change', function() {
-		        if (this.value) {
-		            const lastIndex = localList.length - 1;
-		            if (lastIndex >= 0) {
-		                const lastTypeSelect = listContainer.querySelector(`.field-type[data-index="${lastIndex}"]`);
-		                if (lastTypeSelect) {
-		                    lastTypeSelect.value = this.value;
-		                    lastTypeSelect.dispatchEvent(new Event('change'));
-		                    console.log(`✅ Mota "${this.value}" gehitu azken jarduerari`);
-		                }
-		            }
-		            this.value = ''; // Reset dropdown
-		        }
-		    });
-		}
-		
-        // Datuak marraztu
-        if (localList.length > 0) {
-            listContainer.innerHTML = '';
+        // --- LISTENERS ---
+        
+        // A. Gehitu Botoia (HEMEN egon behar du, elementua sortu berria delako)
+        document.getElementById('btnAddSignAct').addEventListener('click', () => {
+            localList.push({
+                name: '',
+                agent: '',
+                type: '',
+                color: '#94a3b8'
+            });
+            renderEditor();
             
+            // Fokoa azken elementuan jarri
+            setTimeout(() => {
+                const lastInput = listContainer.querySelector('.field-name:last-child'); // CSS selector doitu dut
+                // Edo seguruago:
+                const inputs = listContainer.querySelectorAll('.field-name');
+                if(inputs.length > 0) inputs[inputs.length - 1].focus();
+            }, 100);
+        });
+
+        // B. Quick Agent Select
+        const quickAgentSelect = document.getElementById('quickAgentSelect');
+        quickAgentSelect.addEventListener('change', function() {
+            if (this.value && localList.length > 0) {
+                const lastIndex = localList.length - 1;
+                // Zuzenean datuak eguneratu eta renderizatu
+                localList[lastIndex].agent = this.value;
+                renderEditor();
+                console.log(`✅ Agente "${this.value}" gehitu da azken jarduerari`);
+            }
+        });
+        
+        // C. Quick Type Select
+        const quickTypeSelect = document.getElementById('quickTypeSelect');
+        quickTypeSelect.addEventListener('change', function() {
+            if (this.value && localList.length > 0) {
+                const lastIndex = localList.length - 1;
+                localList[lastIndex].type = this.value;
+                // Kolorea ere automatikoki eguneratu
+                if (typeColorMap[this.value]) {
+                    localList[lastIndex].color = typeColorMap[this.value];
+                }
+                renderEditor();
+                console.log(`✅ Mota "${this.value}" gehitu da azken jarduerari`);
+            }
+        });
+
+        // D. Zerrendako elementuak marraztu eta haien listener-ak
+        if (localList.length > 0) {
+            // listContainer.innerHTML = ''; // Hau ez da beharrezkoa container nagusia birsortu dugulako goian
+
             localList.forEach((item, index) => {
                 const row = document.createElement('div');
-                row.className = 'grid grid-cols-12 gap-2 p-3 border-b hover:bg-gray-50 items-center';
+                row.className = 'grid grid-cols-12 gap-2 p-3 border-b hover:bg-gray-50 items-center group transition-colors';
                 
-                // Kolorea zehaztu
+                // Kolorea kalkulatu
                 let displayColor = item.color || '#94a3b8';
                 if (!item.color && item.type && typeColorMap[item.type]) {
                     displayColor = typeColorMap[item.type];
                 }
                 
                 row.innerHTML = `
-                    <!-- Jarduera -->
                     <div class="col-span-4">
                         <input type="text"
-                               class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-name"
+                               class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-name bg-transparent"
                                value="${item.name || ''}"
                                placeholder="Jardueraren izena..."
                                data-index="${index}">
                     </div>
                     
-                    <!-- Agentea -->
                     <div class="col-span-3">
-						<select class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-agent cursor-pointer bg-transparent"
-						        data-index="${index}">
-						    <option value="">Aukeratu...</option>
-						    ${allAgents.map(agent => `
-						        <option value="${agent}" ${agent === item.agent ? 'selected' : ''}>${agent}</option>
-						    `).join('')}
-						</select>
+                        <select class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-agent cursor-pointer bg-transparent"
+                                data-index="${index}">
+                            <option value="">Aukeratu...</option>
+                            ${allAgents.map(agent => `
+                                <option value="${agent}" ${agent === item.agent ? 'selected' : ''}>${agent}</option>
+                            `).join('')}
+                        </select>
                     </div>
                     
-                    <!-- Mota -->
                     <div class="col-span-3">
                         <div class="flex items-center gap-2">
-							<select class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-type cursor-pointer bg-transparent"
-							        data-index="${index}">
-							    <option value="">Aukeratu...</option>
-							    ${allTypes.map(type => `
-							        <option value="${type}" ${type === item.type ? 'selected' : ''}>${type}</option>
-							    `).join('')}
-							</select>
-                            <div class="w-4 h-4 rounded-full border border-gray-300" 
+                            <select class="w-full text-sm border-b border-gray-300 focus:border-purple-500 outline-none px-1 py-1.5 field-type cursor-pointer bg-transparent"
+                                    data-index="${index}">
+                                <option value="">Aukeratu...</option>
+                                ${allTypes.map(type => `
+                                    <option value="${type}" ${type === item.type ? 'selected' : ''}>${type}</option>
+                                `).join('')}
+                            </select>
+                            <div class="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0 shadow-sm" 
                                  style="background-color: ${displayColor}"
                                  title="Kolorea"></div>
                         </div>
                     </div>
                     
-                    <!-- Kolorea -->
                     <div class="col-span-2">
                         <div class="flex items-center gap-2">
                             <input type="color"
@@ -4081,7 +4054,7 @@ openSignActEditor() {
                                    value="${displayColor}"
                                    data-index="${index}"
                                    title="Aldatu kolorea">
-                            <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn"
+                            <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn opacity-0 group-hover:opacity-100 transition-opacity"
                                     data-index="${index}"
                                     title="Ezabatu">
                                 <i class="fas fa-trash"></i>
@@ -4092,7 +4065,7 @@ openSignActEditor() {
                 
                 listContainer.appendChild(row);
                 
-                // Event listeners
+                // Elementuen event listeners
                 const nameInput = row.querySelector('.field-name');
                 const agentInput = row.querySelector('.field-agent');
                 const typeInput = row.querySelector('.field-type');
@@ -4110,8 +4083,18 @@ openSignActEditor() {
                 };
                 
                 nameInput.addEventListener('input', updateItem);
-				agentInput.addEventListener('change', updateItem); // 'change' erabili select-erako
-				typeInput.addEventListener('change', updateItem);  // 'change' erabili select-erako
+                agentInput.addEventListener('change', updateItem);
+                
+                typeInput.addEventListener('change', (e) => {
+                    // Mota aldatzean, saiatu kolorea eguneratzen mapatik
+                    const newType = e.target.value;
+                    if (newType && typeColorMap[newType]) {
+                        const newColor = typeColorMap[newType];
+                        colorInput.value = newColor;
+                        colorPreview.style.backgroundColor = newColor;
+                    }
+                    updateItem();
+                });
                 
                 colorInput.addEventListener('input', (e) => {
                     colorPreview.style.backgroundColor = e.target.value;
@@ -4128,42 +4111,29 @@ openSignActEditor() {
         }
     };
 
-    // 5. Gehitu botoia
-    container.addEventListener('click', (e) => {
-        if (e.target.id === 'btnAddSignAct' || e.target.closest('#btnAddSignAct')) {
-            localList.push({
-                name: '',
-                agent: '',
-                type: '',
-                color: '#94a3b8'
-            });
-            renderEditor();
-            
-            setTimeout(() => {
-                const lastInput = document.querySelector('.field-name:last-child');
-                if (lastInput) lastInput.focus();
-            }, 100);
-        }
-    });
-
-    // 6. Gorde botoia
+    // 5. Gorde botoia
     const saveBtn = this._setupSaveButtonRaw(modal);
     saveBtn.onclick = async () => {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
         saveBtn.disabled = true;
         
         try {
-            // 1. Filtroak
+            // 1. Filtroak (izena ez dutenak kendu)
             const filteredList = localList.filter(item => 
                 item.name && item.name.trim()
             );
             
-            if (filteredList.length === 0) {
-                alert("Mesedez, definitu gutxienez jarduera bat.");
-                saveBtn.innerHTML = 'Gorde';
-                saveBtn.disabled = false;
-                return;
+            // Nahiz eta zerrenda hutsa izan, agian erabiltzaileak guztiak ezabatu nahi ditu,
+            // beraz, ez dut return egiten 0 bada, baizik eta array hutsa gordetzen uzten dut.
+            // Baina abisua eman nahi baduzu:
+            /*
+            if (filteredList.length === 0 && localList.length > 0) {
+                 alert("Mesedez, jarri izena jarduerari.");
+                 saveBtn.innerHTML = 'Gorde';
+                 saveBtn.disabled = false;
+                 return;
             }
+            */
             
             // 2. Eguneratu subject.content
             if (!this.currentSubject.content) {
@@ -5801,6 +5771,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
