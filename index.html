@@ -380,27 +380,24 @@
                     </div>
 
 					<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-						<h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
-							
-							<span>Ikaskuntza Emaitzak (RA)</span>
-							
-							<div class="flex items-center gap-3">
-								<span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-									Tekniko eta Zeharkakoak
-								</span>
-
-								<button onclick="window.gradosManager.openRaEditor()" 
-										class="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-full hover:bg-indigo-50"
-										title="Editatu RAk">
-									<i class="fas fa-pencil-alt text-lg"></i>
-								</button>
-							</div>
-							
-						</h3>
-						
-						<div id="detailRasList" class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-2"></div>
+					    <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between items-center">
+					        <span>Ikaskuntza Emaitzak (RA)</span>
+					        <div class="flex items-center gap-3">
+					            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+					                Tekniko eta Zeharkakoak
+					            </span>
+					            <button onclick="window.gradosManager.openRaEditor()" 
+					                    class="text-indigo-400 hover:text-indigo-600 transition p-2 rounded-full hover:bg-indigo-50"
+					                    title="Editatu RAk">
+					                <i class="fas fa-pencil-alt text-lg"></i>
+					            </button>
+					        </div>
+					    </h3>
+					    
+					    <!-- ⬇️ ALDAKETA HEMEN: max-h-80 kendu -->
+					    <div id="detailRasList" class="space-y-3 overflow-y-auto custom-scrollbar pr-2 min-h-[300px] max-h-[500px]"></div>
 					</div>
-
+					
 					<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-2">
 						<div class="flex justify-between items-center mb-4 border-b pb-2">
 							<div class="flex items-center gap-3">
@@ -729,6 +726,7 @@
 </body>
 
 </html>
+
 
 
 
