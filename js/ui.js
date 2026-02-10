@@ -843,73 +843,85 @@ renderSubjectDetail: async (subject, degree) => {
                 });
             }
         }
-        // =========================================================
-        // 9. IKASKUNTZA EMAITZAK (RA)
-        // =========================================================
-        const raContainer = document.getElementById('detailRasList');
-        if (raContainer) {
-            raContainer.innerHTML = `
-                <div class="flex flex-col gap-6">
-                    <div class="bg-white p-4 rounded-xl border-l-4 shadow-sm" style="border-left-color: ${areaColor};">
-                        <h5 class="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 border-b pb-2" style="color: ${areaColor}; border-color: #f3f4f6;">
-                            <span class="p-1 rounded text-white" style="background-color: ${areaColor};"><i class="fas fa-cogs"></i></span>
-                            Tekniko / Ofizialak
-                        </h5>
-                        <div id="listTec" class="space-y-3"></div>
-                    </div>
-                    <div class="bg-teal-50/30 p-4 rounded-xl border border-teal-100">
-                        <h5 class="text-xs font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-teal-100 pb-2">
-                            <span class="bg-teal-100 text-teal-700 p-1 rounded"><i class="fas fa-network-wired"></i></span>
-                            Zeharkakoak (ZH)
-                        </h5>
-                        <div id="listZh" class="space-y-3"></div>
-                    </div>
-                </div>`;
-
-            const renderRaItem = (item, index, type) => {
-                let codigo = '', descripcion = '';
-                const isTec = type === 'tec';
-                
-                const badgeStyle = isTec ? `background-color: ${areaColor}; color: white; border: none;` : ``; 
-                const badgeClasses = isTec 
-                    ? `font-mono text-xs font-bold mt-0.5 px-2 py-1 rounded shrink-0 min-w-[3.5rem] text-center shadow-sm`
-                    : `font-mono text-xs font-bold text-teal-600 mt-0.5 bg-teal-50 px-2 py-1 rounded border border-teal-100 shrink-0 min-w-[3.5rem] text-center`;
-
-                if (typeof item === 'object' && item !== null) {
-                    if (isTec) {
-                        codigo = item.raCode || item.code || item.id || `RA${index+1}`;
-                        descripcion = item.raDesc || item.desc || item.description;
-                    } else {
-                        codigo = item.zhCode || item.subjectZhCode || item.code || item.id || `ZH${index+1}`;
-                        descripcion = item.zhDesc || item.subjectZhDesc || item.desc || item.description;
-                        if (!descripcion && degree && degree.zhCatalog) {
-                            const fromCatalog = degree.zhCatalog.find(c => (c.zhCode || c.code) === codigo);
-                            if (fromCatalog) descripcion = fromCatalog.zhDesc || fromCatalog.desc;
-                        }
-                    }
-                    descripcion = descripcion || "Deskribapenik gabe";
-                } else {
-                    codigo = (isTec ? `RA${index+1}` : `ZH${index+1}`);
-                    descripcion = item;
-                }
-
-                return `
-                    <div class="flex gap-4 text-sm text-gray-700 items-start group transition hover:bg-gray-50 p-2 rounded">
-                        <span class="${badgeClasses}" style="${badgeStyle}">${codigo}</span>
-                        <span class="leading-relaxed text-gray-600 group-hover:text-gray-900">${descripcion}</span>
-                    </div>`;
-            };
-
-            const listTec = document.getElementById('listTec');
-            const tecArray = subject.currentOfficialRAs || subject.technicals || subject.ra || [];
-            if (!tecArray.length) listTec.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA teknikorik.</div>';
-            else tecArray.forEach((item, i) => listTec.innerHTML += renderRaItem(item, i, 'tec'));
-
-            const listZh = document.getElementById('listZh');
-            const zhArray = subject.subjectZhRAs || subject.zhRAs || subject.transversals || [];
-            if (!zhArray.length) listZh.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA zeharkakorik.</div>';
-            else zhArray.forEach((item, i) => listZh.innerHTML += renderRaItem(item, i, 'zh'));
-        }
+		// =========================================================
+		// 9. IKASKUNTZA EMAITZAK (RA) - ZUZENDUTA ESPAZIOARENTZAT
+		// =========================================================
+		const raContainer = document.getElementById('detailRasList');
+		if (raContainer) {
+		    // ⬇️ CSS HOBETUA
+		    raContainer.innerHTML = `
+		        <div class="w-full min-w-0">
+		            <div class="grid grid-cols-1 gap-4">
+		                <div class="bg-white p-4 rounded-xl border-l-4 shadow-sm" style="border-left-color: ${areaColor};">
+		                    <h5 class="text-xs font-bold uppercase tracking-wider mb-3 flex items-center gap-2 border-b pb-2" style="color: ${areaColor}; border-color: #f3f4f6;">
+		                        <span class="p-1 rounded text-white" style="background-color: ${areaColor};"><i class="fas fa-cogs"></i></span>
+		                        Tekniko / Ofizialak
+		                    </h5>
+		                    <div id="listTec" class="min-h-[120px] max-h-[280px] overflow-y-auto pr-2 space-y-2 custom-scrollbar"></div>
+		                </div>
+		                <div class="bg-teal-50/30 p-4 rounded-xl border border-teal-100">
+		                    <h5 class="text-xs font-bold text-teal-800 uppercase tracking-wider mb-3 flex items-center gap-2 border-b border-teal-100 pb-2">
+		                        <span class="bg-teal-100 text-teal-700 p-1 rounded"><i class="fas fa-network-wired"></i></span>
+		                        Zeharkakoak (ZH)
+		                    </h5>
+		                    <div id="listZh" class="min-h-[120px] max-h-[280px] overflow-y-auto pr-2 space-y-2 custom-scrollbar"></div>
+		                </div>
+		            </div>
+		        </div>`;
+		
+		    const renderRaItem = (item, index, type) => {
+		        let codigo = '', descripcion = '';
+		        const isTec = type === 'tec';
+		        
+		        const badgeStyle = isTec ? `background-color: ${areaColor}; color: white; border: none;` : ``; 
+		        const badgeClasses = isTec 
+		            ? `font-mono text-xs font-bold px-2 py-1 rounded shrink-0 min-w-[3.5rem] text-center shadow-sm`
+		            : `font-mono text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded border border-teal-100 shrink-0 min-w-[3.5rem] text-center`;
+		
+		        if (typeof item === 'object' && item !== null) {
+		            if (isTec) {
+		                codigo = item.raCode || item.code || item.id || `RA${index+1}`;
+		                descripcion = item.raDesc || item.desc || item.description;
+		            } else {
+		                codigo = item.zhCode || item.subjectZhCode || item.code || item.id || `ZH${index+1}`;
+		                descripcion = item.zhDesc || item.subjectZhDesc || item.desc || item.description;
+		                if (!descripcion && degree && degree.zhCatalog) {
+		                    const fromCatalog = degree.zhCatalog.find(c => (c.zhCode || c.code) === codigo);
+		                    if (fromCatalog) descripcion = fromCatalog.zhDesc || fromCatalog.desc;
+		                }
+		            }
+		            descripcion = descripcion || "Deskribapenik gabe";
+		        } else {
+		            codigo = (isTec ? `RA${index+1}` : `ZH${index+1}`);
+		            descripcion = item;
+		        }
+		
+		        // ⬇️ ESPAZIO HOBETUA
+		        return `
+		            <div class="flex gap-3 items-start p-2 hover:bg-gray-50 rounded-lg transition group">
+		                <span class="${badgeClasses} flex-shrink-0 self-start" style="${badgeStyle}">${codigo}</span>
+		                <span class="text-sm text-gray-700 leading-relaxed flex-1 min-w-0 break-words group-hover:text-gray-900">
+		                    ${descripcion}
+		                </span>
+		            </div>`;
+		    };
+		
+		    const listTec = document.getElementById('listTec');
+		    const tecArray = subject.currentOfficialRAs || subject.technicals || subject.ra || [];
+		    if (!tecArray.length) {
+		        listTec.innerHTML = '<div class="text-sm text-gray-400 italic py-4 text-center">Ez dago RA teknikorik.</div>';
+		    } else {
+		        tecArray.forEach((item, i) => listTec.innerHTML += renderRaItem(item, i, 'tec'));
+		    }
+		
+		    const listZh = document.getElementById('listZh');
+		    const zhArray = subject.subjectZhRAs || subject.zhRAs || subject.transversals || [];
+		    if (!zhArray.length) {
+		        listZh.innerHTML = '<div class="text-sm text-gray-400 italic py-4 text-center">Ez dago RA zeharkakorik.</div>';
+		    } else {
+		        zhArray.forEach((item, i) => listZh.innerHTML += renderRaItem(item, i, 'zh'));
+		    }
+		}
 
         // =========================================================
         // 10. UNITATEAK (Units)
@@ -1585,6 +1597,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
