@@ -3519,7 +3519,7 @@ openPreReqEditor() {
         `;
     }
 
-    // 2. Datuak kargatu subject.content-etik
+    // 2. Datuak kargatu
     let localList = [];
     try {
         localList = JSON.parse(JSON.stringify(
@@ -3530,7 +3530,7 @@ openPreReqEditor() {
         localList = [];
     }
 
-    // 3. Eremuen koloreak lortzeko funtzio sinplea
+    // 3. Eremuen koloreak lortu
     const getAreaColors = () => {
         const colors = {};
         
@@ -3543,7 +3543,7 @@ openPreReqEditor() {
             });
         }
         
-        // Subject-eko eremuak (content barruan)
+        // Subject-eko eremuak
         const subjectAreas = this.currentSubject.content?.areas || [];
         subjectAreas.forEach(area => {
             if (area?.name) {
@@ -3551,7 +3551,6 @@ openPreReqEditor() {
             }
         });
         
-        console.log(`🎨 ${Object.keys(colors).length} eremu aurkituak`);
         return colors;
     };
 
@@ -3563,16 +3562,25 @@ openPreReqEditor() {
         const subjectCode = this.currentSubject.subjectCode || 
                           this.currentSubject.code || 
                           'ASIG';
-        const cleanCode = subjectCode.replace(/[^A-Z0-9]/g, '').substring(0, 6);
+        // Ziurtatu subjectCode string bat dela
+        const codeString = String(subjectCode);
+        const cleanCode = codeString.replace(/[^A-Z0-9]/g, '').substring(0, 6);
         const seq = String(index + 1).padStart(2, '0');
         return `PR-${cleanCode}-${seq}`;
     };
 
     // 5. Render function
     const renderEditor = () => {
+        // A. Aurre-prozesaketa: Ziurtatu denek kodea dutela HTML sortu aurretik
+        localList.forEach((item, index) => {
+            if (!item.code) {
+                item.code = generateCode(index);
+            }
+        });
+
+        // B. HTML Sortu
         container.innerHTML = `
             <div class="space-y-4">
-                <!-- Header -->
                 <div class="flex justify-between items-center">
                     <div>
                         <h4 class="font-bold text-gray-800">Aurre-ezagutzak</h4>
@@ -3581,12 +3589,11 @@ openPreReqEditor() {
                         </p>
                     </div>
                     <button id="btnAddPreReq" 
-                            class="text-sm bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 font-bold flex items-center gap-2">
+                            class="text-sm bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 font-bold flex items-center gap-2 transition-colors">
                         <i class="fas fa-plus"></i> Gehitu
                     </button>
                 </div>
                 
-                <!-- Eremu informazioa -->
                 ${areaNames.length > 0 ? `
                     <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
                         <div class="flex items-center justify-between">
@@ -3594,12 +3601,6 @@ openPreReqEditor() {
                                 <i class="fas fa-palette mr-2"></i>
                                 <span class="font-bold">${areaNames.length}</span> eremu eskuragarri
                             </div>
-                     <!--   <select id="quickAreaSelect" class="text-xs border border-indigo-300 rounded px-3 py-1 bg-white">
-                                <option value="">Gehitu eremua...</option>
-                                ${areaNames.map(area => `
-                                    <option value="${area}">${area}</option>
-                                `).join('')}
-                            </select> -->
                         </div>
                     </div>
                 ` : `
@@ -3616,17 +3617,14 @@ openPreReqEditor() {
                     </div>
                 `}
                 
-                <!-- Zerrenda -->
-                <div class="border rounded-lg overflow-hidden">
-                    <!-- Goiburuak -->
-                    <div class="grid grid-cols-12 gap-2 p-3 bg-gray-50 border-b text-xs font-bold text-gray-600">
+                <div class="border rounded-lg overflow-hidden bg-white shadow-sm">
+                    <div class="grid grid-cols-12 gap-2 p-3 bg-gray-50 border-b text-xs font-bold text-gray-600 uppercase tracking-wider">
                         <div class="col-span-3">Kodea</div>
                         <div class="col-span-5">Deskribapena</div>
                         <div class="col-span-3">Eremua</div>
                         <div class="col-span-1"></div>
                     </div>
                     
-                    <!-- Datuak -->
                     <div id="preReqList" class="max-h-[50vh] overflow-y-auto">
                         ${localList.length === 0 ? `
                             <div class="text-center py-10 text-gray-400">
@@ -3637,28 +3635,34 @@ openPreReqEditor() {
                         ` : ''}
                     </div>
                 </div>
-                
-                <!-- Datalist -->
-                <datalist id="areaOptions">
-                    ${areaNames.map(area => `<option value="${area}"></option>`).join('')}
-                </datalist>
             </div>
         `;
 
         const listContainer = document.getElementById('preReqList');
         
-        // Datuak marraztu
-        if (localList.length > 0) {
-            listContainer.innerHTML = '';
+        // C. Gehitu botoiaren Listener-a (HEMEN barruan)
+        document.getElementById('btnAddPreReq').addEventListener('click', () => {
+            // Sortu berria kodearekin
+            localList.push({
+                code: generateCode(localList.length),
+                name: '',
+                area: '',
+                color: '#94a3b8'
+            });
+            renderEditor();
             
-			localList.forEach((item, index) => {
-                // Kodea sortu/bete
-                if (!item.code) {
-                    item.code = generateCode(index);
-                }
-                
+            // Fokua jarri
+            setTimeout(() => {
+                const inputs = listContainer.querySelectorAll('.field-name');
+                if(inputs.length > 0) inputs[inputs.length - 1].focus();
+            }, 100);
+        });
+
+        // D. Zerrendako elementuak marraztu
+        if (localList.length > 0) {
+            localList.forEach((item, index) => {
                 const row = document.createElement('div');
-                row.className = 'grid grid-cols-12 gap-2 p-3 border-b hover:bg-gray-50 items-center';
+                row.className = 'grid grid-cols-12 gap-2 p-3 border-b hover:bg-gray-50 items-center group';
                 
                 // Kolorea lortu
                 const areaColor = areaColors[item.area] || item.color || '#94a3b8';
@@ -3666,15 +3670,15 @@ openPreReqEditor() {
                 row.innerHTML = `
                     <div class="col-span-3">
                         <input type="text"
-                               class="w-full text-xs font-mono bg-gray-100 border border-gray-300 rounded px-2 py-1.5 outline-none"
-                               value="${item.code}"
+                               class="w-full text-xs font-mono bg-gray-100 text-gray-600 border border-gray-300 rounded px-2 py-1.5 outline-none cursor-not-allowed"
+                               value="${item.code || ''}" 
                                readonly
                                title="Kode automatikoa">
                     </div>
                     
                     <div class="col-span-5">
                         <input type="text"
-                               class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-name"
+                               class="w-full text-sm border-b border-gray-300 focus:border-indigo-500 outline-none px-1 py-1.5 field-name bg-transparent"
                                value="${item.name || ''}"
                                placeholder="Deskribapena..."
                                data-index="${index}">
@@ -3691,14 +3695,14 @@ openPreReqEditor() {
                                 `).join('')}
                             </select>
                             
-                            <div class="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0" 
+                            <div class="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0 shadow-sm transition-colors" 
                                  style="background-color: ${areaColor}"
                                  title="${item.area || 'Eremurik gabe'}"></div>
                         </div>
                     </div>
                     
                     <div class="col-span-1 text-center">
-                        <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn"
+                        <button class="text-gray-400 hover:text-red-500 p-1 rounded delete-btn opacity-0 group-hover:opacity-100 transition-opacity"
                                 data-index="${index}"
                                 title="Ezabatu">
                             <i class="fas fa-trash"></i>
@@ -3710,74 +3714,38 @@ openPreReqEditor() {
                 
                 // Event listeners
                 const nameInput = row.querySelector('.field-name');
-                const areaInput = row.querySelector('.field-area'); // Orain SELECT bat da
+                const areaInput = row.querySelector('.field-area');
                 const deleteBtn = row.querySelector('.delete-btn');
+                const colorDot = row.querySelector('.w-4.h-4');
                 
                 nameInput.addEventListener('input', (e) => {
-                    const idx = parseInt(e.target.dataset.index);
-                    localList[idx].name = e.target.value;
+                    localList[index].name = e.target.value;
                 });
                 
-                // 'change' erabiltzen dugu select-erako
                 areaInput.addEventListener('change', (e) => {
-                    const idx = parseInt(e.target.dataset.index);
-                    localList[idx].area = e.target.value;
+                    const newArea = e.target.value;
+                    localList[index].area = newArea;
                     
                     // Kolorea eguneratu
-                    const newColor = areaColors[e.target.value] || '#94a3b8';
+                    const newColor = areaColors[newArea] || '#94a3b8';
+                    localList[index].color = newColor;
+                    
+                    // UI eguneratu berehala
                     e.target.style.borderLeftColor = newColor;
-                    row.querySelector('.w-4.h-4').style.backgroundColor = newColor;
-                    localList[idx].color = newColor;
+                    colorDot.style.backgroundColor = newColor;
                 });
                 
                 deleteBtn.addEventListener('click', () => {
                     if (confirm("Ziur zaude aurre-ezagutza hau ezabatu nahi duzula?")) {
                         localList.splice(index, 1);
-                        renderEditor();
+                        renderEditor(); // Honek kodeak birkalkulatuko ditu sekuentzia mantentzeko
                     }
                 });
             });
         }
-        
-        // Quick area select
-        const quickSelect = document.getElementById('quickAreaSelect');
-        if (quickSelect) {
-            quickSelect.addEventListener('change', function() {
-                if (this.value) {
-                    const lastIndex = localList.length - 1;
-                    if (lastIndex >= 0) {
-                        const lastAreaInput = listContainer.querySelector(`[data-index="${lastIndex}"]`);
-                        if (lastAreaInput) {
-                            lastAreaInput.value = this.value;
-                            lastAreaInput.dispatchEvent(new Event('input'));
-                        }
-                    }
-                    this.value = '';
-                }
-            });
-        }
     };
 
-    // 6. Gehitu botoia
-    container.addEventListener('click', (e) => {
-        if (e.target.id === 'btnAddPreReq' || e.target.closest('#btnAddPreReq')) {
-            localList.push({
-                code: generateCode(localList.length),
-                name: '',
-                area: '',
-                color: '#94a3b8'
-            });
-            renderEditor();
-            
-            // Fokua jarri berrian
-            setTimeout(() => {
-                const lastInput = document.querySelector('.field-name:last-child');
-                if (lastInput) lastInput.focus();
-            }, 100);
-        }
-    });
-
-    // 7. Gorde botoia
+    // 6. Gorde botoia
     const saveBtn = this._setupSaveButtonRaw(modal);
     saveBtn.onclick = async () => {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
@@ -3789,11 +3757,12 @@ openPreReqEditor() {
                 item.name && item.name.trim() && item.area && item.area.trim()
             );
             
-            if (filteredList.length === 0) {
-                alert("Mesedez, definitu gutxienez aurre-ezagutza bat (izena eta eremua).");
-                saveBtn.innerHTML = 'Gorde';
-                saveBtn.disabled = false;
-                return;
+            // Nahiz eta zerrenda hutsa izan, gordetzen utzi behar dugu (ezabatu nahi baditu)
+            if (localList.length > 0 && filteredList.length === 0) {
+                 alert("Mesedez, bete eremu guztiak (izena eta eremua) edo ezabatu lerro hutsak.");
+                 saveBtn.innerHTML = 'Gorde';
+                 saveBtn.disabled = false;
+                 return;
             }
             
             // 2. Eguneratu subject.content
@@ -5771,6 +5740,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
