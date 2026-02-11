@@ -3080,7 +3080,7 @@ openProjectsSelector() {
     // 3. GUARDADO DEL EDITOR (CRUCIAL: IMPORTA CRITERIOS DEL CAT¨¢LOGO)
 // En grados-manager.js
 
-	guardarRAsDesdeEditor() {
+	/*guardarRAsDesdeEditor() {
         if (!this.currentSubject) return;
 
         // 1. RA TEKNIKOAK GORDE
@@ -3134,7 +3134,7 @@ openProjectsSelector() {
         
         document.getElementById('raModal').classList.add('hidden');
         console.log("?? RAs eta loturak gordeta.");
-    }
+    }*/
 
 // Nuevo m¨¦todo para actualizar todas las vistas
 	actualizarVistasRA() {
@@ -3241,56 +3241,71 @@ openProjectsSelector() {
 			codeValue = data.raCode || data.code || data.id || '';
 			descValue = data.raDesc || data.desc || '';
 		}
+        
+        // Linked Competency (bakarrik teknikoetan)
+        const linkedCompValue = data.linkedCompetency || '';
 
 		// Kode automatikoa hutsik badago
 		if (!codeValue) {
 			const count = container.children.length + 1;
+            // Saiatu autoCode erabiltzen, bestela 'GEN'
 			const prefix = (this.currentSubject && this.currentSubject.autoCode) 
 				? this.currentSubject.autoCode.split('_')[0] 
-				: 'GEN';
+				: (this.currentSubject.subjectCode || 'GEN');
+                
 			const suffix = isZh ? 'ZH' : 'RA';
 			codeValue = `${prefix}_${suffix}${String(count).padStart(2, '0')}`;
 		}
 
-		// --- HEMEN DAGO GAKOA: SELEKTOREA TITULUEKIN ---
-		let options = '<option value="">-- Lotura gabe --</option>';
-		if (this.tempEgresoComps) {
-			options += this.tempEgresoComps.map(c => {
-				// Saiatu hainbat eremu deskribapena aurkitzeko
-				const cCode = c.code || c.autoCode || '';
-				const rawText = c.text || c.desc || c.description || c.title || ''; 
-				
-				// Moztu testua luzeegia bada
-				const truncatedText = rawText.length > 50 ? rawText.substring(0, 50) + '...' : rawText;
-				
-				const selected = (data.linkedCompetency === cCode) ? 'selected' : '';
-				
-				// Emaitza: "C1 - Talde lana..."
-				return `<option value="${cCode}" ${selected}>${cCode} - ${truncatedText}</option>`;
-			}).join('');
-		}
+		// --- SELEKTOREA SORTU (Bakarrik Tekuikoentzat !isZh) ---
+		let selectHtml = '';
+        
+        if (!isZh) {
+            let options = '<option value="">-- Lotura gabe --</option>';
+            if (this.tempEgresoComps) {
+                options += this.tempEgresoComps.map(c => {
+                    // Ziurtatu eremuak existitzen direla
+                    const cCode = c.code || c.autoCode || c.id || '';
+                    const rawText = c.text || c.desc || c.description || c.title || ''; 
+                    
+                    // Testua moztu
+                    const truncatedText = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
+                    
+                    // KONPARAKETA GARRANTZITSUA: Balio bera al dute?
+                    const isSelected = (String(linkedCompValue) === String(cCode)) ? 'selected' : '';
+                    
+                    return `<option value="${cCode}" ${isSelected}>${cCode} - ${truncatedText}</option>`;
+                }).join('');
+            }
+            
+            selectHtml = `
+                <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700 mt-1 cursor-pointer hover:border-blue-400">
+                    ${options}
+                </select>`;
+        }
 
 		// HTML Sortu
 		const div = document.createElement('div');
-		div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
+		div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm group`;
 		
 		div.innerHTML = `
 			<div class="flex flex-col gap-1 w-24 shrink-0">
+                <div class="text-[9px] font-bold text-gray-400 uppercase text-center cursor-move handle">
+                    <i class="fas fa-grip-lines"></i>
+                </div>
 				<input type="text" 
-					class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
+					class="ra-code w-full p-1 border rounded text-[11px] font-bold text-${colorClass}-700 text-center uppercase focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
 					value="${codeValue}" 
 					placeholder="KODEA">
 			</div>
-			<div class="flex-1 flex flex-col gap-1">
+			<div class="flex-1 flex flex-col">
 				<textarea 
-					class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
-					placeholder="Deskribapena...">${descValue}</textarea>
+					class="ra-desc w-full text-xs p-2 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none resize-none" 
+					placeholder="Deskribapena..." rows="2">${descValue}</textarea>
 				
-				<select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
-					${options}
-				</select>
+				${selectHtml}
 			</div>
-			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
+			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 py-1 self-start transition-colors">
 				<i class="fas fa-trash-alt"></i>
 			</button>
 		`;
@@ -3461,61 +3476,87 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
 }
 // Aldaketak egiteko funtzio temporala:
 	
-	saveRaChanges() {
-		const s = this.currentSubject;
-		if (!s) return;
+async saveRaChanges() {
+		if (!this.currentSubject) return;
 
-		console.log("?? Aldaketak gordetzen (saveData bidez)...");
+		console.log("💾 RA aldaketak gordetzen eta garbitzen...");
 
-		// 1. TEKNIKOAK BILDU
+		// 1. RA TEKNIKOAK BILDU (currentOfficialRAs)
+		// HTML berriko klaseak erabiltzen ditugu (.ra-row, .ra-code, .ra-link...)
 		const tecRows = document.querySelectorAll('#editListTec .ra-row');
-		s.currentOfficialRAs = Array.from(tecRows).map(row => {
-			const code = row.querySelector('.ra-code')?.value.trim() || '';
-			const desc = row.querySelector('.ra-desc')?.value.trim() || '';
-			const linked = row.querySelector('.ra-link')?.value || ''; // Lotura ere gorde
+		
+		const newRAs = Array.from(tecRows).map(row => {
+			// Inputak segurtasunez bilatu
+			const codeInput = row.querySelector('.ra-code');
+			const descInput = row.querySelector('.ra-desc');
+			const linkSelect = row.querySelector('.ra-link'); // Select hau bakarrik teknikoetan dago
 
+			const code = codeInput ? codeInput.value.trim() : '';
+			const desc = descInput ? descInput.value.trim() : '';
+			const linked = linkSelect ? linkSelect.value : ''; 
+
+			// Objektu garbia itzuli. 
+			// 'raCode' eta 'raDesc' kentzen ditugu, 'code' eta 'desc' estandarrak direlako.
 			return {
-				id: code,
-				code: code,                   // Bateragarritasuna
-				raCode: code,                 // Estandarra
-				raDesc: desc,                 // Estandarra
-				desc: desc,                   // Bateragarritasuna
-				linkedCompetency: linked      // Lotura
+				id: code,                // IDa kodea bera izatea praktikoa da
+				code: code,
+				desc: desc,
+				linkedCompetency: linked // Lotura (select-etik datorrena)
 			};
-		});
+		}).filter(item => item.desc !== ''); // Hutsik daudenak ez gorde
 
-		// 2. ZEHARKAKOAK BILDU
+		this.currentSubject.currentOfficialRAs = newRAs;
+
+
+		// 2. ZEHARKAKOAK BILDU (subjectZhRAs)
 		const zhRows = document.querySelectorAll('#editListZh .ra-row');
-		s.subjectZhRAs = Array.from(zhRows).map(row => {
-			const code = row.querySelector('.ra-code')?.value.trim() || '';
-			const desc = row.querySelector('.ra-desc')?.value.trim() || '';
-			const linked = row.querySelector('.ra-link')?.value || ''; // Lotura ere gorde
+		
+		const newZHs = Array.from(zhRows).map(row => {
+			const codeInput = row.querySelector('.ra-code');
+			const descInput = row.querySelector('.ra-desc');
+			// Zeharkakoetan EZ dugu linked konpetentziarik mapatzen (ez dago select-ik HTMLan)
+
+			const code = codeInput ? codeInput.value.trim() : '';
+			const desc = descInput ? descInput.value.trim() : '';
 
 			return {
-				id: code,
-				subjectZhCode: code,          // Bateragarritasuna
-				zhCode: code,                 // Estandarra
-				subjectZhDesc: desc,          // Bateragarritasuna
-				zhDesc: desc,                 // Estandarra
-				desc: desc,                   // Backup
-				linkedCompetency: linked      // Lotura
+				code: code,
+				desc: desc
+				// Ez dugu 'zhCode' edo 'subjectZhCode' behar. 'code' nahikoa da.
 			};
-		});
+		}).filter(item => item.desc !== '');
 
-		// 3. Gorde egitura osoa (saveData erabiliz)
-		if (this.saveData) {
-			this.saveData(); 
-		} else {
-			console.error("? 'saveData' funtzioa ez da aurkitu GradosManager-en.");
-		}
-		
-		// 4. Itxi modala
-		const modal = document.getElementById('raModal');
-		if (modal) modal.classList.add('hidden');
-		
-		// 5. Bista freskatu
-		if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-			window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+		this.currentSubject.subjectZhRAs = newZHs;
+
+		// 3. GARBIKETA (Datu zaharrak ezabatu gatazkak saihesteko)
+		delete this.currentSubject.ra;
+		delete this.currentSubject.zhRAs; 
+		delete this.currentSubject.technicals; // Badaezpada
+
+		// 4. DATU-BASEAN GORDE
+		try {
+			// 'saveSubject' erabiltzen dugu (async da), Supabasekin komunikatzen dena.
+			// 'saveData' zaharra izan daiteke.
+			if (this.saveSubject) {
+				await this.saveSubject(this.currentSubject);
+			} else if (this.saveData) {
+				console.warn("⚠️ 'saveSubject' ez da aurkitu, 'saveData' erabiltzen...");
+				this.saveData();
+			}
+
+			console.log("✅ Datuak ondo gorde dira.");
+
+			// 5. MODALA ITXI ETA BISTA EGUNERATU
+			const modal = document.getElementById('raModal');
+			if (modal) modal.classList.add('hidden');
+
+			if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
+				window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+			}
+
+		} catch (error) {
+			console.error("❌ Errorea gordetzean:", error);
+			alert("Errorea gordetzean: " + error.message);
 		}
 	}
 
@@ -5848,6 +5889,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
