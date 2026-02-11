@@ -2942,116 +2942,90 @@ openProjectsSelector() {
 // ----------------------------------------------------------------------
     // 2. EDITOR DE RA DE ASIGNATURA (MODAL)
     // ----------------------------------------------------------------------
-	openRaEditor() {
-        if (!this.currentSubject) return;
-        
-        const modal = document.getElementById('raModal');
-        // Ziurtatu editatzeko edukiontzia existitzen dela HTMLan
-        // Normalean 'detailRasListEdit' izena du
-        const container = document.getElementById('detailRasListEdit'); 
-        
-        if (!modal || !container) {
-            console.error("? Ez da 'raModal' edo 'detailRasListEdit' aurkitu HTMLan.");
-            return;
-        }
+openRaEditor() {
+		if (!this.currentSubject) return;
+		
+		const modal = document.getElementById('raModal');
+		const container = document.getElementById('detailRasListEdit'); 
+		
+		if (!modal || !container) {
+			console.error("❌ Ez da 'raModal' edo 'detailRasListEdit' aurkitu.");
+			return;
+		}
 
-        console.log("?? RA Editorea irekitzen:", this.currentSubject.name);
+		console.log("✏️ RA Editorea irekitzen:", this.currentSubject.name);
 
-        // 1. IRTEERAKO KONPETENTZIAK PRESTATU (Loturak egiteko)
-        // Defektuz 'egreso' erabiltzen dugu, baina hutsik badago 'konpetentziak.irteera' begira dezakegu
-        let comps = this.currentDegree?.competencies?.egreso || [];
-        
-        // Egitura alternatiboa (JSON berriaren arabera)
-        if ((!comps || comps.length === 0) && this.currentDegree?.konpetentziak?.irteera) {
-            comps = this.currentDegree.konpetentziak.irteera;
-        }
+		// 1. IRTEERAKO KONPETENTZIAK PRESTATU (Selektorerako)
+		let comps = this.currentDegree?.competencies?.egreso || [];
+		if ((!comps || comps.length === 0) && this.currentDegree?.konpetentziak?.irteera) {
+			comps = this.currentDegree.konpetentziak.irteera;
+		}
 
-        // Ordenatu kodearen arabera (garbiago ikusteko)
-        this.tempEgresoComps = [...comps].sort((a, b) => {
-            const codeA = a.autoCode || a.code || '';
-            const codeB = b.autoCode || b.code || '';
-            return codeA.localeCompare(codeB);
-        });
+		this.tempEgresoComps = [...comps].sort((a, b) => {
+			const codeA = a.autoCode || a.code || '';
+			const codeB = b.autoCode || b.code || '';
+			return codeA.localeCompare(codeB);
+		});
 
-        // 2. HTML EGITURA NAGUSIA SORTU
-        // Bi zutabe: Ezkerra (Teknikoak) eta Eskuina (Zeharkakoak)
-        container.innerHTML = `
-            <div class="grid grid-cols-2 gap-4 h-full">
-                <div class="flex flex-col border rounded-lg overflow-hidden bg-white shadow-sm h-full">
-                    <div class="bg-blue-50 p-3 border-b border-blue-100 flex justify-between items-center shrink-0">
-                        <span class="font-bold text-xs text-blue-800 uppercase tracking-wider">
-                            <i class="fas fa-cogs mr-1"></i> Emaitza Teknikoak (RA)
-                        </span>
-                        <span class="text-[10px] text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full" title="Kopurua">
-                            ${(this.currentSubject.currentOfficialRAs || []).length}
-                        </span>
-                    </div>
-                    
-                    <div id="editListTec" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50 relative custom-scrollbar">
-                        </div>
-                    
-                    <button onclick="gradosManager.addRaRow('tec')" 
-                        class="p-3 text-xs text-blue-600 hover:bg-blue-50 hover:text-blue-700 text-center font-bold border-t transition-colors shrink-0 flex items-center justify-center gap-2">
-                        <i class="fas fa-plus-circle"></i> Gehitu RA Teknikoa
-                    </button>
-                </div>
+		// 2. HTML EGITURA
+		container.innerHTML = `
+			<div class="grid grid-cols-2 gap-4 h-full">
+				<div class="flex flex-col border rounded-lg overflow-hidden bg-white shadow-sm h-full">
+					<div class="bg-blue-50 p-3 border-b border-blue-100 flex justify-between items-center shrink-0">
+						<span class="font-bold text-xs text-blue-800 uppercase tracking-wider">
+							<i class="fas fa-cogs mr-1"></i> Emaitza Teknikoak (RA)
+						</span>
+					</div>
+					<div id="editListTec" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50 relative custom-scrollbar"></div>
+					<button onclick="window.gradosManager.addRaRow('tec')" 
+						class="p-3 text-xs text-blue-600 hover:bg-blue-50 font-bold border-t flex justify-center gap-2">
+						<i class="fas fa-plus-circle"></i> Gehitu RA Teknikoa
+					</button>
+				</div>
 
-                <div class="flex flex-col border rounded-lg overflow-hidden bg-white shadow-sm h-full">
-                    <div class="bg-teal-50 p-3 border-b border-teal-100 flex justify-between items-center shrink-0">
-                        <span class="font-bold text-xs text-teal-800 uppercase tracking-wider">
-                            <i class="fas fa-users mr-1"></i> Zeharkakoak (ZH)
-                        </span>
-                        <button onclick="gradosManager.agregarZHDelCatalogo()" 
-                            class="text-[10px] bg-teal-600 hover:bg-teal-700 text-white px-2 py-1 rounded shadow-sm transition-colors flex items-center gap-1">
-                            <i class="fas fa-book-open"></i> Katalogoa
-                        </button>
-                    </div>
-                    
-                    <div id="editListZh" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50 relative custom-scrollbar">
-                        </div>
-                    
-                    <button onclick="gradosManager.addRaRow('zh')" 
-                        class="p-3 text-xs text-teal-600 hover:bg-teal-50 hover:text-teal-700 text-center font-bold border-t transition-colors shrink-0 flex items-center justify-center gap-2">
-                        <i class="fas fa-plus-circle"></i> Gehitu ZH Berria
-                    </button>
-                </div>
-            </div>`;
+				<div class="flex flex-col border rounded-lg overflow-hidden bg-white shadow-sm h-full">
+					<div class="bg-teal-50 p-3 border-b border-teal-100 flex justify-between items-center shrink-0">
+						<span class="font-bold text-xs text-teal-800 uppercase tracking-wider">
+							<i class="fas fa-users mr-1"></i> Zeharkakoak (ZH)
+						</span>
+						<button onclick="window.gradosManager.agregarZHDelCatalogo()" 
+							class="text-[10px] bg-teal-600 text-white px-2 py-1 rounded">Katalogoa</button>
+					</div>
+					<div id="editListZh" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50 relative custom-scrollbar"></div>
+					<button onclick="window.gradosManager.addRaRow('zh')" 
+						class="p-3 text-xs text-teal-600 hover:bg-teal-50 font-bold border-t flex justify-center gap-2">
+						<i class="fas fa-plus-circle"></i> Gehitu ZH Berria
+					</button>
+				</div>
+			</div>`;
 
-        // 3. ZERRENDAK BETE DATUEKIN
-        // Lehenik garbitu (badaezpada)
-        const listTec = document.getElementById('editListTec');
-        const listZh = document.getElementById('editListZh');
-        listTec.innerHTML = '';
-        listZh.innerHTML = '';
+		// 3. DATUAK KARGATU
+		// Oharra: Zure JSON egituraren arabera kargatzen dugu
+		const listTec = document.getElementById('editListTec');
+		const listZh = document.getElementById('editListZh');
 
-        // A) RA TEKNIKOAK KARGATU
-        const tecs = this.currentSubject.currentOfficialRAs || [];
-        if (tecs.length > 0) {
-            tecs.forEach(ra => this.addRaRow('tec', ra));
-        } else {
-            // Mezu bat zerrenda hutsik badago
-            listTec.innerHTML = `<div class="text-center p-4 text-gray-400 text-xs italic">Ez dago emaitza teknikorik oraindik.</div>`;
-        }
+		// A) RA TEKNIKOAK (currentOfficialRAs)
+		const tecs = this.currentSubject.currentOfficialRAs || [];
+		if (tecs.length > 0) {
+			tecs.forEach(ra => this.addRaRow('tec', ra));
+		} else {
+			listTec.innerHTML = `<div class="text-center p-4 text-gray-400 text-xs italic empty-msg">Ez dago emaitza teknikorik.</div>`;
+		}
 
-        // B) ZEHARKAKOAK KARGATU
-        const zhs = this.currentSubject.zhRAs || [];
-        if (zhs.length > 0) {
-            zhs.forEach(zh => this.addRaRow('zh', zh));
-        } else {
-            listZh.innerHTML = `<div class="text-center p-4 text-gray-400 text-xs italic">Ez dago zeharkako konpetentziarik.</div>`;
-        }
-
-        // 4. DRAG AND DROP AKTIBATU
-        // Elementuak ordenatzeko
-        this.setupDragAndDrop('editListTec');
-        this.setupDragAndDrop('editListZh');
-
-        // 5. MODALA ERAKUTSI
-        modal.classList.remove('hidden');
-    }
+		// B) ZEHARKAKOAK (zhRAs)
+		// Zure JSONean "zhRAs" agertzen da, beraz hori irakurtzen dugu.
+		const zhs = this.currentSubject.zhRAs || [];
+		if (zhs.length > 0) {
+			zhs.forEach(zh => this.addRaRow('zh', zh));
+		} else {
+			listZh.innerHTML = `<div class="text-center p-4 text-gray-400 text-xs italic empty-msg">Ez dago zeharkako konpetentziarik.</div>`;
+		}
+		
+		modal.classList.remove('hidden');
+	}
 		
 // M¨¦todo auxiliar para crear filas
-	createRaRow(type, index, data = {}) {
+	/*createRaRow(type, index, data = {}) {
 		const isZh = type === 'zh';
 		const div = document.createElement('div');
 		div.className = `flex gap-2 p-2 bg-white border rounded ${isZh ? 'border-teal-100' : 'border-blue-100'} group ra-row`;
@@ -3073,7 +3047,7 @@ openProjectsSelector() {
 			</div>
 		`;
 		return div;
-	}	
+	}*/	
 
 
     // ----------------------------------------------------------------------
@@ -3230,82 +3204,68 @@ openProjectsSelector() {
 
 		const colorClass = isZh ? 'teal' : 'blue';
 
-		// Datuak prestatu
+		// DATUAK IRAKURTZEA (Zure JSON egiturara egokituta)
+		// ZH bada: zhCode/zhDesc bilatzen du. Teknikoa bada: code/desc.
 		let codeValue = '';
 		let descValue = '';
-
+		
 		if (isZh) {
-			codeValue = data.zhCode || data.subjectZhCode || data.code || data.id || '';
-			descValue = data.zhDesc || data.subjectZhDesc || data.desc || '';
+			codeValue = data.zhCode || '';
+			descValue = data.zhDesc || '';
 		} else {
-			codeValue = data.raCode || data.code || data.id || '';
-			descValue = data.raDesc || data.desc || '';
+			codeValue = data.raCode  || '';
+			descValue = data.raDesc || '';
 		}
-        
-        // Linked Competency (bakarrik teknikoetan)
-        const linkedCompValue = data.linkedCompetency || '';
+		
+		// Lotura (Irteerako konpetentzia)
+		// Zure JSONean 'linkedCompetency' erabiltzen da teknikoetan.
+		// ZHetan ere erakutsiko dugu zuk eskatu bezala.
+		const linkedValue = data.linkedCompetency || data.raRelacionado || '';
 
 		// Kode automatikoa hutsik badago
 		if (!codeValue) {
 			const count = container.children.length + 1;
-            // Saiatu autoCode erabiltzen, bestela 'GEN'
-			const prefix = (this.currentSubject && this.currentSubject.autoCode) 
-				? this.currentSubject.autoCode.split('_')[0] 
-				: (this.currentSubject.subjectCode || 'GEN');
-                
 			const suffix = isZh ? 'ZH' : 'RA';
-			codeValue = `${prefix}_${suffix}${String(count).padStart(2, '0')}`;
+			// Hemen 'GEN' jartzen dut aurrizki lehenetsi gisa, zure logikaren arabera aldatu
+			codeValue = `${suffix}${count}`; 
 		}
 
-		// --- SELEKTOREA SORTU (Bakarrik Tekuikoentzat !isZh) ---
-		let selectHtml = '';
-        
-        if (!isZh) {
-            let options = '<option value="">-- Lotura gabe --</option>';
-            if (this.tempEgresoComps) {
-                options += this.tempEgresoComps.map(c => {
-                    // Ziurtatu eremuak existitzen direla
-                    const cCode = c.code || c.autoCode || c.id || '';
-                    const rawText = c.text || c.desc || c.description || c.title || ''; 
-                    
-                    // Testua moztu
-                    const truncatedText = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
-                    
-                    // KONPARAKETA GARRANTZITSUA: Balio bera al dute?
-                    const isSelected = (String(linkedCompValue) === String(cCode)) ? 'selected' : '';
-                    
-                    return `<option value="${cCode}" ${isSelected}>${cCode} - ${truncatedText}</option>`;
-                }).join('');
-            }
-            
-            selectHtml = `
-                <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700 mt-1 cursor-pointer hover:border-blue-400">
-                    ${options}
-                </select>`;
-        }
+		// --- SELEKTOREA: Orain BETI sortzen da (bai ZH bai RA) ---
+		let options = '<option value="">-- Lotura gabe --</option>';
+		if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
+			options += this.tempEgresoComps.map(c => {
+				const cCode = c.code || c.autoCode || '';
+				const rawText = c.text || c.desc || c.description || c.title || ''; 
+				const truncatedText = rawText.length > 50 ? rawText.substring(0, 50) + '...' : rawText;
+				
+				const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
+				
+				return `<option value="${cCode}" ${selected}>${cCode} - ${truncatedText}</option>`;
+			}).join('');
+		}
 
 		// HTML Sortu
 		const div = document.createElement('div');
-		div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm group`;
+		div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
 		
+		// Oharra: Klaseak (.ra-code, .ra-desc, .ra-link) funtsezkoak dira gordetzeko
 		div.innerHTML = `
 			<div class="flex flex-col gap-1 w-24 shrink-0">
-                <div class="text-[9px] font-bold text-gray-400 uppercase text-center cursor-move handle">
-                    <i class="fas fa-grip-lines"></i>
-                </div>
 				<input type="text" 
-					class="ra-code w-full p-1 border rounded text-[11px] font-bold text-${colorClass}-700 text-center uppercase focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
+					class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
 					value="${codeValue}" 
 					placeholder="KODEA">
 			</div>
-			<div class="flex-1 flex flex-col">
+			<div class="flex-1 flex flex-col gap-1">
 				<textarea 
-					class="ra-desc w-full text-xs p-2 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none resize-none" 
-					placeholder="Deskribapena..." rows="2">${descValue}</textarea>
+					class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
+					placeholder="Deskribapena...">${descValue}</textarea>
 				
-				${selectHtml}
+				<select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
+					${options}
+				</select>
 			</div>
-			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 py-1 self-start transition-colors">
+			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
 				<i class="fas fa-trash-alt"></i>
 			</button>
 		`;
@@ -3313,7 +3273,6 @@ openProjectsSelector() {
 		container.appendChild(div);
 	}
 
-	
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -3514,50 +3473,47 @@ async saveRaChanges() {
 		const newZHs = Array.from(zhRows).map(row => {
 			const codeInput = row.querySelector('.ra-code');
 			const descInput = row.querySelector('.ra-desc');
-			// Zeharkakoetan EZ dugu linked konpetentziarik mapatzen (ez dago select-ik HTMLan)
+			const linkSelect = row.querySelector('.ra-link');
+			
 
 			const code = codeInput ? codeInput.value.trim() : '';
 			const desc = descInput ? descInput.value.trim() : '';
+			const linked = linkSelect ? linkSelect.value : '';
+			
+		    return {
+		        type: "zh",                 
+		        zhCode: code,                 
+		        zhDesc: desc,                
+		        linkedCompetency: linked     
+		    };
+		}).filter(item => item.zhDesc !== '');
 
-			return {
-				code: code,
-				desc: desc
-				// Ez dugu 'zhCode' edo 'subjectZhCode' behar. 'code' nahikoa da.
-			};
-		}).filter(item => item.desc !== '');
-
-		this.currentSubject.subjectZhRAs = newZHs;
+		this.currentSubject.zhRAs = newZHs;
 
 		// 3. GARBIKETA (Datu zaharrak ezabatu gatazkak saihesteko)
-		delete this.currentSubject.ra;
-		delete this.currentSubject.zhRAs; 
-		delete this.currentSubject.technicals; // Badaezpada
+	    delete this.currentSubject.ra;
+	    delete this.currentSubject.technicals;
+	    delete this.currentSubject.transversals;
 
-		// 4. DATU-BASEAN GORDE
-		try {
-			// 'saveSubject' erabiltzen dugu (async da), Supabasekin komunikatzen dena.
-			// 'saveData' zaharra izan daiteke.
-			if (this.saveSubject) {
-				await this.saveSubject(this.currentSubject);
-			} else if (this.saveData) {
-				console.warn("⚠️ 'saveSubject' ez da aurkitu, 'saveData' erabiltzen...");
-				this.saveData();
-			}
-
-			console.log("✅ Datuak ondo gorde dira.");
-
-			// 5. MODALA ITXI ETA BISTA EGUNERATU
-			const modal = document.getElementById('raModal');
-			if (modal) modal.classList.add('hidden');
-
-			if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-				window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-			}
-
-		} catch (error) {
-			console.error("❌ Errorea gordetzean:", error);
-			alert("Errorea gordetzean: " + error.message);
-		}
+	    // 4. GORDE
+	    try {
+	        if (this.saveSubject) {
+	            await this.saveSubject(this.currentSubject);
+	        }
+	        
+	        console.log(`✅ Gorde dira: ${newRAs.length} RA, ${newZHs.length} ZH`);
+	        
+	        const modal = document.getElementById('raModal');
+	        if (modal) modal.classList.add('hidden');
+	
+	        if (window.ui?.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
+	
+	    } catch (error) {
+	        console.error("❌ Errorea:", error);
+	        alert("Errorea gordetzean: " + error.message);
+	    }
 	}
 
 /*    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
@@ -5889,6 +5845,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
