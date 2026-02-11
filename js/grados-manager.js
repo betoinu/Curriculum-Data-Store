@@ -2003,7 +2003,7 @@ openIduSelector() {
 	        subject.content.idujar = newSelection;  // 🔴 HAU DA ZURE ERABILTZEN DUZUENA!
 	        
 	        // 🔴 2. MEMORIA OSOA EGUNERATU
-	        if (this.currentDegreeData) {
+	        /*if (this.currentDegreeData) {
 	            const subjectIndex = this.currentDegreeData.findIndex(
 	                s => s.idAsig === subject.idAsig
 	            );
@@ -2015,7 +2015,7 @@ openIduSelector() {
 	                this.currentDegreeData[subjectIndex].content.idujar = newSelection;
 	                console.log("✅ Memoria eguneratuta - content.idujar");
 	            }
-	        }
+	        }*/
 	
 	        // 🔴 3. SUPABASE-N GORDE (ZUZENEAN)
 	        const { error } = await this.supabase
@@ -5845,6 +5845,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
