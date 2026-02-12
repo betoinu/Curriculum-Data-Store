@@ -3454,85 +3454,77 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
 // Aldaketak egiteko funtzio temporala:
 	
 async saveRaChanges() {
-		if (!this.currentSubject) return;
+    if (!this.currentSubject) return;
 
-		console.log("💾 RA aldaketak gordetzen eta garbitzen...");
+    console.log("💾 RA aldaketak gordetzen eta garbitzen...");
 
-		// 1. RA TEKNIKOAK (currentOfficialRAs)
-		const tecRows = document.querySelectorAll('#editListTec .ra-row');
-		
-		const newRAs = Array.from(tecRows).map(row => {
-		    const codeInput = row.querySelector('.ra-code');
-		    const descInput = row.querySelector('.ra-desc');
-		    const linkSelect = row.querySelector('.ra-link');
-		
-		    const code = codeInput ? codeInput.value.trim() : '';
-		    const desc = descInput ? descInput.value.trim() : '';
-		    const linked = linkSelect ? linkSelect.value : '';
-		
-		    // ✅ ZUZENDUTA - ZURE JSON EGITURARA EGOKITUTA
-		    return {
-		        id: code,                    // Aukerakoa
-		        raCode: code,               // ✅ GARRANTZITSUA!
-		        raDesc: desc,              // ✅ GARRANTZITSUA!
-		        linkedCompetency: linked   // ✅
-		    };
-		}).filter(item => item.raDesc !== '');
+    // 1. RA TEKNIKOAK
+    const tecRows = document.querySelectorAll('#editListTec .ra-row');
+    const newRAs = Array.from(tecRows).map(row => {
+        const code = row.querySelector('.ra-code')?.value.trim() || '';
+        const desc = row.querySelector('.ra-desc')?.value.trim() || '';
+        const linked = row.querySelector('.ra-link')?.value || '';
+        
+        return {
+            raCode: code,
+            raDesc: desc,
+            linkedCompetency: linked
+        };
+    }).filter(item => item.raDesc !== '');
 
-		this.currentSubject.currentOfficialRAs = newRAs;
+    // 2. ZEHARKAKOAK
+    const zhRows = document.querySelectorAll('#editListZh .ra-row');
+    const newZHs = Array.from(zhRows).map(row => {
+        const code = row.querySelector('.ra-code')?.value.trim() || '';
+        const desc = row.querySelector('.ra-desc')?.value.trim() || '';
+        const linked = row.querySelector('.ra-link')?.value || '';
+        
+        return {
+            type: "zh",
+            zhCode: code,
+            zhDesc: desc,
+            linkedCompetency: linked
+        };
+    }).filter(item => item.zhDesc !== '');
 
+    // 3. EGUNERATU MEMORIA - BI LEKUETAN! ✅
+    // Erroa (UI-rentzat)
+    this.currentSubject.currentOfficialRAs = newRAs;
+    this.currentSubject.zhRAs = newZHs;
+    
+    // CONTENT (Datu-baserako) - EZ EZABATU BESTE DATUAK! ✅
+    if (!this.currentSubject.content) this.currentSubject.content = {};
+    this.currentSubject.content.currentOfficialRAs = newRAs;
+    this.currentSubject.content.zhRAs = newZHs;
+    // gainerakoak (preReq, signAct, unitateak, etab.) mantendu egiten dira!
 
-		// 2. ZEHARKAKOAK BILDU (subjectZhRAs)
-		const zhRows = document.querySelectorAll('#editListZh .ra-row');
-		
-		const newZHs = Array.from(zhRows).map(row => {
-			const codeInput = row.querySelector('.ra-code');
-			const descInput = row.querySelector('.ra-desc');
-			const linkSelect = row.querySelector('.ra-link');
-			
+    // 4. GARBIKETA
+    delete this.currentSubject.ra;
+    delete this.currentSubject.technicals;
+    delete this.currentSubject.transversals;
 
-			const code = codeInput ? codeInput.value.trim() : '';
-			const desc = descInput ? descInput.value.trim() : '';
-			const linked = linkSelect ? linkSelect.value : '';
-			
-		    return {
-		        type: "zh",                 
-		        zhCode: code,                 
-		        zhDesc: desc,                
-		        linkedCompetency: linked     
-		    };
-		}).filter(item => item.zhDesc !== '');
+    // 5. GORDE
+    try {
+        if (this.saveSubject) {
+            await this.saveSubject(this.currentSubject);
+        }
+        
+        console.log(`✅ Gorde dira: ${newRAs.length} RA, ${newZHs.length} ZH`);
+        
+        const modal = document.getElementById('raModal');
+        if (modal) modal.classList.add('hidden');
 
-		this.currentSubject.zhRAs = newZHs;
+        setTimeout(() => {
+            if (window.ui?.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+        }, 50);
 
-		// 3. GARBIKETA (Datu zaharrak ezabatu gatazkak saihesteko)
-	    delete this.currentSubject.ra;
-	    delete this.currentSubject.technicals;
-	    delete this.currentSubject.transversals;
-
-	    // 4. GORDE
-	    try {
-	        if (this.saveSubject) {
-	            await this.saveSubject(this.currentSubject);
-	        }
-	        
-	        console.log(`✅ Gorde dira: ${newRAs.length} RA, ${newZHs.length} ZH`);
-	        
-	        const modal = document.getElementById('raModal');
-	        if (modal) modal.classList.add('hidden');
-	
-			if (window.ui?.renderSubjectDetail) {
-			    // Hutsunea utzi render-a behin bakarrik exekutatzeko
-			    setTimeout(() => {
-			        window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-			    }, 50);  // 50ms itxaron
-			}
-	
-	    } catch (error) {
-	        console.error("❌ Errorea:", error);
-	        alert("Errorea gordetzean: " + error.message);
-	    }
-	}
+    } catch (error) {
+        console.error("❌ Errorea:", error);
+        alert("Errorea gordetzean: " + error.message);
+    }
+}
 
 /*    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
         // Zure kode zaharraren normalizazioa jarri hemen
@@ -5863,6 +5855,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
