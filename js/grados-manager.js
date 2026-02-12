@@ -2959,7 +2959,12 @@ openRaEditor() {
 			return;
 		}
 
-		console.log("✏️ RA Editorea irekitzen:", this.currentSubject.name);
+		console.log("✏️ RA Editorea irekitzen:", 
+		    this.currentSubject.subjectTitle || 
+		    this.currentSubject.name || 
+		    this.currentSubject.title || 
+		    "Izenik gabe"
+		);
 
 		// 1. IRTEERAKO KONPETENTZIAK PRESTATU (Selektorerako)
 		let comps = this.currentDegree?.competencies?.egreso || [];
@@ -3509,9 +3514,12 @@ async saveRaChanges() {
 	        const modal = document.getElementById('raModal');
 	        if (modal) modal.classList.add('hidden');
 	
-	        if (window.ui?.renderSubjectDetail) {
-	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-	        }
+			if (window.ui?.renderSubjectDetail) {
+			    // Hutsunea utzi render-a behin bakarrik exekutatzeko
+			    setTimeout(() => {
+			        window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+			    }, 50);  // 50ms itxaron
+			}
 	
 	    } catch (error) {
 	        console.error("❌ Errorea:", error);
@@ -5848,6 +5856,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
