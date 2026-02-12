@@ -3456,9 +3456,9 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
 async saveRaChanges() {
     if (!this.currentSubject) return;
 
-    console.log("💾 RA aldaketak gordetzen eta garbitzen...");
+    console.log("💾 RA aldaketak gordetzen (Testuingurua babestuz)...");
 
-    // 1. RA TEKNIKOAK
+    // 1. RA TEKNIKOAK BILDU
     const tecRows = document.querySelectorAll('#editListTec .ra-row');
     const newRAs = Array.from(tecRows).map(row => {
         const code = row.querySelector('.ra-code')?.value.trim() || '';
@@ -3466,13 +3466,14 @@ async saveRaChanges() {
         const linked = row.querySelector('.ra-link')?.value || '';
         
         return {
+            id: code,        // Segurtasunagatik
             raCode: code,
             raDesc: desc,
             linkedCompetency: linked
         };
     }).filter(item => item.raDesc !== '');
 
-    // 2. ZEHARKAKOAK
+    // 2. ZEHARKAKOAK BILDU
     const zhRows = document.querySelectorAll('#editListZh .ra-row');
     const newZHs = Array.from(zhRows).map(row => {
         const code = row.querySelector('.ra-code')?.value.trim() || '';
@@ -3487,36 +3488,58 @@ async saveRaChanges() {
         };
     }).filter(item => item.zhDesc !== '');
 
-    // 3. EGUNERATU MEMORIA - BI LEKUETAN! ✅
-    // Erroa (UI-rentzat)
+    // 3. CONTENT OBJEKTUA PRESTATU
+    if (!this.currentSubject.content) this.currentSubject.content = {};
+
+    // 4. 🚨 TESTUINGURUA BABESTU (Hau da falta zena!) 🚨
+    // Datuak erroan badaude baina content-en ez, kopiatu egin behar dira
+    // bestela Supabasek 'content' zutabea machakatzean galdu egingo dira.
+    const contextFields = ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak'];
+    
+    contextFields.forEach(field => {
+        // 1. Content-en badago, mantendu. 
+        // 2. Content-en ez badago, baina erroan bai, kopiatu errora content-era.
+        if (this.currentSubject.content[field] === undefined && this.currentSubject[field] !== undefined) {
+            console.log(`♻️ Berreskuratzen: ${field}`);
+            this.currentSubject.content[field] = this.currentSubject[field];
+        }
+    });
+
+    // 5. RA BERRIAK SARTU CONTENT-EN
+    this.currentSubject.content.currentOfficialRAs = newRAs;
+    this.currentSubject.content.zhRAs = newZHs;
+
+    // 6. UI SINKRONIZATU (Erroa ere eguneratu bistaratzeko)
     this.currentSubject.currentOfficialRAs = newRAs;
     this.currentSubject.zhRAs = newZHs;
     
-    // CONTENT (Datu-baserako) - EZ EZABATU BESTE DATUAK! ✅
-    if (!this.currentSubject.content) this.currentSubject.content = {};
-    this.currentSubject.content.currentOfficialRAs = newRAs;
-    this.currentSubject.content.zhRAs = newZHs;
-    // gainerakoak (preReq, signAct, unitateak, etab.) mantendu egiten dira!
+    // Testuingurua ere erroan ziurtatu (renderizadorea erroan begiratzen badu)
+    contextFields.forEach(field => {
+        if (this.currentSubject.content[field]) {
+            this.currentSubject[field] = this.currentSubject.content[field];
+        }
+    });
 
-    // 4. GARBIKETA
-    delete this.currentSubject.ra;
-    delete this.currentSubject.technicals;
-    delete this.currentSubject.transversals;
-
-    // 5. GORDE
+    // 7. GORDE
     try {
         if (this.saveSubject) {
             await this.saveSubject(this.currentSubject);
         }
         
-        console.log(`✅ Gorde dira: ${newRAs.length} RA, ${newZHs.length} ZH`);
+        console.log(`✅ Gorde dira: ${newRAs.length} RA, ${newZHs.length} ZH eta Testuingurua.`);
         
         const modal = document.getElementById('raModal');
         if (modal) modal.classList.add('hidden');
-	    } catch (error) {
-	        console.error("❌ Errorea:", error);
-	        alert("Errorea gordetzean: " + error.message);
-	    }
+
+        // UI berriz margotu
+        if (window.ui?.renderSubjectDetail) {
+            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+        }
+
+    } catch (error) {
+        console.error("❌ Errorea:", error);
+        alert("Errorea gordetzean: " + error.message);
+    }
 }
 
 /*    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
@@ -5848,6 +5871,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
