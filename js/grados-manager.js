@@ -231,92 +231,94 @@ class GradosManager {
 	
 // HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
 	async saveSubject(subjectData) {
-        console.log("💾 SQLan Gordetzen:", subjectData.subjectTitle);
-        const saveBtn = document.getElementById('saveSubjectBtn');
-        if (saveBtn) saveBtn.disabled = true;
+    console.log("💾 SQLan Gordetzen:", subjectData.subjectTitle);
+    const saveBtn = document.getElementById('saveSubjectBtn');
+    if (saveBtn) saveBtn.disabled = true;
 
-        try {
-            // 1. ZUTABEAK PRESTATU (Constructor-ean definitutakoak)
-            const dbPayload = {};    
-            const jsonPayload = {};  
+    try {
+        // 1. ZUTABEAK PRESTATU (Constructor-ean definitutakoak)
+        const dbPayload = {};    
+        const jsonPayload = {};  
 
-            // Eremu bakoitza bere lekura bidali
-            Object.keys(subjectData).forEach(key => {
-                // Eremu teknikoak saltatu
-                if (['id', 'created_at', 'updated_at'].includes(key)) return;
+        // Eremu bakoitza bere lekura bidali
+        Object.keys(subjectData).forEach(key => {
+            // Eremu teknikoak saltatu - GEHITU 'content'!
+            if (['id', 'created_at', 'updated_at', 'content'].includes(key)) return;
 
-                // 'subjectDirectDbFields' zure constructor-ean definituta egon behar da!
-                if (this.subjectDirectDbFields && this.subjectDirectDbFields.includes(key)) {
-                    dbPayload[key] = subjectData[key];
-                } else {
-                    jsonPayload[key] = subjectData[key];
-                }
-            });
+            if (this.subjectDirectDbFields?.includes(key)) {
+                dbPayload[key] = subjectData[key];
+            } else {
+                jsonPayload[key] = subjectData[key];
+            }
+        });
 
-            // JSON edukia 'content' zutabean sartu
+        // 🔴 GAKOA HEMEN! Erabili subjectData.content existitzen bada!
+        if (subjectData.content && Object.keys(subjectData.content).length > 0) {
+            console.log("📦 Content objektu garbia erabiltzen...");
+            dbPayload.content = subjectData.content;
+        } else {
+            // Fallback: sortu berria
             dbPayload.content = jsonPayload;
-            
-            // Segurtasuna: IDak
-            if (!dbPayload.idDegree && this.currentDegree) {
-                dbPayload.idDegree = this.currentDegree.idDegree;
-            }
-            // Zure kode zaharrak 'idAsig' edo 'code' erabili dezake. Ziurtatu idAsig dela.
-            if (!dbPayload.idAsig && subjectData.code) {
-                dbPayload.idAsig = subjectData.code;
-            }
-
-            console.log("📤 Bidaltzen den payload:", dbPayload);
-
-            // 2. SUPABASE DEITU (Upsert)
-            const { data, error } = await this.supabase
-                .from('irakasgaiak')
-                .upsert(dbPayload, { onConflict: 'idAsig' }) // Gako nagusia
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            console.log("✅ DBan eguneratua. ID:", data.id);
-
-            // 3. MEMORIA EGUNERATU (Pantaila ez freskatzeko)
-            // SQLtik datorren data eta bidali dugun JSONa batu
-            const mergedSubject = { 
-                ...jsonPayload, 
-                ...data, 
-                content: undefined // Garbitu, ez bikoizteko
-            };
-
-            // Eguneratu uneko irakasgaia
-            this.currentSubject = mergedSubject;
-            
-            // Eguneratu zerrenda nagusia (degrees array-a)
-            if (this.currentDegree && this.currentDegree.subjects) {
-                const index = this.currentDegree.subjects.findIndex(s => s.idAsig === mergedSubject.idAsig);
-                if (index >= 0) {
-                    this.currentDegree.subjects[index] = mergedSubject;
-                } else {
-                    this.currentDegree.subjects.push(mergedSubject);
-                }
-            }
-
-            // 4. UI EGUNERATU (Xehetasunak)
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-
-            // 5. FEEDBACK (Toast mezua)
-            this.showToast('✅ Datuak ondo gorde dira!');
-            
-            return true;
-
-        } catch (err) {
-            console.error("❌ Errorea SQL gordetzean:", err);
-            alert("Errorea gordetzean: " + err.message);
-            return false;
-        } finally {
-            if (saveBtn) saveBtn.disabled = false;
         }
+        
+        // IDs
+        if (!dbPayload.idDegree && this.currentDegree) {
+            dbPayload.idDegree = this.currentDegree.idDegree;
+        }
+        if (!dbPayload.idAsig && subjectData.code) {
+            dbPayload.idAsig = subjectData.code;
+        }
+
+        console.log("📤 Bidaltzen den payload:", {
+            idAsig: dbPayload.idAsig,
+            contentKeys: Object.keys(dbPayload.content || {})
+        });
+
+        // 2. SUPABASE DEITU
+        const { data, error } = await this.supabase
+            .from('irakasgaiak')
+            .upsert(dbPayload, { onConflict: 'idAsig' })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        console.log("✅ DBan eguneratua. ID:", data.id);
+
+        // ✅ KONPONBIDEA: EZ FLATTEN! Content-a mantendu!
+        this.currentSubject = {
+            ...subjectData,           // Datu originalak mantendu
+            id: data.id,             // IDa eguneratu
+            content: data.content,   // Content objektua mantendu!
+            // Ez dugu ...data.content hemen sartzen!
+        };
+
+        // Eguneratu zerrenda nagusia
+        if (this.currentDegree && this.currentDegree.subjects) {
+            const index = this.currentDegree.subjects.findIndex(s => s.idAsig === this.currentSubject.idAsig);
+            if (index >= 0) {
+                this.currentDegree.subjects[index] = this.currentSubject;
+            }
+        }
+
+        // 4. UI EGUNERATU
+        if (window.ui?.renderSubjectDetail) {
+            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+        }
+
+        // 5. FEEDBACK
+        this.showToast('✅ Datuak ondo gorde dira!');
+        
+        return true;
+
+    } catch (err) {
+        console.error("❌ Errorea SQL gordetzean:", err);
+        alert("Errorea gordetzean: " + err.message);
+        return false;
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
+}
 
     async saveData(subjectData = null) {
         console.log("💾 saveData (legacy) -> saveSubject deitzen");
@@ -3453,67 +3455,59 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
 }
 // Aldaketak egiteko funtzio temporala:
 	
-saveRaChanges() {
-    const s = this.currentSubject; // Aliasa erosotasunerako
+async saveRaChanges() {
+    const s = this.currentSubject;
     if (!s) return;
 
-    console.log("💾 RA aldaketak gordetzen (Modu seguruan)...");
+    console.log("💾 RA aldaketak gordetzen (KONPONBIDEA 2.0)...");
 
-    // 1. DOM-etik datuak bildu (ZURE KODE GARBIA)
+    // 1. RA eta ZH berriak irakurri
     const tecRows = document.querySelectorAll('#editListTec .ra-row');
     const newRAs = Array.from(tecRows).map(row => {
         const code = row.querySelector('.ra-code')?.value.trim() || '';
         const desc = row.querySelector('.ra-desc')?.value.trim() || '';
         const linked = row.querySelector('.ra-link')?.value || '';
-        return {
-            id: code,
-            raCode: code,
-            raDesc: desc,
-            linkedCompetency: linked
-        };
-    }).filter(r => r.raDesc); // Hutsik daudenak kendu
+        return { raCode: code, raDesc: desc, linkedCompetency: linked };
+    }).filter(r => r.raDesc);
 
     const zhRows = document.querySelectorAll('#editListZh .ra-row');
     const newZHs = Array.from(zhRows).map(row => {
         const code = row.querySelector('.ra-code')?.value.trim() || '';
         const desc = row.querySelector('.ra-desc')?.value.trim() || '';
         const linked = row.querySelector('.ra-link')?.value || '';
-        return {
-            id: code,
-            type: 'zh',
-            zhCode: code,
-            zhDesc: desc,
-            linkedCompetency: linked
-        };
+        return { type: 'zh', zhCode: code, zhDesc: desc, linkedCompetency: linked };
     }).filter(r => r.zhDesc);
 
-    // 2. OBJEKTUAK EGUNERATU (HEMEN DAGO GAKOA 🔑)
-    
-    // A) Erroa eguneratu (UI azkarrerako)
+    // 2. SEGURTASUNA: Content prestatu
+    if (!s.content) s.content = {};
+
+    // 3. ERRESKATEA: Erroan dauden datuak content-era pasatu
+    // Hau ezinbestekoa da saveSubject-ek 'content' objektua lehenesteko
+    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak', 'evalCriteria', 'methodology'].forEach(key => {
+        if (s[key] !== undefined && !s.content[key]) {
+            console.log(`♻️ Erreskatatzen: ${key}`, s[key]?.length || 1);
+            s.content[key] = s[key];
+        }
+    });
+
+    // 4. EGUNERATU RA eta ZH content barruan
+    s.content.currentOfficialRAs = newRAs;
+    s.content.zhRAs = newZHs;
+
+    // 5. Erroa ere sinkronizatu (UI-rako)
     s.currentOfficialRAs = newRAs;
-    s.subjectZhRAs = newZHs; // edo s.zhRAs, izendapena bateratu!
+    s.zhRAs = newZHs;
 
-    // B) CONTENT eguneratu (Baina zegoena mantenduz!)
-    // Hau da falta zena zure kodean:
-    s.content = {
-        ...(s.content || {}),   // 1. Mantendu aurretik zegoen guztia (preReq, unitateak...)
-        currentOfficialRAs: newRAs, // 2. Gainidatzi bakarrik RAk
-        zhRAs: newZHs           // 3. Gainidatzi bakarrik ZHak
-    };
-
-    // 3. GORDE
-    if (this.saveData) {
-        this.saveData(); 
-    } else {
-        console.error("❌ 'saveData' falta da.");
-    }
-    
-    // 4. UI EGUNERATU
-    const modal = document.getElementById('raModal');
-    if (modal) modal.classList.add('hidden');
-    
-    if (window.ui?.renderSubjectDetail) {
-        window.ui.renderSubjectDetail(s, this.currentDegree);
+    // 6. Gorde
+    try {
+        if (this.saveSubject) {
+            await this.saveSubject(s);
+        }
+        const modal = document.getElementById('raModal');
+        if (modal) modal.classList.add('hidden');
+    } catch (error) {
+        console.error("❌ Errorea:", error);
+        alert("Errorea: " + error.message);
     }
 }
 
@@ -5846,6 +5840,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
