@@ -3244,15 +3244,15 @@ openRaEditor() {
 		// --- SELEKTOREA: Orain BETI sortzen da (bai ZH bai RA) ---
 		let options = '<option value="">-- Lotura gabe --</option>';
 		if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
-			options += this.tempEgresoComps.map(c => {
-				const cCode = c.code || c.autoCode || '';
-				const rawText = c.text || c.desc || c.description || c.title || ''; 
-				const truncatedText = rawText.length > 50 ? rawText.substring(0, 50) + '...' : rawText;
-				
-				const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
-				
-				return `<option value="${cCode}" ${selected}>${cCode} - ${truncatedText}</option>`;
-			}).join('');
+		    options += this.tempEgresoComps.map(c => {
+		        const cCode = c.code || c.autoCode || '';
+		        const rawText = c.text || c.desc || c.description || c.title || ''; 
+		        
+		        // Testu osoa erakutsi baina CSS-rekin moztu
+		        const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
+		        
+		        return `<option value="${cCode}" ${selected} class="line-clamp-2" style="white-space: normal; padding: 4px;">${cCode} - ${rawText}</option>`;
+		    }).join('');
 		}
 
 		// HTML Sortu
@@ -3268,16 +3268,23 @@ openRaEditor() {
 					placeholder="KODEA">
 			</div>
 			<div class="flex-1 flex flex-col gap-1">
-				<textarea 
-					class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
-					placeholder="Deskribapena...">${descValue}</textarea>
-				
-				<select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
-					${options}
-				</select>
+			    <div class="relative">
+			        <textarea 
+			            class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none line-clamp-2 hover:line-clamp-none transition-all duration-200" 
+			            placeholder="Deskribapena...">${descValue}</textarea>
+			        <button type="button" 
+			                onclick="this.previousElementSibling.classList.toggle('line-clamp-2'); this.previousElementSibling.classList.toggle('min-h-[40px]'); this.previousElementSibling.classList.toggle('min-h-[120px]')"
+			                class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
+			            <i class="fas fa-expand-alt text-xs"></i>
+			        </button>
+			    </div>
+			    
+			    <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
+			        ${options}
+			    </select>
 			</div>
 			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
-				<i class="fas fa-trash-alt"></i>
+			    <i class="fas fa-trash-alt"></i>
 			</button>
 		`;
 
@@ -5856,6 +5863,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
