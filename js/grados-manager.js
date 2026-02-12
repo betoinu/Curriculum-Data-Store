@@ -3453,92 +3453,67 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
 }
 // Aldaketak egiteko funtzio temporala:
 	
-async saveRaChanges() {
-    if (!this.currentSubject) return;
+saveRaChanges() {
+    const s = this.currentSubject; // Aliasa erosotasunerako
+    if (!s) return;
 
-    console.log("💾 RA aldaketak gordetzen (Testuingurua babestuz)...");
+    console.log("💾 RA aldaketak gordetzen (Modu seguruan)...");
 
-    // 1. RA TEKNIKOAK BILDU
+    // 1. DOM-etik datuak bildu (ZURE KODE GARBIA)
     const tecRows = document.querySelectorAll('#editListTec .ra-row');
     const newRAs = Array.from(tecRows).map(row => {
         const code = row.querySelector('.ra-code')?.value.trim() || '';
         const desc = row.querySelector('.ra-desc')?.value.trim() || '';
         const linked = row.querySelector('.ra-link')?.value || '';
-        
         return {
-            id: code,        // Segurtasunagatik
+            id: code,
             raCode: code,
             raDesc: desc,
             linkedCompetency: linked
         };
-    }).filter(item => item.raDesc !== '');
+    }).filter(r => r.raDesc); // Hutsik daudenak kendu
 
-    // 2. ZEHARKAKOAK BILDU
     const zhRows = document.querySelectorAll('#editListZh .ra-row');
     const newZHs = Array.from(zhRows).map(row => {
         const code = row.querySelector('.ra-code')?.value.trim() || '';
         const desc = row.querySelector('.ra-desc')?.value.trim() || '';
         const linked = row.querySelector('.ra-link')?.value || '';
-        
         return {
-            type: "zh",
+            id: code,
+            type: 'zh',
             zhCode: code,
             zhDesc: desc,
             linkedCompetency: linked
         };
-    }).filter(item => item.zhDesc !== '');
+    }).filter(r => r.zhDesc);
 
-    // 3. CONTENT OBJEKTUA PRESTATU
-    if (!this.currentSubject.content) this.currentSubject.content = {};
-
-    // 4. 🚨 TESTUINGURUA BABESTU (Hau da falta zena!) 🚨
-    // Datuak erroan badaude baina content-en ez, kopiatu egin behar dira
-    // bestela Supabasek 'content' zutabea machakatzean galdu egingo dira.
-    const contextFields = ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak'];
+    // 2. OBJEKTUAK EGUNERATU (HEMEN DAGO GAKOA 🔑)
     
-    contextFields.forEach(field => {
-        // 1. Content-en badago, mantendu. 
-        // 2. Content-en ez badago, baina erroan bai, kopiatu errora content-era.
-        if (this.currentSubject.content[field] === undefined && this.currentSubject[field] !== undefined) {
-            console.log(`♻️ Berreskuratzen: ${field}`);
-            this.currentSubject.content[field] = this.currentSubject[field];
-        }
-    });
+    // A) Erroa eguneratu (UI azkarrerako)
+    s.currentOfficialRAs = newRAs;
+    s.subjectZhRAs = newZHs; // edo s.zhRAs, izendapena bateratu!
 
-    // 5. RA BERRIAK SARTU CONTENT-EN
-    this.currentSubject.content.currentOfficialRAs = newRAs;
-    this.currentSubject.content.zhRAs = newZHs;
+    // B) CONTENT eguneratu (Baina zegoena mantenduz!)
+    // Hau da falta zena zure kodean:
+    s.content = {
+        ...(s.content || {}),   // 1. Mantendu aurretik zegoen guztia (preReq, unitateak...)
+        currentOfficialRAs: newRAs, // 2. Gainidatzi bakarrik RAk
+        zhRAs: newZHs           // 3. Gainidatzi bakarrik ZHak
+    };
 
-    // 6. UI SINKRONIZATU (Erroa ere eguneratu bistaratzeko)
-    this.currentSubject.currentOfficialRAs = newRAs;
-    this.currentSubject.zhRAs = newZHs;
+    // 3. GORDE
+    if (this.saveData) {
+        this.saveData(); 
+    } else {
+        console.error("❌ 'saveData' falta da.");
+    }
     
-    // Testuingurua ere erroan ziurtatu (renderizadorea erroan begiratzen badu)
-    contextFields.forEach(field => {
-        if (this.currentSubject.content[field]) {
-            this.currentSubject[field] = this.currentSubject.content[field];
-        }
-    });
-
-    // 7. GORDE
-    try {
-        if (this.saveSubject) {
-            await this.saveSubject(this.currentSubject);
-        }
-        
-        console.log(`✅ Gorde dira: ${newRAs.length} RA, ${newZHs.length} ZH eta Testuingurua.`);
-        
-        const modal = document.getElementById('raModal');
-        if (modal) modal.classList.add('hidden');
-
-        // UI berriz margotu
-        if (window.ui?.renderSubjectDetail) {
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        }
-
-    } catch (error) {
-        console.error("❌ Errorea:", error);
-        alert("Errorea gordetzean: " + error.message);
+    // 4. UI EGUNERATU
+    const modal = document.getElementById('raModal');
+    if (modal) modal.classList.add('hidden');
+    
+    if (window.ui?.renderSubjectDetail) {
+        window.ui.renderSubjectDetail(s, this.currentDegree);
     }
 }
 
@@ -5871,6 +5846,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
