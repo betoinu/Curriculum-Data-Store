@@ -54,7 +54,7 @@ class GradosManager {
     		'raDesc',     // ✅ Gehitu hau!
 			'zhCode',     // ✅ Gehitu hau!
     		'zhDesc',     // ✅ Gehitu hau!
-			'linkedCompetency',     // ✅ Gehitu hau!
+			'linkedCompetency'     // ✅ Gehitu hau!
 			
         ];
 
@@ -5848,6 +5848,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
