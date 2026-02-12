@@ -692,7 +692,7 @@ renderSubjectDetail: async (subject, degree) => {
 		if (projContainer) {
 		    projContainer.innerHTML = '';
 		    // Datuen jatorria: externalProjects edo extProy
-		    const list = subject.content?.externalProjects || subject.content?.extProy || [];
+		    const list = subject.content?.extProy || [];
 		    
 		    // Katalogoa kargatu
 		    const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) 
@@ -760,7 +760,6 @@ renderSubjectDetail: async (subject, degree) => {
         const iduContainer = document.getElementById('detailIdujar');
         if (iduContainer) {
             iduContainer.innerHTML = '';
-            // ⚠️ ALDAKETA: Context begiratu lehenengo
             const list = subject.content?.iduGuidelines || subject.content?.idujar || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.iduGuidelines) ? window.gradosManager.adminCatalogs.iduGuidelines : [];
 
@@ -800,7 +799,7 @@ renderSubjectDetail: async (subject, degree) => {
         if (odsContainer) {
             odsContainer.innerHTML = '';
             
-            const list = subject.content?.detailODS || subject.content?.ods || [];
+            const list = subject.content?.detailODS || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.ods) ? window.gradosManager.adminCatalogs.ods : [];
 
             // 🔧 Funtzio honek beti 2 digitu itzuliko ditu (1 -> "01", 8 -> "08")
@@ -914,7 +913,7 @@ renderSubjectDetail: async (subject, degree) => {
         else tecArray.forEach((item, i) => listTec.innerHTML += renderRaItem(item, i, 'tec'));
 
         const listZh = document.getElementById('listZh');
-        const zhArray = subject.subjectZhRAs || subject.zhRAs || subject.transversals || [];
+        const zhArray = subject.zhRAs || subject.content?.zhRAs || [];
         if (!zhArray.length) listZh.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA zeharkakorik.</div>';
         else zhArray.forEach((item, i) => listZh.innerHTML += renderRaItem(item, i, 'zh'));
     }
@@ -1593,6 +1592,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
