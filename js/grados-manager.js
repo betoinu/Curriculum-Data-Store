@@ -3513,17 +3513,10 @@ async saveRaChanges() {
         
         const modal = document.getElementById('raModal');
         if (modal) modal.classList.add('hidden');
-
-        setTimeout(() => {
-            if (window.ui?.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-        }, 50);
-
-    } catch (error) {
-        console.error("❌ Errorea:", error);
-        alert("Errorea gordetzean: " + error.message);
-    }
+	    } catch (error) {
+	        console.error("❌ Errorea:", error);
+	        alert("Errorea gordetzean: " + error.message);
+	    }
 }
 
 /*    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
@@ -5855,6 +5848,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
