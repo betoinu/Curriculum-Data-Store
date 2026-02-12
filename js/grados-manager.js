@@ -49,7 +49,13 @@ class GradosManager {
             'preReq',               // Array
             'extProy',              // Array
             'signAct',              // Array
-            'ods'                   // Array
+            'ods',                  // Array
+			'raCode',     // ✅ Gehitu hau!
+    		'raDesc',     // ✅ Gehitu hau!
+			'zhCode',     // ✅ Gehitu hau!
+    		'zhDesc',     // ✅ Gehitu hau!
+			'linkedCompetency',     // ✅ Gehitu hau!
+			
         ];
 
         // 4. GRADUEN MAPAKETA
@@ -5842,6 +5848,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
