@@ -909,7 +909,7 @@ renderSubjectDetail: async (subject, degree) => {
         };
 
         const listTec = document.getElementById('listTec');
-        const tecArray = subject.currentOfficialRAs || subject.technicals || subject.ra || [];
+        const tecArray = subject.currentOfficialRAs || subject.content?.currentOfficialRAs || [];
         if (!tecArray.length) listTec.innerHTML = '<div class="text-sm text-gray-400 italic py-2 pl-2">Ez dago RA teknikorik.</div>';
         else tecArray.forEach((item, i) => listTec.innerHTML += renderRaItem(item, i, 'tec'));
 
@@ -1593,6 +1593,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
