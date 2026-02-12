@@ -3440,29 +3440,26 @@ async saveRaChanges() {
 
 		console.log("💾 RA aldaketak gordetzen eta garbitzen...");
 
-		// 1. RA TEKNIKOAK BILDU (currentOfficialRAs)
-		// HTML berriko klaseak erabiltzen ditugu (.ra-row, .ra-code, .ra-link...)
+		// 1. RA TEKNIKOAK (currentOfficialRAs)
 		const tecRows = document.querySelectorAll('#editListTec .ra-row');
 		
 		const newRAs = Array.from(tecRows).map(row => {
-			// Inputak segurtasunez bilatu
-			const codeInput = row.querySelector('.ra-code');
-			const descInput = row.querySelector('.ra-desc');
-			const linkSelect = row.querySelector('.ra-link'); // Select hau bakarrik teknikoetan dago
-
-			const code = codeInput ? codeInput.value.trim() : '';
-			const desc = descInput ? descInput.value.trim() : '';
-			const linked = linkSelect ? linkSelect.value : ''; 
-
-			// Objektu garbia itzuli. 
-			// 'raCode' eta 'raDesc' kentzen ditugu, 'code' eta 'desc' estandarrak direlako.
-			return {
-				id: code,                // IDa kodea bera izatea praktikoa da
-				code: code,
-				desc: desc,
-				linkedCompetency: linked // Lotura (select-etik datorrena)
-			};
-		}).filter(item => item.desc !== ''); // Hutsik daudenak ez gorde
+		    const codeInput = row.querySelector('.ra-code');
+		    const descInput = row.querySelector('.ra-desc');
+		    const linkSelect = row.querySelector('.ra-link');
+		
+		    const code = codeInput ? codeInput.value.trim() : '';
+		    const desc = descInput ? descInput.value.trim() : '';
+		    const linked = linkSelect ? linkSelect.value : '';
+		
+		    // ✅ ZUZENDUTA - ZURE JSON EGITURARA EGOKITUTA
+		    return {
+		        id: code,                    // Aukerakoa
+		        raCode: code,               // ✅ GARRANTZITSUA!
+		        raDesc: desc,              // ✅ GARRANTZITSUA!
+		        linkedCompetency: linked   // ✅
+		    };
+		}).filter(item => item.raDesc !== '');
 
 		this.currentSubject.currentOfficialRAs = newRAs;
 
@@ -5845,6 +5842,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
