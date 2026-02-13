@@ -44,12 +44,14 @@ class GradosManager {
             'ganttPlanifikazioa',   // Objektua
             'matrizAsignatura',     // Objektua (rasVsUnidades, etc.)
             'currentOfficialRAs',   // Array
-            'subjectCritEval',      // Array
+            'zhRAs',
+			'calendarConfig',
+			'subjectCritEval',      // Array
             'idujar',               // Array (IDU)
             'preReq',               // Array
             'extProy',              // Array
             'signAct',              // Array
-            'ods',                  // Array
+            'detailODS',            // Array
 			'raCode',     // ✅ Gehitu hau!
     		'raDesc',     // ✅ Gehitu hau!
 			'zhCode',     // ✅ Gehitu hau!
@@ -507,14 +509,23 @@ class GradosManager {
             year: yearNum,
             subjectCredits: 6,
             subjectType: 'Oinarrizkoa',
+			semester: 'Urtekoa',
+			language: 'Elebiduna',
             idDegree: this.currentDegree.idDegree, // Lotura
 
             // JSON eremuak hutsik
             unitateak: [],
-            ods: [],
+			preReq: [],
             idujar: [],
+			detailODS: [],
             extProy: [],
-            currentOfficialRAs: []
+			signAct: [],
+			zhRAs: [],
+            currentOfficialRAs: [],
+			"subjectCritEval": [],
+			"matrizAlineacion": [],
+			"matrizAsignatura": [],
+			"ganttPlanifikazioa": []
         };
 
         // 3. GORDE (Zure saveData berriak dena egingo du: DB + Memoria)
@@ -3483,13 +3494,14 @@ async saveRaChanges() {
 
     // 3. ERRESKATEA: Erroan dauden datuak content-era pasatu
     // Hau ezinbestekoa da saveSubject-ek 'content' objektua lehenesteko
-    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak', 'evalCriteria', 'methodology'].forEach(key => {
+    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak','currentOfficialRAs','zhRAs', 'subjectCritEval', 'matrizAlineacion','matrizAsignatura','ganttPlanifikazioa'].forEach(key => {
         if (s[key] !== undefined && !s.content[key]) {
             console.log(`♻️ Erreskatatzen: ${key}`, s[key]?.length || 1);
             s.content[key] = s[key];
         }
     });
 
+	
     // 4. EGUNERATU RA eta ZH content barruan
     s.content.currentOfficialRAs = newRAs;
     s.content.zhRAs = newZHs;
@@ -4664,8 +4676,6 @@ openSignActEditor() {
 			// Aqu¨ª decimos: si el c¨®digo actual es diferente al calculado, actual¨ªzalo.
 			if (u.unitCode !== newCode) {
 				u.unitCode = newCode;
-				// Tambi¨¦n actualizamos la propiedad legacy 'code' por si acaso
-				u.code = newCode;
 			}
 			return u;
 		});
@@ -4871,11 +4881,7 @@ generateUnitAutoCode(index) {
 					unitCode: code,
 					unitName: name,
 					irauOrd: hours,
-					descriptores: descriptors,
-					// Mantener compatibilidad legacy si la usas en otro lado
-					code: code,
-					name: name,
-					hours: hours
+					descriptores: descriptors
 				});
 			}
 		});
@@ -5840,6 +5846,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
