@@ -232,54 +232,105 @@ class GradosManager {
 	}*/
 	
 // HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
-	async saveSubject(subjectData) {
-    console.log("💾 SQLan Gordetzen:", subjectData.subjectTitle);
+async saveSubject(subjectData) {
+    console.log("💾 SQLan Gordetzen (SCHEMA MATCHING):", subjectData.subjectTitle);
+    
     const saveBtn = document.getElementById('saveSubjectBtn');
     if (saveBtn) saveBtn.disabled = true;
 
     try {
-        // 1. ZUTABEAK PRESTATU (Constructor-ean definitutakoak)
-        const dbPayload = {};    
-        const jsonPayload = {};  
+        const dbPayload = {};
+        const contentPayload = {};
 
-        // Eremu bakoitza bere lekura bidali
+        // 1. ZURE TAULAKO ZUTABE OFIZIALAK (Eskemaren arabera)
+        // Hauek erroan joan behar dute derrigorrez SQLan ondo gordetzeko.
+        const dbFields = [
+            'id', 
+            'idAsig',        // text not null
+            'subjectTitle',  // text not null
+            'coordinator_id',// uuid
+            'created_at', 
+            'updated_at',
+            'subjectCode',   // text
+            'subjectCredits',// numeric
+            'language',      // text
+            'semester',      // text
+            'subjectType',   // text
+            'idDegree',      // text
+            'year',          // integer
+            'subjectArea'    // text
+        ];
+
+        // 2. "BLACKLIST": Inoiz gorde behar ez direnak
+		const ignoredKeys = [
+		    'content',       // Matrioska ekiditeko
+		    'uiState',       // UI egoerak
+		    'expandedUnits', // Planning
+		    'matrizPanel',   // 🚨 KRITIKOA: Hau DOM elementua da, ezin da gorde!
+		    'tempData',      
+		    '__dirty'
+		];
+
+        // 3. DATUAK SAILKATU (BANAKETA)
         Object.keys(subjectData).forEach(key => {
-            // Eremu teknikoak saltatu - GEHITU 'content'!
-            if (['id', 'created_at', 'updated_at', 'content'].includes(key)) return;
-
-            if (this.subjectDirectDbFields?.includes(key)) {
+            // A) SQL Zutabea da -> dbPayload (Erroa)
+            if (dbFields.includes(key)) {
                 dbPayload[key] = subjectData[key];
-            } else {
-                jsonPayload[key] = subjectData[key];
+            }
+            // B) Ez bada SQL eta Ez bada Zaborra -> Content-era (JSON)
+            else if (!ignoredKeys.includes(key)) {
+                contentPayload[key] = subjectData[key];
             }
         });
 
-        // 🔴 GAKOA HEMEN! Erabili subjectData.content existitzen bada!
-        if (subjectData.content && Object.keys(subjectData.content).length > 0) {
-            console.log("📦 Content objektu garbia erabiltzen...");
-            dbPayload.content = subjectData.content;
-        } else {
-            // Fallback: sortu berria
-            dbPayload.content = jsonPayload;
-        }
-        
-        // IDs
-        if (!dbPayload.idDegree && this.currentDegree) {
-            dbPayload.idDegree = this.currentDegree.idDegree;
-        }
+        // 4. MAPAKETA BEREZIAK (JS -> SQL)
+        // Zure memorian 'code' erabiltzen duzu, baina DBan 'idAsig' da gako nagusia
         if (!dbPayload.idAsig && subjectData.code) {
             dbPayload.idAsig = subjectData.code;
         }
+        // Agian 'credits' duzu memorian, baina DBan 'subjectCredits' da
+        if (!dbPayload.subjectCredits && subjectData.credits) {
+            dbPayload.subjectCredits = subjectData.credits;
+        }
+        // Gradua
+        if (!dbPayload.idDegree && this.currentDegree) {
+            dbPayload.idDegree = this.currentDegree.idDegree;
+        }
 
-        console.log("📤 Bidaltzen den payload:", {
-            idAsig: dbPayload.idAsig,
-            contentKeys: Object.keys(dbPayload.content || {})
+        // 5. UNITATEAK GARBITU (Segurtasun geruza)
+		if (contentPayload.unitateak) {
+		    const rawUnits = Array.isArray(contentPayload.unitateak) ? contentPayload.unitateak : [];
+		    contentPayload.unitateak = rawUnits.map(u => ({
+		        // Estandarizazioa (Zaharrak -> Berriak)
+		        unitCode: u.unitCode || u.code || "", 
+		        unitName: u.unitName || u.name || "",
+		        irauOrd: u.irauOrd || (u.hours ? String(u.hours) : "0"), // Zenbakia -> String
+		        
+		        // Mantendu behar direnak
+		        activities: u.activities || [],
+		        descriptores: u.descriptores || []
+		
+		        // HEMEN FILTRATZEN DIRA:
+		        // - Drag&Drop IDak
+		        // - 'selected' egoerak
+		        // - 'matrizPanel' bezalako erreferentzia arraroak unitate barruan baleude
+		    }));
+		}
+
+        // 6. JSONa MUNTATU
+        dbPayload.content = contentPayload;
+
+        console.log("📤 PAYLOAD:", { 
+            ID: dbPayload.idAsig,
+            SQL_ZUTABEAK: Object.keys(dbPayload).filter(k => k !== 'content'),
+            JSON_EDUKIA: Object.keys(dbPayload.content)
         });
 
-        // 2. SUPABASE DEITU
+        // 7. SUPABASE DEIA
+        // 'idAsig' da zure unique constraint (irakasgaiak_code_key)
         const { data, error } = await this.supabase
             .from('irakasgaiak')
-            .upsert(dbPayload, { onConflict: 'idAsig' })
+            .upsert(dbPayload, { onConflict: 'idAsig' }) 
             .select()
             .single();
 
@@ -287,41 +338,35 @@ class GradosManager {
 
         console.log("✅ DBan eguneratua. ID:", data.id);
 
-        // ✅ KONPONBIDEA: EZ FLATTEN! Content-a mantendu!
+        // 8. MEMORIA EGUNERATU (DESPAKETATU / UNFLATTEN)
+        // Datu baseko zutabeak + JSONeko edukiak maila berean jartzen ditugu
         this.currentSubject = {
-            ...subjectData,           // Datu originalak mantendu
-            id: data.id,             // IDa eguneratu
-            content: data.content,   // Content objektua mantendu!
-            // Ez dugu ...data.content hemen sartzen!
+            ...data,           // SQL datuak (year, credits...)
+            ...data.content,   // JSON barrukoa (unitateak, zhRAs...) kanpora!
+            content: undefined // Poltsa ezabatu
         };
 
-        // Eguneratu zerrenda nagusia
+        // UI Eguneratu
         if (this.currentDegree && this.currentDegree.subjects) {
             const index = this.currentDegree.subjects.findIndex(s => s.idAsig === this.currentSubject.idAsig);
-            if (index >= 0) {
-                this.currentDegree.subjects[index] = this.currentSubject;
-            }
+            if (index >= 0) this.currentDegree.subjects[index] = this.currentSubject;
         }
 
-        // 4. UI EGUNERATU
         if (window.ui?.renderSubjectDetail) {
             window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
         }
 
-        // 5. FEEDBACK
         this.showToast('✅ Datuak ondo gorde dira!');
-        
         return true;
 
     } catch (err) {
         console.error("❌ Errorea SQL gordetzean:", err);
-        alert("Errorea gordetzean: " + err.message);
+        alert("Errorea: " + err.message);
         return false;
     } finally {
         if (saveBtn) saveBtn.disabled = false;
     }
 }
-
     async saveData(subjectData = null) {
         console.log("💾 saveData (legacy) -> saveSubject deitzen");
         
@@ -5846,6 +5891,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
