@@ -3264,90 +3264,162 @@ openRaEditor() {
 			</div>`;
 	}
 
-	addRaRow(type, data = {}) {
-		const isZh = type === 'zh';
-		const containerId = isZh ? 'editListZh' : 'editListTec';
-		const container = document.getElementById(containerId);
-		
-		if (!container) return;
+addRaRow(type, data = {}) {
+    const isZh = type === 'zh';
+    const containerId = isZh ? 'editListZh' : 'editListTec';
+    const container = document.getElementById(containerId);
+    
+    if (!container) return;
 
-		const colorClass = isZh ? 'teal' : 'blue';
+    const colorClass = isZh ? 'teal' : 'blue';
 
-		// DATUAK IRAKURTZEA (Zure JSON egiturara egokituta)
-		// ZH bada: zhCode/zhDesc bilatzen du. Teknikoa bada: code/desc.
-		let codeValue = '';
-		let descValue = '';
-		
-		if (isZh) {
-			codeValue = data.zhCode || '';
-			descValue = data.zhDesc || '';
-		} else {
-			codeValue = data.raCode  || '';
-			descValue = data.raDesc || '';
-		}
-		
-		// Lotura (Irteerako konpetentzia)
-		// Zure JSONean 'linkedCompetency' erabiltzen da teknikoetan.
-		// ZHetan ere erakutsiko dugu zuk eskatu bezala.
-		const linkedValue = data.linkedCompetency || data.raRelacionado || '';
+    // DATUAK IRAKURTZEA (Zure JSON egiturara egokituta)
+    // ZH bada: zhCode/zhDesc bilatzen du. Teknikoa bada: code/desc.
+    let codeValue = '';
+    let descValue = '';
+    
+    if (isZh) {
+        codeValue = data.zhCode || '';
+        descValue = data.zhDesc || '';
+    } else {
+        codeValue = data.raCode  || '';
+        descValue = data.raDesc || '';
+    }
+    
+    // Lotura (Irteerako konpetentzia)
+    // Zure JSONean 'linkedCompetency' erabiltzen da teknikoetan.
+    // ZHetan ere erakutsiko dugu zuk eskatu bezala.
+    const linkedValue = data.linkedCompetency || data.raRelacionado || '';
 
-		// Kode automatikoa hutsik badago
-		if (!codeValue) {
-			const count = container.children.length + 1;
-			const suffix = isZh ? 'ZH' : 'RA';
-			// Hemen 'GEN' jartzen dut aurrizki lehenetsi gisa, zure logikaren arabera aldatu
-			codeValue = `${suffix}${count}`; 
-		}
+    // Kode automatikoa hutsik badago
+    if (!codeValue) {
+        const count = container.children.length + 1;
+        const suffix = isZh ? 'ZH' : 'RA';
+        // Hemen 'GEN' jartzen dut aurrizki lehenetsi gisa, zure logikaren arabera aldatu
+        codeValue = `${suffix}${count}`; 
+    }
 
-		// --- SELEKTOREA: Orain BETI sortzen da (bai ZH bai RA) ---
-		let options = '<option value="">-- Lotura gabe --</option>';
-		if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
-		    options += this.tempEgresoComps.map(c => {
-		        const cCode = c.code || c.autoCode || '';
-		        const rawText = c.text || c.desc || c.description || c.title || ''; 
-		        
-		        // Testu osoa erakutsi baina CSS-rekin moztu
-		        const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
-		        
-		        return `<option value="${cCode}" ${selected} class="line-clamp-2" style="white-space: normal; padding: 4px;">${cCode} - ${rawText}</option>`;
-		    }).join('');
-		}
+    // --- SELEKTOREA: Orain "bokadilo" itxurako informazioarekin ---
+    let options = '<option value="">-- Lotura gabe --</option>';
+    if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
+        options += this.tempEgresoComps.map(c => {
+            const cCode = c.code || c.autoCode || '';
+            const rawText = c.text || c.desc || c.description || c.title || ''; 
+            
+            // Testu osoa erakutsi baina CSS-rekin moztu
+            const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
+            
+            return `<option value="${cCode}" ${selected} class="line-clamp-2" style="white-space: normal; padding: 4px;">${cCode} - ${rawText}</option>`;
+        }).join('');
+    }
 
-		// HTML Sortu
-		const div = document.createElement('div');
-		div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
-		
-		// Oharra: Klaseak (.ra-code, .ra-desc, .ra-link) funtsezkoak dira gordetzeko
-		div.innerHTML = `
-			<div class="flex flex-col gap-1 w-24 shrink-0">
-				<input type="text" 
-					class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
-					value="${codeValue}" 
-					placeholder="KODEA">
-			</div>
-			<div class="flex-1 flex flex-col gap-1">
-			    <div class="relative">
-			        <textarea 
-			            class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none line-clamp-2 hover:line-clamp-none transition-all duration-200" 
-			            placeholder="Deskribapena...">${descValue}</textarea>
-			        <button type="button" 
-			                onclick="this.previousElementSibling.classList.toggle('line-clamp-2'); this.previousElementSibling.classList.toggle('min-h-[40px]'); this.previousElementSibling.classList.toggle('min-h-[120px]')"
-			                class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
-			            <i class="fas fa-expand-alt text-xs"></i>
-			        </button>
-			    </div>
-			    
-			    <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
-			        ${options}
-			    </select>
-			</div>
-			<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
-			    <i class="fas fa-trash-alt"></i>
-			</button>
-		`;
+    // HTML Sortu - HEMEN ALDATZEN DUGU "bokadilo" efektua gehitzeko
+    const div = document.createElement('div');
+    div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
+    
+    // Oharra: Klaseak (.ra-code, .ra-desc, .ra-link) funtsezkoak dira gordetzeko
+    // GEHITU DUGU: infoDiv bat irteera profileko informazioa erakusteko "bokadilo" moduan
+    div.innerHTML = `
+        <div class="flex flex-col gap-1 w-24 shrink-0">
+            <input type="text" 
+                class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
+                value="${codeValue}" 
+                placeholder="KODEA">
+        </div>
+        <div class="flex-1 flex flex-col gap-1">
+            <div class="relative">
+                <textarea 
+                    class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none line-clamp-2 hover:line-clamp-none transition-all duration-200" 
+                    placeholder="Deskribapena...">${descValue}</textarea>
+                <button type="button" 
+                        onclick="this.previousElementSibling.classList.toggle('line-clamp-2'); this.previousElementSibling.classList.toggle('min-h-[40px]'); this.previousElementSibling.classList.toggle('min-h-[120px]')"
+                        class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
+                    <i class="fas fa-expand-alt text-xs"></i>
+                </button>
+            </div>
+            
+            <!-- SELEKTOREA -->
+            <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
+                ${options}
+            </select>
+            
+            <!-- BOKADILO EREMUA - HEMEN DA ALDAKETA NAGUSIA -->
+            <div class="relative group hidden mt-1" id="info-${Date.now()}-${Math.random().toString(36).substr(2, 5)}">
+                <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-block">
+                    <span class="selected-code"></span>
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+                        <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
+                            <span class="selected-title"></span>
+                        </div>
+                        <div class="whitespace-normal selected-description"></div>
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
 
-		container.appendChild(div);
-	}
+    container.appendChild(div);
+
+    // --- EVENT LISTENER-a gehitu selektor-ean "bokadilo" efektua sortzeko ---
+    const selector = div.querySelector('.ra-link');
+    const infoDiv = div.querySelector('.relative.group');
+    const selectedCodeSpan = infoDiv.querySelector('.selected-code');
+    const selectedTitleSpan = infoDiv.querySelector('.selected-title');
+    const selectedDescSpan = infoDiv.querySelector('.selected-description');
+    
+    // Sortu identifikadore bakarra eremuarentzat
+    const infoId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    infoDiv.id = infoId;
+    
+    selector.addEventListener('change', function(e) {
+        const selectedOption = this.options[this.selectedIndex];
+        const selectedValue = this.value;
+        
+        if (selectedValue && selectedOption) {
+            // Konpetentziaren kodea eta testua lortu
+            const optionText = selectedOption.text;
+            const [code, ...descParts] = optionText.split(' - ');
+            const description = descParts.join(' - '); // Berriz elkartu baldin badago '-' gehiago
+            
+            // Konpetentziaren titulua lortu (lehen hitza edo)
+            const title = description.split(' ')[0] || 'Konpetentzia';
+            
+            // Eguneratu bokadiloaren edukia
+            selectedCodeSpan.textContent = code;
+            selectedTitleSpan.textContent = code + ' - ' + title;
+            selectedDescSpan.textContent = description;
+            
+            // Erakutsi bokadiloaren eremua
+            infoDiv.classList.remove('hidden');
+            
+            // Animazio txiki bat
+            infoDiv.classList.add('animate-pulse');
+            setTimeout(() => infoDiv.classList.remove('animate-pulse'), 300);
+        } else {
+            // Ezkutatu bokadiloa baliorik ez badago
+            infoDiv.classList.add('hidden');
+        }
+    });
+    
+    // Konfiguratu hasierako balioa existitzen bada
+    if (linkedValue) {
+        // Bilatu aukerarik dagokion balioarekin
+        const options = Array.from(selector.options);
+        const matchingOption = options.find(opt => opt.value === linkedValue);
+        
+        if (matchingOption) {
+            selector.value = linkedValue;
+            
+            // Trigger change event-a hasierako informazioa erakusteko
+            const event = new Event('change', { bubbles: true });
+            selector.dispatchEvent(event);
+        }
+    }
+}
 
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
@@ -5891,6 +5963,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
