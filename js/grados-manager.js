@@ -3293,21 +3293,20 @@ addRaRow(type, data = {}) {
         codeValue = `${suffix}${count}`; 
     }
 
-    // --- SELEKTOREA: Orain KODEA BAKARRIK erakusten dugu ---
+    // --- SELEKTOREA: TESTU OSOA erakusten dugu aukeratzeko, baina bokadiloarekin ---
     let options = '<option value="">-- Lotura gabe --</option>';
     if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
         options += this.tempEgresoComps.map(c => {
             const cCode = c.code || c.autoCode || '';
             const rawText = c.text || c.desc || c.description || c.title || ''; 
             
-            // GORDE informazioa data atributuetan, baina TESTUAN KODEA BAKARRIK erakutsi
+            // Testu osoa erakutsi aukeretan (erabiltzaileak irakurri ahal izateko)
             const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
             
-            // Option-ean testu gisa KODEA BAKARRIK jartzen dugu, baina data atributuetan informazio osoa gordetzen dugu
             return `<option value="${cCode}" ${selected} 
                     data-fulltext="${rawText.replace(/"/g, '&quot;')}"
                     data-title="${(c.title || c.name || '').replace(/"/g, '&quot;')}">
-                    ${cCode}
+                    ${cCode} - ${rawText.substring(0, 60)}${rawText.length > 60 ? '...' : ''}
             </option>`;
         }).join('');
     }
@@ -3338,12 +3337,12 @@ addRaRow(type, data = {}) {
                 </button>
             </div>
             
-            <!-- SELEKTOREA - Orain KODEAK BAKARRIK erakusten ditu -->
+            <!-- SELEKTOREA - Testu osoa erakusten du erabiltzaileak aukeratu ahal izateko -->
             <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
                 ${options}
             </select>
             
-            <!-- BOKADILO EREMUA - hasieran ezkutuan, hautaketa egitean agertzen da -->
+            <!-- BOKADILO EREMUA - hautatutako konpetentziaren informazio gehigarria erakusteko -->
             <div id="${infoId}" class="relative group hidden mt-1">
                 <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-block">
                     <span class="selected-code"></span>
