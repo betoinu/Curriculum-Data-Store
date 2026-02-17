@@ -3273,8 +3273,7 @@ addRaRow(type, data = {}) {
 
     const colorClass = isZh ? 'teal' : 'blue';
 
-    // DATUAK IRAKURTZEA (Zure JSON egiturara egokituta)
-    // ZH bada: zhCode/zhDesc bilatzen du. Teknikoa bada: code/desc.
+    // DATUAK IRAKURTZEA
     let codeValue = '';
     let descValue = '';
     
@@ -3286,39 +3285,40 @@ addRaRow(type, data = {}) {
         descValue = data.raDesc || '';
     }
     
-    // Lotura (Irteerako konpetentzia)
-    // Zure JSONean 'linkedCompetency' erabiltzen da teknikoetan.
-    // ZHetan ere erakutsiko dugu zuk eskatu bezala.
     const linkedValue = data.linkedCompetency || data.raRelacionado || '';
 
-    // Kode automatikoa hutsik badago
     if (!codeValue) {
         const count = container.children.length + 1;
         const suffix = isZh ? 'ZH' : 'RA';
-        // Hemen 'GEN' jartzen dut aurrizki lehenetsi gisa, zure logikaren arabera aldatu
         codeValue = `${suffix}${count}`; 
     }
 
-    // --- SELEKTOREA: Orain "bokadilo" itxurako informazioarekin ---
+    // --- SELEKTOREA: Orain KODEA BAKARRIK erakusten dugu ---
     let options = '<option value="">-- Lotura gabe --</option>';
     if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
         options += this.tempEgresoComps.map(c => {
             const cCode = c.code || c.autoCode || '';
             const rawText = c.text || c.desc || c.description || c.title || ''; 
             
-            // Testu osoa erakutsi baina CSS-rekin moztu
+            // GORDE informazioa data atributuetan, baina TESTUAN KODEA BAKARRIK erakutsi
             const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
             
-            return `<option value="${cCode}" ${selected} class="line-clamp-2" style="white-space: normal; padding: 4px;">${cCode} - ${rawText}</option>`;
+            // Option-ean testu gisa KODEA BAKARRIK jartzen dugu, baina data atributuetan informazio osoa gordetzen dugu
+            return `<option value="${cCode}" ${selected} 
+                    data-fulltext="${rawText.replace(/"/g, '&quot;')}"
+                    data-title="${(c.title || c.name || '').replace(/"/g, '&quot;')}">
+                    ${cCode}
+            </option>`;
         }).join('');
     }
 
-    // HTML Sortu - HEMEN ALDATZEN DUGU "bokadilo" efektua gehitzeko
+    // HTML Sortu
     const div = document.createElement('div');
     div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
     
-    // Oharra: Klaseak (.ra-code, .ra-desc, .ra-link) funtsezkoak dira gordetzeko
-    // GEHITU DUGU: infoDiv bat irteera profileko informazioa erakusteko "bokadilo" moduan
+    // Sortu ID bakarra infoDiv-rako
+    const infoId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+    
     div.innerHTML = `
         <div class="flex flex-col gap-1 w-24 shrink-0">
             <input type="text" 
@@ -3338,16 +3338,16 @@ addRaRow(type, data = {}) {
                 </button>
             </div>
             
-            <!-- SELEKTOREA -->
+            <!-- SELEKTOREA - Orain KODEAK BAKARRIK erakusten ditu -->
             <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
                 ${options}
             </select>
             
-            <!-- BOKADILO EREMUA - HEMEN DA ALDAKETA NAGUSIA -->
-            <div class="relative group hidden mt-1" id="info-${Date.now()}-${Math.random().toString(36).substr(2, 5)}">
+            <!-- BOKADILO EREMUA - hasieran ezkutuan, hautaketa egitean agertzen da -->
+            <div id="${infoId}" class="relative group hidden mt-1">
                 <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-block">
                     <span class="selected-code"></span>
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
                         <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
                             <span class="selected-title"></span>
                         </div>
@@ -3364,34 +3364,27 @@ addRaRow(type, data = {}) {
 
     container.appendChild(div);
 
-    // --- EVENT LISTENER-a gehitu selektor-ean "bokadilo" efektua sortzeko ---
+    // --- EVENT LISTENER-a gehitu selektor-ean ---
     const selector = div.querySelector('.ra-link');
-    const infoDiv = div.querySelector('.relative.group');
+    const infoDiv = div.querySelector(`#${infoId}`);
     const selectedCodeSpan = infoDiv.querySelector('.selected-code');
     const selectedTitleSpan = infoDiv.querySelector('.selected-title');
     const selectedDescSpan = infoDiv.querySelector('.selected-description');
-    
-    // Sortu identifikadore bakarra eremuarentzat
-    const infoId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-    infoDiv.id = infoId;
     
     selector.addEventListener('change', function(e) {
         const selectedOption = this.options[this.selectedIndex];
         const selectedValue = this.value;
         
-        if (selectedValue && selectedOption) {
-            // Konpetentziaren kodea eta testua lortu
-            const optionText = selectedOption.text;
-            const [code, ...descParts] = optionText.split(' - ');
-            const description = descParts.join(' - '); // Berriz elkartu baldin badago '-' gehiago
-            
-            // Konpetentziaren titulua lortu (lehen hitza edo)
-            const title = description.split(' ')[0] || 'Konpetentzia';
+        if (selectedValue && selectedOption.dataset) {
+            // Datuak data atributuetatik hartzen ditugu
+            const code = selectedValue;
+            const fullText = selectedOption.dataset.fulltext || '';
+            const title = selectedOption.dataset.title || code;
             
             // Eguneratu bokadiloaren edukia
             selectedCodeSpan.textContent = code;
             selectedTitleSpan.textContent = code + ' - ' + title;
-            selectedDescSpan.textContent = description;
+            selectedDescSpan.textContent = fullText;
             
             // Erakutsi bokadiloaren eremua
             infoDiv.classList.remove('hidden');
@@ -3407,7 +3400,6 @@ addRaRow(type, data = {}) {
     
     // Konfiguratu hasierako balioa existitzen bada
     if (linkedValue) {
-        // Bilatu aukerarik dagokion balioarekin
         const options = Array.from(selector.options);
         const matchingOption = options.find(opt => opt.value === linkedValue);
         
@@ -5963,6 +5955,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
