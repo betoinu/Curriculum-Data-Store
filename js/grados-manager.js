@@ -1276,7 +1276,7 @@ openOdsSelector(subject) {
     });
     
     // Erabili subject.content.detailODS
-    const currentSelection = subject.content?.detailODS || [];
+    const currentSelection = subject.content?.detailODS || subject.detailODS || [];
     const selectedIds = new Set(currentSelection.map(s => String(s.id)));
 
     // 4. UI sortu
@@ -5984,6 +5984,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
