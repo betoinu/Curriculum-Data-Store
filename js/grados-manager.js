@@ -801,7 +801,7 @@ openEditSubjectModal() {
         console.log("✅ Selektorea beteta.");
     }
     // 2. SELECT (Aukeraketa kudeatu) - HAU DA ZUZENA (LoadData barruan duena)
-	async selectDegree(e) {
+	/*async selectDegree(e) {
         const val = (e.target && e.target.value) ? e.target.value : e;
         
         if (val === "NEW_DEGREE") {
@@ -854,7 +854,89 @@ openEditSubjectModal() {
         } catch (err) {
             console.error("❌ Errorea irakasgaiak kargatzean:", err);
         }
+    }*/
+
+	async selectDegree(e) {
+    const val = (e.target && e.target.value) ? e.target.value : e;
+    
+    if (val === "NEW_DEGREE") {
+        console.log("Gradu berria sortzen...");
+        return;
     }
+
+    console.log(`⏳ Gradua kargatzen: ${val}...`);
+    
+    // Bilatu gradua array nagusian
+    this.currentDegree = this.degrees.find(d => d.idDegree === val || d.id === val);
+    
+    if (!this.currentDegree) {
+        console.error("Gradua ez da aurkitu.");
+        return;
+    }
+
+    try {
+        // 1. SUPABASE DEIA (Datuak ekarri)
+        const { data: subjects, error } = await this.supabase
+            .from('irakasgaiak')
+            .select('*')
+            .eq('idDegree', this.currentDegree.idDegree || this.currentDegree.id)
+            .order('year', { ascending: true })
+            .order('subjectTitle', { ascending: true });
+
+        if (error) throw error;
+
+        // 2. DESPAKETATZEA (Hau ondo zenuen)
+        // Content barrukoak errora atera
+        this.currentDegree.subjects = subjects.map(s => ({
+            ...s,
+            ...(s.content || {}),
+            content: undefined // Garbitu, bikoizketak ekiditeko
+        }));
+        
+        this.currentSubjects = this.currentDegree.subjects;
+
+        // =========================================================
+        // 🛠️ ALDAKETA NAGUSIA: DATUAK MATRIZEENTZAT PRESTATU
+        // =========================================================
+        // MatrixEngine-k { 1: [...], 2: [...] } egitura behar du.
+        
+        const yearStructure = { 1: [], 2: [], 3: [], 4: [] };
+
+        this.currentDegree.subjects.forEach(sub => {
+            // Ziurtatu MatrixEngine-k bilatzen dituen eremuak daudela
+            if (!sub.name) sub.name = sub.subjectTitle;
+            if (!sub.code) sub.code = sub.subjectCode || sub.idAsig;
+
+            // Sartu dagokion urteko saskian
+            const y = sub.year || 1;
+            if (yearStructure[y]) {
+                yearStructure[y].push(sub);
+            }
+        });
+
+        // HAU ZEN FALTA ZENA:
+        this.currentDegree.year = yearStructure; 
+
+        // =========================================================
+
+        console.log("🎨 UI eguneratzen...");
+
+        // 3. UI MARRAZTU
+        if (window.ui && window.ui.renderSidebar) {
+            window.ui.renderSidebar(this.currentDegree);
+        }
+
+        if (window.ui && window.ui.renderYearView) {
+            window.ui.renderYearView(this.currentDegree, 1); 
+        }
+
+        // Matrizeen botoia aktibatu (beharrezkoa bada)
+        console.log("✅ Datuak prest MatrixEngine-rentzat:", this.currentDegree.year);
+
+    } catch (err) {
+        console.error("❌ Errorea irakasgaiak kargatzean:", err);
+    }
+}
 	
 	async createNewDegree() {
         // 1. Admin dela ziurtatu
@@ -5959,6 +6041,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
