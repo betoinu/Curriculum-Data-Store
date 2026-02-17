@@ -691,6 +691,231 @@ renderContentPile(filter = 'ALL') {
 
     // 4. FLUXUA
 renderPrerequisitesFlow(subjects) {
+    const gm = window.gradosManager;
+    const degree = gm.currentDegree;
+    if (!degree || !degree.year) return;
+
+    // 1. DATUAK PRESTATU (Mapping azkarra egiteko)
+    // Irakasgai guztiak ID/Izenaren arabera mapatu, bilaketak berehalakoak izateko
+    const subjectMap = {};
+    const dependencyMap = { parents: {}, children: {} }; // Relazioak gordetzeko
+
+    // A) Mapeo orokorra sortu
+    [1, 2, 3, 4].forEach(year => {
+        (degree.year[year] || []).forEach(sub => {
+            // Normalizatu izena bilaketarako (minuskulak, espazio gabe)
+            const normName = sub.subjectTitle.trim().toLowerCase();
+            subjectMap[normName] = sub;
+            subjectMap[sub.idAsig] = sub; // Kodez ere bilatu ahal izateko
+            
+            // Hasieratu dependentziak
+            if (!dependencyMap.parents[sub.idAsig]) dependencyMap.parents[sub.idAsig] = [];
+            if (!dependencyMap.children[sub.idAsig]) dependencyMap.children[sub.idAsig] = [];
+        });
+    });
+
+    // B) Loturak kalkulatu (Gurasoak eta Seme-alabak)
+    Object.values(subjectMap).forEach(sub => {
+        // "content.preReq" edo zuzenean "prerequisites" begiratu
+        const rawReqs = sub.prerequisites || sub.preReq || []; 
+        
+        if (Array.isArray(rawReqs)) {
+            rawReqs.forEach(req => {
+                // Aurre-baldintzaren izena edo kodea lortu
+                const reqName = (typeof req === 'string' ? req : (req.name || req.code || "")).trim().toLowerCase();
+                
+                // Bilatu jatorrizko irakasgaia mapan
+                const parentSub = subjectMap[reqName] || Object.values(subjectMap).find(s => (s.subjectCode === reqName || s.idAsig === reqName));
+
+                if (parentSub) {
+                    // 1. Gurasoa erregistratu (sub-ek parent behar du)
+                    if (!dependencyMap.parents[sub.idAsig].includes(parentSub.idAsig)) {
+                        dependencyMap.parents[sub.idAsig].push(parentSub.idAsig);
+                    }
+                    // 2. Semea erregistratu (parent-ek sub ahalbidetzen du)
+                    if (!dependencyMap.children[parentSub.idAsig].includes(sub.idAsig)) {
+                        dependencyMap.children[parentSub.idAsig].push(sub.idAsig);
+                    }
+                }
+            });
+        }
+    });
+
+    // 2. HTML EGITURA (Grid 4 Zutabe)
+    const years = [1, 2, 3, 4];
+    
+    let gridHtml = `<div class="flex gap-4 h-full overflow-x-auto pb-4 items-stretch select-none" id="flowContainer">`;
+
+    years.forEach(year => {
+        const yearSubjects = degree.year[year] || [];
+        
+        gridHtml += `
+            <div class="flex-1 min-w-[200px] flex flex-col bg-slate-50/50 rounded-xl border border-slate-200">
+                <div class="p-3 border-b border-slate-200 bg-white/50 rounded-t-xl text-center">
+                    <h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${year}. Maila</h4>
+                    <span class="text-[10px] text-slate-400 font-mono">${yearSubjects.length} Irakasgai</span>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-2">
+                    ${yearSubjects.map(sub => {
+                        const area = sub.subjectArea || "ZEHARKAKOA";
+                        const color = window.ui && window.ui.getAreaColor ? window.ui.getAreaColor(area, degree) : '#94a3b8';
+                        const hasParents = dependencyMap.parents[sub.idAsig]?.length > 0;
+                        const hasChildren = dependencyMap.children[sub.idAsig]?.length > 0;
+
+                        // Ikonotxoak fluxua adierazteko
+                        const icons = `
+                            <div class="flex gap-1 mt-1 opacity-60">
+                                ${hasParents ? '<i class="fas fa-level-up-alt rotate-90 text-[10px]" title="Baditu aurre-ezagutzak"></i>' : ''}
+                                ${hasChildren ? '<i class="fas fa-level-down-alt rotate-90 text-[10px]" title="Beste irakasgai batzuen oinarria da"></i>' : ''}
+                            </div>
+                        `;
+
+                        return `
+                            <div class="subject-card relative bg-white border-l-4 rounded shadow-sm p-3 cursor-help transition-all duration-300 group hover:shadow-md hover:scale-[1.02]"
+                                 style="border-left-color: ${color};"
+                                 data-id="${sub.idAsig}"
+                                 onclick="void(0)"> <div class="flex justify-between items-start">
+                                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter truncate max-w-[80px]">
+                                        ${sub.subjectCode || '---'}
+                                    </span>
+                                    <div class="w-2 h-2 rounded-full" style="background-color: ${color}"></div>
+                                </div>
+                                
+                                <h5 class="text-xs font-bold text-slate-700 leading-tight mt-1 mb-1">
+                                    ${sub.subjectTitle}
+                                </h5>
+
+                                ${icons}
+
+                                <div class="hidden absolute top-0 right-0 p-1">
+                                    <i class="fas fa-eye text-slate-400 text-xs"></i>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    });
+
+    gridHtml += `</div>`;
+
+    // 3. ESTILO DINAMIKOAK (CSS Interaktiboa)
+    // Hau beharrezkoa da Javascript bidez klaseak aldatzean animazioak egiteko
+    const styleBlock = `
+        <style>
+            /* Egoera normala */
+            .subject-card { opacity: 1; filter: grayscale(0); transform: scale(1); }
+            
+            /* Dimmed (Itzalita) */
+            .flow-active .subject-card.is-dimmed { 
+                opacity: 0.15; 
+                filter: grayscale(100%); 
+                pointer-events: none;
+            }
+
+            /* Main (Aukeratutakoa) */
+            .flow-active .subject-card.is-main { 
+                transform: scale(1.05); 
+                box-shadow: 0 0 0 2px #3b82f6; 
+                z-index: 10;
+            }
+
+            /* Parent (Aurrekoa) */
+            .flow-active .subject-card.is-parent { 
+                box-shadow: 0 0 0 2px #ef4444; /* Gorria */
+                background-color: #fef2f2;
+                opacity: 1 !important;
+            }
+            .flow-active .subject-card.is-parent::after {
+                content: 'AURREKOA';
+                position: absolute; bottom: 2px; right: 4px;
+                font-size: 8px; font-weight: bold; color: #ef4444;
+            }
+
+            /* Child (Ondorengoa) */
+            .flow-active .subject-card.is-child { 
+                box-shadow: 0 0 0 2px #10b981; /* Berdea */
+                background-color: #ecfdf5;
+                opacity: 1 !important;
+            }
+            .flow-active .subject-card.is-child::after {
+                content: 'JARRAIPENA';
+                position: absolute; bottom: 2px; right: 4px;
+                font-size: 8px; font-weight: bold; color: #10b981;
+            }
+        </style>
+    `;
+
+    // 4. EDUKIA INJEKTATU
+    this.container.innerHTML = `
+        ${styleBlock}
+        <div class="flex flex-col h-full p-4 bg-slate-50">
+            <div class="flex justify-between items-end mb-4">
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800"><i class="fas fa-project-diagram text-purple-600 mr-2"></i>Ibilbide Akademikoa</h3>
+                    <p class="text-sm text-slate-500">Pasa sagua irakasgaien gainetik haien <strong>dependentziak</strong> ikusteko.</p>
+                </div>
+                <div class="flex gap-4 text-xs font-bold">
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-red-100 border border-red-500 rounded"></span> Aurrekoa (Beharrezkoa)</div>
+                    <div class="flex items-center gap-1"><span class="w-3 h-3 bg-green-100 border border-green-500 rounded"></span> Jarraipena (Irekitzen du)</div>
+                </div>
+            </div>
+            ${gridHtml}
+        </div>
+    `;
+
+    // 5. EVENT LISTENERS (Interaktibitatea)
+    const container = document.getElementById('flowContainer');
+    const cards = container.querySelectorAll('.subject-card');
+
+    cards.forEach(card => {
+        const id = card.dataset.id;
+
+        // SARTZEAN (Hover In)
+        card.addEventListener('mouseenter', () => {
+            container.classList.add('flow-active'); // Aktibatu "Dimmed" modua orokorra
+            
+            // 1. Txartel guztiak itzali hasieran
+            cards.forEach(c => c.classList.add('is-dimmed'));
+
+            // 2. Nire burua piztu
+            card.classList.remove('is-dimmed');
+            card.classList.add('is-main');
+
+            // 3. Gurasoak piztu (Gorria)
+            const parents = dependencyMap.parents[id] || [];
+            parents.forEach(pId => {
+                const pCard = container.querySelector(`.subject-card[data-id="${pId}"]`);
+                if (pCard) {
+                    pCard.classList.remove('is-dimmed');
+                    pCard.classList.add('is-parent');
+                }
+            });
+
+            // 4. Semeak piztu (Berdea)
+            const children = dependencyMap.children[id] || [];
+            children.forEach(cId => {
+                const cCard = container.querySelector(`.subject-card[data-id="${cId}"]`);
+                if (cCard) {
+                    cCard.classList.remove('is-dimmed');
+                    cCard.classList.add('is-child');
+                }
+            });
+        });
+
+        // ATERATZEAN (Hover Out)
+        card.addEventListener('mouseleave', () => {
+            container.classList.remove('flow-active');
+            cards.forEach(c => {
+                c.classList.remove('is-dimmed', 'is-main', 'is-parent', 'is-child');
+            });
+        });
+    });
+}
+	
+	/*renderPrerequisitesFlow(subjects) {
         const gm = window.gradosManager;
         const degree = gm.currentDegree;
 
@@ -842,7 +1067,8 @@ renderPrerequisitesFlow(subjects) {
         `;
 
         this.container.innerHTML = html;
-    }	
+    }*/	
 }
 
 window.matrixEngine = new MatrixEngine();
+
