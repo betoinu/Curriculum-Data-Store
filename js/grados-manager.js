@@ -3293,20 +3293,25 @@ addRaRow(type, data = {}) {
         codeValue = `${suffix}${count}`; 
     }
 
-    // --- SELEKTOREA: TESTU OSOA erakusten dugu aukeratzeko, baina bokadiloarekin ---
+    // --- SELEKTOREA: Kodea + testuaren hasiera (moztuta) ---
     let options = '<option value="">-- Lotura gabe --</option>';
     if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
         options += this.tempEgresoComps.map(c => {
             const cCode = c.code || c.autoCode || '';
             const rawText = c.text || c.desc || c.description || c.title || ''; 
+            const title = c.title || c.name || '';
             
-            // Testu osoa erakutsi aukeretan (erabiltzaileak irakurri ahal izateko)
+            // Testuaren hasiera (60 karaktere) moztuta
+            const shortText = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
+            
             const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
             
+            // Kodea + testuaren hasiera erakusten dugu
+            // Eta data atributuetan testu osoa gordetzen dugu bokadiloan erakusteko
             return `<option value="${cCode}" ${selected} 
                     data-fulltext="${rawText.replace(/"/g, '&quot;')}"
-                    data-title="${(c.title || c.name || '').replace(/"/g, '&quot;')}">
-                    ${cCode} - ${rawText.substring(0, 60)}${rawText.length > 60 ? '...' : ''}
+                    data-title="${title.replace(/"/g, '&quot;')}">
+                    ${cCode} - ${shortText}
             </option>`;
         }).join('');
     }
@@ -3328,29 +3333,31 @@ addRaRow(type, data = {}) {
         <div class="flex-1 flex flex-col gap-1">
             <div class="relative">
                 <textarea 
-                    class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none line-clamp-2 hover:line-clamp-none transition-all duration-200" 
-                    placeholder="Deskribapena...">${descValue}</textarea>
+                    class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
+                    placeholder="Deskribapena..." 
+                    rows="2">${descValue}</textarea>
                 <button type="button" 
-                        onclick="this.previousElementSibling.classList.toggle('line-clamp-2'); this.previousElementSibling.classList.toggle('min-h-[40px]'); this.previousElementSibling.classList.toggle('min-h-[120px]')"
+                        onclick="this.previousElementSibling.rows = this.previousElementSibling.rows === 2 ? 4 : 2"
                         class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
                     <i class="fas fa-expand-alt text-xs"></i>
                 </button>
             </div>
             
-            <!-- SELEKTOREA - Testu osoa erakusten du erabiltzaileak aukeratu ahal izateko -->
-            <select class="ra-link w-full text-[10px] p-1 border rounded bg-gray-50 text-gray-700">
+            <!-- SELEKTOREA - Kodea + testuaren hasiera erakusten du -->
+            <select class="ra-link w-full text-xs p-1.5 border rounded bg-gray-50 text-gray-700">
                 ${options}
             </select>
             
-            <!-- BOKADILO EREMUA - hautatutako konpetentziaren informazio gehigarria erakusteko -->
+            <!-- BOKADILO EREMUA - Hemen testu osoa erakutsiko da -->
             <div id="${infoId}" class="relative group hidden mt-1">
-                <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-block">
+                <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-flex items-center gap-1">
+                    <i class="fas fa-info-circle text-[10px]"></i>
                     <span class="selected-code"></span>
                     <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
                         <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
                             <span class="selected-title"></span>
                         </div>
-                        <div class="whitespace-normal selected-description"></div>
+                        <div class="whitespace-normal selected-description max-h-32 overflow-y-auto"></div>
                         <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
                     </div>
                 </div>
@@ -3375,15 +3382,14 @@ addRaRow(type, data = {}) {
         const selectedValue = this.value;
         
         if (selectedValue && selectedOption.dataset) {
-            // Datuak data atributuetatik hartzen ditugu
             const code = selectedValue;
             const fullText = selectedOption.dataset.fulltext || '';
             const title = selectedOption.dataset.title || code;
             
-            // Eguneratu bokadiloaren edukia
+            // Eguneratu bokadiloaren edukia TESTU OSOarekin
             selectedCodeSpan.textContent = code;
-            selectedTitleSpan.textContent = code + ' - ' + title;
-            selectedDescSpan.textContent = fullText;
+            selectedTitleSpan.textContent = code + ' - ' + (title.split(' ')[0] || 'Konpetentzia');
+            selectedDescSpan.textContent = fullText; // TESTU OSOA hemen!
             
             // Erakutsi bokadiloaren eremua
             infoDiv.classList.remove('hidden');
@@ -3411,7 +3417,6 @@ addRaRow(type, data = {}) {
         }
     }
 }
-
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -5954,6 +5959,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
