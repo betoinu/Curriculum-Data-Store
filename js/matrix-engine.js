@@ -374,7 +374,7 @@ createMatrixModal() {
         container.innerHTML = html;
     }
 
-renderAreaStack() {
+/*renderAreaStack() {
         const degree = window.gradosManager.currentDegree;
         const years = ['1', '2', '3', '4'];
         
@@ -450,7 +450,111 @@ renderAreaStack() {
             <div class="mt-8 text-center text-xs text-slate-400">
                 *Blokeen altuera kreditu kopuruarekiko proportzionala da.
             </div>`;
-    }
+    }*/
+
+renderAreaStack() {
+    const degree = window.gradosManager.currentDegree;
+    const years = ['1', '2', '3', '4'];
+    
+    // 1. LEGENDA PRESTATU
+    const allSubjects = years.flatMap(y => degree.year[y] || []);
+    const uniqueAreas = [...new Set(allSubjects.map(s => s.subjectArea || "ZEHARKAKO KONPETENTZIAK"))].sort();
+
+    let legendHtml = `<div class="flex flex-wrap gap-4 mb-6 p-4 bg-white border border-slate-200 rounded-lg shadow-sm">
+                        <span class="text-xs font-bold text-slate-400 uppercase mr-2 self-center">Legenda:</span>`;
+    
+    uniqueAreas.forEach(area => {
+        const color = window.ui && window.ui.getAreaColor ? window.ui.getAreaColor(area, degree) : '#cbd5e1';
+        legendHtml += `
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${color};"></div>
+                <span class="text-xs font-medium text-slate-600">${area}</span>
+            </div>`;
+    });
+    legendHtml += `</div>`;
+
+    // 2. STACK GRID-A ERAIKI
+    // 'items-end' erabiltzen dugu barrak behetik gora hasteko
+    let gridHtml = `<div class="grid grid-cols-4 gap-6 h-[500px] items-end px-4 mb-8">`;
+
+    years.forEach(year => {
+        const subjects = degree.year[year] || [];
+        
+        // Datuak taldekatu (Area -> Kredituak)
+        const areaStats = {};
+        let totalCredits = 0;
+
+        subjects.forEach(sub => {
+            const area = sub.subjectArea || "ZEHARKAKO KONPETENTZIAK";
+            const credits = parseInt(sub.subjectCredits) || 6;
+            
+            if (!areaStats[area]) areaStats[area] = 0;
+            areaStats[area] += credits;
+            totalCredits += credits;
+        });
+
+        // ZUTABEAREN EGITURA (Barra + Etiketa)
+        // flex-col erabiltzen dugu: Goian barra, behean etiketa
+        gridHtml += `<div class="flex flex-col h-full w-full group/column">`;
+        
+        // A) BARRA PILATUA (Stack)
+        // overflow-hidden hemen bakarrik jartzen dugu, barrei ertz biribilak emateko,
+        // baina etiketa kanpoan uzten dugu.
+        gridHtml += `<div class="flex flex-col justify-end flex-1 w-full bg-slate-50 rounded-t-lg overflow-visible relative shadow-inner border-x border-t border-slate-200">`;
+
+        Object.keys(areaStats).forEach(area => {
+            const credits = areaStats[area];
+            const heightPct = (credits / Math.max(totalCredits, 60)) * 100; 
+            const color = window.ui && window.ui.getAreaColor ? window.ui.getAreaColor(area, degree) : '#cbd5e1';
+
+            // 🔍 HOVER LOGIKA: Area horretako irakasgaiak bilatu
+            const subjectsInBlock = subjects.filter(s => (s.subjectArea || "ZEHARKAKO KONPETENTZIAK") === area);
+            const subjectsList = subjectsInBlock.map(s => `<li class="truncate">• ${s.subjectTitle}</li>`).join('');
+
+            // HTML blokea
+            gridHtml += `
+                <div class="w-full flex items-center justify-center relative group/block border-t border-white/20 transition-all hover:brightness-110"
+                     style="height: ${heightPct}%; background-color: ${color};">
+                     
+                    <span class="text-[10px] font-bold text-white/90 drop-shadow-md pointer-events-none">
+                        ${credits}
+                    </span>
+
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover/block:opacity-100 group-hover/block:visible transition-all duration-200 z-50 pointer-events-none">
+                        <div class="font-bold text-slate-300 border-b border-slate-600 pb-1 mb-1 uppercase text-[10px]">${area}</div>
+                        <ul class="space-y-1 text-slate-100 text-[10px] max-h-32 overflow-y-auto">
+                            ${subjectsList}
+                        </ul>
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+                    </div>
+                </div>`;
+        });
+
+        gridHtml += `</div>`; // Barra amaiera
+
+        // B) URTEAREN ETIKETA (Barraren azpian, ondo zentratuta)
+        gridHtml += `
+            <div class="mt-3 text-center">
+                <div class="text-sm font-bold text-slate-600">${year}. Maila</div>
+                <div class="text-xs text-slate-400 font-mono">${totalCredits} ECTS</div>
+            </div>
+        </div>`; // Zutabe amaiera
+    });
+    
+    gridHtml += `</div>`;
+
+    // 3. HTML FINALA
+    this.container.innerHTML = `
+        <div class="mb-4">
+            <h3 class="text-2xl font-bold text-slate-800">Ikaskuntza Eremuen Pisua</h3>
+            <p class="text-slate-500 text-sm">Ikasturte bakoitzeko karga akademikoa eremuka banatuta. <span class="text-purple-500 italic">Pasa sagua blokeen gainetik irakasgaiak ikusteko.</span></p>
+        </div>
+        ${legendHtml}
+        ${gridHtml}
+        <div class="mt-4 text-center text-xs text-slate-400 italic">
+            *Blokeen altuera kreditu kopuruarekiko proportzionala da.
+        </div>`;
+}	
 	
 renderContentPile(filter = 'ALL') {
         const degree = window.gradosManager.currentDegree;
@@ -740,4 +844,5 @@ renderPrerequisitesFlow(subjects) {
         this.container.innerHTML = html;
     }	
 }
+
 window.matrixEngine = new MatrixEngine();
