@@ -3203,63 +3203,6 @@ openRaEditor() {
 
     // ----------------------------------------------------------------------
     // 3. GUARDADO DEL EDITOR (CRUCIAL: IMPORTA CRITERIOS DEL CAT¨¢LOGO)
-// En grados-manager.js
-
-	/*guardarRAsDesdeEditor() {
-        if (!this.currentSubject) return;
-
-        // 1. RA TEKNIKOAK GORDE
-        const tecRows = document.querySelectorAll('#editListTec .group');
-        const newRAs = [];
-
-        tecRows.forEach((row, index) => {
-            const desc = row.querySelector('.ra-input-desc').value.trim();
-            // Hemen irakurtzen dugu selektore berria:
-            const linkSelect = row.querySelector('.ra-input-link'); 
-            const linkedComp = linkSelect ? linkSelect.value : "";
-
-            if (desc) {
-                newRAs.push({
-                    code: `RA-${index + 1}`, // RA-1, RA-2... automatikoa
-                    raDesc: desc,
-                    linkedCompetency: linkedComp // <--- EREMU BERRIA
-                });
-            }
-        });
-
-        this.currentSubject.currentOfficialRAs = newRAs;
-
-        // 2. ZH (ZEHARKAKOAK) GORDE
-        const zhRows = document.querySelectorAll('#editListZh .group');
-        const newZHs = [];
-
-        zhRows.forEach(row => {
-            const desc = row.querySelector('.ra-input-desc').value.trim();
-            const codeInput = row.querySelector('.ra-input-code');
-            const code = codeInput ? codeInput.value : '';
-
-            if (desc) {
-                newZHs.push({
-                    zhCode: code,
-                    zhDesc: desc
-                });
-            }
-        });
-
-        this.currentSubject.zhRAs = newZHs;
-
-        // 3. GORDE ETA ITXI
-        this.saveData();
-        
-        // UI Eguneratu (Detaile bista irekita badago)
-        if (window.ui && window.ui.renderSubjectDetail) {
-             // Berriro renderizatu aldaketak ikusteko
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        }
-        
-        document.getElementById('raModal').classList.add('hidden');
-        console.log("?? RAs eta loturak gordeta.");
-    }*/
 
 // Nuevo m¨¦todo para actualizar todas las vistas
 	actualizarVistasRA() {
@@ -3784,7 +3727,7 @@ openPreReqEditor() {
     let localList = [];
     try {
         localList = JSON.parse(JSON.stringify(
-            this.currentSubject.content?.preReq || []
+            this.currentSubject.content?.preReq || this.currentSubject.preReq || []
         ));
     } catch (e) {
         console.warn("❌ preReq datuak kargatzean errorea:", e);
@@ -4095,7 +4038,7 @@ openSignActEditor() {
     let localList = [];
     try {
         localList = JSON.parse(JSON.stringify(
-            this.currentSubject.content?.signAct || []
+            this.currentSubject.content?.signAct || this.currentSubject.signAct || []
         ));
     } catch (e) {
         console.warn("❌ signAct datuak kargatzean errorea:", e);
