@@ -555,8 +555,194 @@ renderAreaStack() {
             *Blokeen altuera kreditu kopuruarekiko proportzionala da.
         </div>`;
 }	
+
+renderContentPile(filter = 'ALL', searchTerm = '') {
+    const degree = window.gradosManager.currentDegree;
+    const years = ['1', '2', '3', '4'];
+
+    // 1. DATUAK BILDU ETA INDEXATU (Bilaketarako eta Bikoizketetarako)
+    const allContent = [];
+    const termFrequency = {}; // Hitz gakoen maiztasuna neurtzeko
+
+    years.forEach(year => {
+        const subjects = degree.year[year] || [];
+        subjects.forEach(sub => {
+            const area = sub.subjectArea || "ZEHARKAKOA";
+            
+            // Unitateak eta Deskriptoreak atera
+            const units = sub.unitateak || sub.units || [];
+            const descriptors = units.flatMap(u => (u.descriptores || []));
+            const unitNames = units.map(u => u.unitName || u.name);
+            
+            // Testu guztia batu bilaketarako
+            const fullText = [...unitNames, ...descriptors, sub.subjectTitle].join(' ').toLowerCase();
+
+            // Terminoen maiztasuna kalkulatu (Errepikapenak detektatzeko)
+            descriptors.forEach(d => {
+                const cleanD = d.trim().toLowerCase();
+                if (cleanD.length > 3) { // Hitz motzegiak ignoratu
+                    termFrequency[cleanD] = (termFrequency[cleanD] || 0) + 1;
+                }
+            });
+
+            allContent.push({
+                year,
+                sub,
+                area,
+                units,
+                descriptors,
+                fullText
+            });
+        });
+    });
+
+    // 2. FILTRATZE LOGIKA
+    const filteredData = allContent.filter(item => {
+        // A) Eremuaren araberako iragazkia
+        const areaMatch = (filter === 'ALL' || item.area === filter);
+        
+        // B) Testu bilaketa (Search Term)
+        const searchMatch = !searchTerm || item.fullText.includes(searchTerm.toLowerCase());
+
+        return areaMatch && searchMatch;
+    });
+
+    // 3. UI ERAIKITZEN HASI
+    // A) FILTER MENU + SEARCH BAR
+    const uniqueAreas = [...new Set(allContent.map(c => c.area))].sort();
+    
+    let controlsHtml = `
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 pb-4 border-b border-slate-200 bg-white sticky top-0 z-20 p-2 shadow-sm rounded-lg">
+            
+            <div class="flex flex-wrap gap-2">
+                <button onclick="matrixEngine.renderContentPile('ALL', '${searchTerm}')" 
+                        class="px-3 py-1 rounded-full text-xs font-bold transition border ${filter === 'ALL' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'}">
+                    GUZTIAK
+                </button>
+                ${uniqueAreas.map(area => {
+                    const color = window.ui && window.ui.getAreaColor ? window.ui.getAreaColor(area, degree) : '#94a3b8';
+                    const isActive = filter === area;
+                    const activeStyle = `background-color: ${color}; color: white; border-color: ${color};`;
+                    const inactiveStyle = `background-color: white; color: ${color}; border-color: ${color}; opacity: 0.7;`;
+                    return `<button onclick="matrixEngine.renderContentPile('${area}', '${searchTerm}')" 
+                                    style="${isActive ? activeStyle : inactiveStyle}"
+                                    class="px-3 py-1 rounded-full text-xs font-bold transition hover:opacity-100 border">
+                                ${area}
+                            </button>`;
+                }).join('')}
+            </div>
+
+            <div class="relative w-full md:w-64">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" 
+                       value="${searchTerm}"
+                       oninput="matrixEngine.renderContentPile('${filter}', this.value)"
+                       placeholder="Bilatu edukia, gaia, deskriptorea..." 
+                       class="w-full pl-8 pr-4 py-1.5 text-xs border border-slate-300 rounded-full focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition shadow-inner bg-slate-50 focus:bg-white">
+                ${searchTerm ? `<button onclick="matrixEngine.renderContentPile('${filter}', '')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500"><i class="fas fa-times"></i></button>` : ''}
+            </div>
+        </div>
+    `;
+
+    // 4. GRID NAGUSIA (4 ZUTABE)
+    let gridHtml = `<div class="grid grid-cols-4 gap-4 h-[calc(100vh-250px)]">`; // Altura finkoa scroll barnean izateko
+
+    years.forEach(year => {
+        // Urte honetako irakasgai filtratuak
+        const yearItems = filteredData.filter(d => d.year === year);
+
+        gridHtml += `
+            <div class="flex flex-col bg-slate-50 rounded-xl border border-slate-200 h-full overflow-hidden">
+                <div class="p-3 text-center border-b border-slate-200 bg-white shadow-sm z-10">
+                    <span class="font-bold text-slate-500 text-sm">${year}. MAILA</span>
+                    <span class="ml-2 text-[10px] bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded-full border border-slate-200">${yearItems.length}</span>
+                </div>
+
+                <div class="overflow-y-auto custom-scrollbar p-2 space-y-3 flex-1">
+                    ${yearItems.length === 0 ? `<div class="text-center text-xs text-slate-300 italic mt-10">Emaitzarik ez.</div>` : ''}
+                    
+                    ${yearItems.map(item => {
+                        const color = window.ui && window.ui.getAreaColor ? window.ui.getAreaColor(item.area, degree) : '#94a3b8';
+                        
+                        // EDUKIAK LEHENETSI (Unitateak eta Deskriptoreak)
+                        let contentBlock = '';
+                        
+                        if (item.units.length > 0) {
+                            contentBlock = item.units.map(u => {
+                                // Deskriptoreak nabarmendu (Bikoiztuta badaude edo bilaketa bada)
+                                const descTags = (u.descriptores || []).map(d => {
+                                    const isRepeated = termFrequency[d.trim().toLowerCase()] > 1;
+                                    const isSearched = searchTerm && d.toLowerCase().includes(searchTerm.toLowerCase());
+                                    
+                                    let styleClass = "text-slate-500 bg-slate-100 border-slate-200"; // Normala
+                                    if (isSearched) styleClass = "text-white bg-purple-500 border-purple-600 font-bold shadow-sm animate-pulse";
+                                    else if (isRepeated) styleClass = "text-amber-700 bg-amber-50 border-amber-200 font-medium"; // Bikoiztua = Abisua
+
+                                    return `<span class="inline-block px-1.5 py-0.5 rounded border text-[9px] mr-1 mb-1 ${styleClass}" title="${isRepeated ? 'Gai hau beste irakasgai batzuetan ere agertzen da' : ''}">
+                                                ${d}
+                                                ${isRepeated ? '<i class="fas fa-clone ml-1 text-[8px] opacity-50"></i>' : ''}
+                                            </span>`;
+                                }).join('');
+
+                                return `
+                                    <div class="mb-2 last:mb-0">
+                                        <div class="text-[10px] font-bold text-slate-700 leading-tight mb-1">• ${u.unitName || u.name}</div>
+                                        <div class="pl-1 leading-snug">${descTags}</div>
+                                    </div>
+                                `;
+                            }).join('');
+                        } else {
+                            contentBlock = '<span class="text-[10px] italic text-slate-400">Eduki xehetasunik gabe.</span>';
+                        }
+
+                        // TXARTELA
+                        return `
+                            <div class="bg-white border-l-4 rounded-r-lg shadow-sm border border-slate-100 hover:shadow-md transition group"
+                                 style="border-left-color: ${color};">
+                                
+                                <div class="px-2 py-1.5 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
+                                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-tight truncate max-w-[80%] group-hover:text-slate-600 transition" title="${item.sub.subjectTitle}">
+                                        ${item.sub.subjectTitle}
+                                    </div>
+                                    <div class="w-1.5 h-1.5 rounded-full" style="background-color: ${color}"></div>
+                                </div>
+
+                                <div class="p-2">
+                                    ${contentBlock}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    });
+    
+    gridHtml += `</div>`;
+
+    // 5. HTML FINALA
+    this.container.innerHTML = `
+        <div class="h-full flex flex-col">
+            <div class="mb-2 shrink-0">
+                <h3 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fas fa-microscope text-purple-600"></i> Edukien Analisia
+                </h3>
+                <p class="text-sm text-slate-500">
+                    Irakasgaien "X izpiak": Bilatu gai espezifikoak eta detektatu errepikapenak.
+                    <span class="ml-4 text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded border border-amber-200">
+                        <i class="fas fa-clone text-[10px]"></i> = Eduki errepikatua
+                    </span>
+                </button>
+            </div>
+            
+            ${controlsHtml}
+            ${gridHtml}
+        </div>
+    `;
+}	
+
 	
-renderContentPile(filter = 'ALL') {
+/*renderContentPile(filter = 'ALL') {
         const degree = window.gradosManager.currentDegree;
         const years = ['1', '2', '3', '4'];
 
@@ -665,7 +851,7 @@ renderContentPile(filter = 'ALL') {
             ${filterHtml}
             ${gridHtml}
         `;
-    }
+    }*/
 	
     // 3. JARDUERAK
     renderActivitiesMap(subjects) {
@@ -1071,4 +1257,5 @@ renderPrerequisitesFlow(subjects) {
 }
 
 window.matrixEngine = new MatrixEngine();
+
 
