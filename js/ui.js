@@ -617,13 +617,13 @@ renderSubjectDetail: async (subject, degree) => {
         const colorBar = document.getElementById('subjectColorBar');
         if(colorBar) colorBar.style.backgroundColor = areaColor;
 
-// =========================================================
+		// =========================================================
         // 4. PRE-REQUISITOS (ZUZENDUA)
         // =========================================================
         const preReqContainer = document.getElementById('detailPreReq');
         if (preReqContainer) {
             preReqContainer.innerHTML = '';
-            const list = subject.content?.preReq || [];
+            const list = subject.preReq || subject.content?.preReq || [];
             
             if (list.length === 0) {
                 preReqContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago aurre-ezagutzarik zehaztuta.</div>';
@@ -658,7 +658,7 @@ renderSubjectDetail: async (subject, degree) => {
         const signActContainer = document.getElementById('detailSignAct');
         if (signActContainer) {
             signActContainer.innerHTML = '';
-            const list = subject.content?.signAct || [];
+            const list = subject.signAct || subject.content?.signAct || [];
             if (list.length === 0) {
                 signActContainer.innerHTML = '<div class="text-xs text-gray-400 italic">Ez dago jarduerarik zehaztuta.</div>';
             } else {
@@ -692,7 +692,7 @@ renderSubjectDetail: async (subject, degree) => {
 		if (projContainer) {
 		    projContainer.innerHTML = '';
 		    // Datuen jatorria: externalProjects edo extProy
-		    const list = subject.content?.extProy || [];
+		    const list = subject.extProy || subject.content?.extProy || [];
 		    
 		    // Katalogoa kargatu
 		    const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.externalProjects) 
@@ -760,7 +760,7 @@ renderSubjectDetail: async (subject, degree) => {
         const iduContainer = document.getElementById('detailIdujar');
         if (iduContainer) {
             iduContainer.innerHTML = '';
-            const list = subject.content?.iduGuidelines || subject.content?.idujar || [];
+            const list = subject.iduGuidelines || subject.idujar || subject.content?.iduGuidelines || subject.content?.idujar || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.iduGuidelines) ? window.gradosManager.adminCatalogs.iduGuidelines : [];
 
             if (list.length === 0) {
@@ -799,7 +799,7 @@ renderSubjectDetail: async (subject, degree) => {
         if (odsContainer) {
             odsContainer.innerHTML = '';
             
-            const list = subject.content?.detailODS || [];
+            const list = subject.detailODS  || subject.content?.detailODS || [];
             const catalog = (window.gradosManager && window.gradosManager.adminCatalogs && window.gradosManager.adminCatalogs.ods) ? window.gradosManager.adminCatalogs.ods : [];
 
             // 🔧 Funtzio honek beti 2 digitu itzuliko ditu (1 -> "01", 8 -> "08")
@@ -1592,6 +1592,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
