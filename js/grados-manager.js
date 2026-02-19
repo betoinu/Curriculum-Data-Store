@@ -2637,7 +2637,7 @@ openProjectsSelector() {
     // 1. DATUAK PRESTATU
     // Ziurtatu .content dela eta ez .context
     if (!subject.content) subject.content = {};
-    const currentList = subject.content.externalProjects || subject.content.extProy || [];
+    const currentList = subject.extProy || subject.content.extProy || [];
     const catalog = this.adminCatalogs.externalProjects || [];
 
     // Garbitu aurreko modalak
@@ -5984,6 +5984,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
