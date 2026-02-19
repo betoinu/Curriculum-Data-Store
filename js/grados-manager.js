@@ -1839,7 +1839,7 @@ openIduSelector() {
     
     // 1. Datuak prestatu
     if (!subject.content) subject.content = {};
-    const currentList = subject.content.idujar || []; 
+    const currentList = subject.idujar || subject.content.idujar || []; 
     const catalog = this.adminCatalogs.iduGuidelines || [];
     
     // ---------------------------------------------------------
@@ -5984,6 +5984,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
