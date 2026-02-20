@@ -302,7 +302,7 @@ async saveSubject(subjectData) {
         // benetan datu-baseko SQL zutabeetako bikoizketak badira, ezabatu egingo ditugu.
         // Horrela, beste ezertarako erabiltzen diren 'name' edo 'code'-ak ez dira ukituko.
         
-        if (contentPayload.code && contentPayload.code === dbPayload.idAsig) {
+        if (contentPayload.code && contentPayload.code === dbPayload.subjectCode) {
             delete contentPayload.code;
         }
         
@@ -5998,6 +5998,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
