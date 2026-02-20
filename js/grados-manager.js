@@ -2941,7 +2941,10 @@ openProjectsSelector() {
 			container.scrollTop = container.scrollHeight;
 		}
 
-async saveListEditor() {
+async saveListEditor(event) {
+    // 1. TRANPA KONPONDUTA: Orria ez da birkargatuko ustekabean
+    if (event) event.preventDefault(); 
+
     if (!this.currentEditingField) return;
     
     const fieldName = this.currentEditingField;
@@ -2967,6 +2970,8 @@ async saveListEditor() {
         if (isDegree) {
             this.currentDegree[fieldName] = newList;
             window.ui?.renderSidebar?.(this.currentDegree);
+            // Graduentzat saveData zaharrak funtzionatu dezake
+            if (this.saveData) await this.saveData(); 
         } else {
             if (!this.currentSubject) {
                 throw new Error('Ez dago aukeratutako irakasgairik');
@@ -2975,23 +2980,26 @@ async saveListEditor() {
             // ✨ KRITIKOA: Content prestatu eta ERROKO DATUAK GORDE
             if (!this.currentSubject.content) this.currentSubject.content = {};
             
-            // ERRRESKATEA: Erroan dauden datuak content-era pasatu (saveRaChanges-en bezala)
-		    // Hau ezinbestekoa da saveSubject-ek 'content' objektua lehenesteko
-		    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak','calendarConfig','currentOfficialRAs','zhRAs', 'subjectCritEval', 'matrizAlineacion','matrizAsignatura','ganttPlanifikazioa'].forEach(key => {
-		        if (s[key] !== undefined && !s.content[key]) {
-		            console.log(`♻️ Erreskatatzen: ${key}`, s[key]?.length || 1);
-		            s.content[key] = s[key];
-		        }
-		    });
+            // ERRRESKATEA: Erroan dauden datuak content-era pasatu
+            ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak', 
+             'currentOfficialRAs', 'zhRAs', 'subjectCritEval', 'matrizAlineacion',
+             'matrizAsignatura', 'ganttPlanifikazioa'].forEach(key => {
+                if (this.currentSubject[key] !== undefined && !this.currentSubject.content[key]) {
+                    console.log(`♻️ Erreskatatzen: ${key}`);
+                    this.currentSubject.content[key] = this.currentSubject[key];
+                }
+            });
             
             // Eguneratu soilik eremu hau
             this.currentSubject.content[fieldName] = newList;
             this.currentSubject[fieldName] = newList; // UI-rako
 
             window.ui?.renderSubjectDetail?.(this.currentSubject, this.currentDegree);
+            
+            // 2. TRANPA KONPONDUTA: Irakasgaia bada, saveSubject deitu!
+            console.log("💾 saveSubject deitzen listEditor-etik...");
+            await this.saveSubject(this.currentSubject);
         }
-        
-        await this.saveData();
         
         if (this.showNotification) {
             this.showNotification(`${fieldName} gorde da!`, 'success');
@@ -5714,6 +5722,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
