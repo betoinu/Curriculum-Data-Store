@@ -2977,15 +2977,14 @@ async saveListEditor(event) {
                 throw new Error('Ez dago aukeratutako irakasgairik');
             }
             
-            // ✨ KRITIKOA: Content prestatu eta ERROKO DATUAK GORDE
+			// ✨ KRITIKOA: Content prestatu eta ERROKO DATUAK GORDE
             if (!this.currentSubject.content) this.currentSubject.content = {};
             
-            // ERRRESKATEA: Erroan dauden datuak content-era pasatu
+            // ✅ ZURE KONPONBIDEA: Erreskatea BETI egin, sinkronizazioa ez galtzeko
             ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak', 
              'currentOfficialRAs', 'zhRAs', 'subjectCritEval', 'matrizAlineacion',
              'matrizAsignatura', 'ganttPlanifikazioa'].forEach(key => {
-                if (this.currentSubject[key] !== undefined && !this.currentSubject.content[key]) {
-                    console.log(`♻️ Erreskatatzen: ${key}`);
+                if (this.currentSubject[key] !== undefined) {
                     this.currentSubject.content[key] = this.currentSubject[key];
                 }
             });
@@ -2996,7 +2995,6 @@ async saveListEditor(event) {
 
             window.ui?.renderSubjectDetail?.(this.currentSubject, this.currentDegree);
             
-            // 2. TRANPA KONPONDUTA: Irakasgaia bada, saveSubject deitu!
             console.log("💾 saveSubject deitzen listEditor-etik...");
             await this.saveSubject(this.currentSubject);
         }
@@ -5722,6 +5720,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
