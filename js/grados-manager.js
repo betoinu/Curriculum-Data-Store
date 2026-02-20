@@ -1243,6 +1243,25 @@ _setupSaveButtonRaw(modal) {
     const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
     const newBtn = oldBtn.cloneNode(true);
     oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    
+    // Aldatu type "button" izatera
+    newBtn.type = 'button';
+    
+    // Ezarri onclick berria
+    newBtn.onclick = async () => {
+        newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        newBtn.disabled = true;
+        
+        try {
+            await window.gradosManager.saveRaChanges();
+        } catch (error) {
+            console.error("❌ Errorea:", error);
+        } finally {
+            newBtn.innerHTML = 'Gorde Aldaketak';
+            newBtn.disabled = false;
+        }
+    };
+    
     return newBtn;
 }
 
@@ -5998,6 +6017,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
