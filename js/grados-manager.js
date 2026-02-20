@@ -2958,9 +2958,7 @@ async saveListEditor() {
     
     try {
         const inputs = document.querySelectorAll('.list-item-input');
-        const newList = Array.from(inputs)
-            .map(i => i.value.trim())
-            .filter(v => v !== "");
+        const newList = Array.from(inputs).map(i => i.value.trim()).filter(v => v);
         
         if (newList.length === 0) {
             throw new Error('Gutxienez elementu bat gehitu behar duzu.');
@@ -2974,16 +2972,21 @@ async saveListEditor() {
                 throw new Error('Ez dago aukeratutako irakasgairik');
             }
             
-            // ✨ KRITIKOA: BETI gorde content-ean, eremu GUZTIETAN
-            if (!this.currentSubject.content) {
-                this.currentSubject.content = {};
-            }
+            // ✨ KRITIKOA: Content prestatu eta ERROKO DATUAK GORDE
+            if (!this.currentSubject.content) this.currentSubject.content = {};
             
-            // Eguneratu content-ean
+            // ERRRESKATEA: Erroan dauden datuak content-era pasatu (saveRaChanges-en bezala)
+		    // Hau ezinbestekoa da saveSubject-ek 'content' objektua lehenesteko
+		    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak','calendarConfig','currentOfficialRAs','zhRAs', 'subjectCritEval', 'matrizAlineacion','matrizAsignatura','ganttPlanifikazioa'].forEach(key => {
+		        if (s[key] !== undefined && !s.content[key]) {
+		            console.log(`♻️ Erreskatatzen: ${key}`, s[key]?.length || 1);
+		            s.content[key] = s[key];
+		        }
+		    });
+            
+            // Eguneratu soilik eremu hau
             this.currentSubject.content[fieldName] = newList;
-            
-            // Eguneratu erroan UI-rentzat
-            this.currentSubject[fieldName] = newList;
+            this.currentSubject[fieldName] = newList; // UI-rako
 
             window.ui?.renderSubjectDetail?.(this.currentSubject, this.currentDegree);
         }
@@ -3489,7 +3492,7 @@ async saveRaChanges() {
 
     // 3. ERRESKATEA: Erroan dauden datuak content-era pasatu
     // Hau ezinbestekoa da saveSubject-ek 'content' objektua lehenesteko
-    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak','currentOfficialRAs','zhRAs', 'subjectCritEval', 'matrizAlineacion','matrizAsignatura','ganttPlanifikazioa'].forEach(key => {
+    ['preReq', 'signAct', 'extProy', 'idujar', 'detailODS', 'unitateak','calendarConfig','currentOfficialRAs','zhRAs', 'subjectCritEval', 'matrizAlineacion','matrizAsignatura','ganttPlanifikazioa'].forEach(key => {
         if (s[key] !== undefined && !s.content[key]) {
             console.log(`♻️ Erreskatatzen: ${key}`, s[key]?.length || 1);
             s.content[key] = s[key];
@@ -5711,6 +5714,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
