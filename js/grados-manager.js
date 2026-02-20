@@ -2941,9 +2941,9 @@ openProjectsSelector() {
 			container.scrollTop = container.scrollHeight;
 		}
 
-async saveListEditor(event) {
+async saveListEditor() {
     // 1. TRANPA KONPONDUTA: Orria ez da birkargatuko ustekabean
-    if (event) event.preventDefault(); 
+    /*if (event) event.preventDefault(); */
 
     if (!this.currentEditingField) return;
     
@@ -5720,6 +5720,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
