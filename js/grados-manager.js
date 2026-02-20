@@ -3797,7 +3797,7 @@ openPreReqEditor() {
     };
 
     // 6. Gorde botoia
-    const saveBtn = this._setupSaveButtonRaw(modal);
+    const saveBtn = this.saveListEditor();
     saveBtn.onclick = async () => {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
         saveBtn.disabled = true;
@@ -5720,6 +5720,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
