@@ -156,81 +156,6 @@ class GradosManager {
         console.log(`📚 Katalogoak OK: ${this.adminCatalogs.iduGuidelines.length} IDU, ${this.adminCatalogs.odsList.length} ODS.`);
     }
 	
-/*	async loadData() {
-		console.log("📥 loadData() - Supabase-ko datuak kargatzen...");
-		
-		// 1. HASIERAKETA SEGURUA (Erroreak ekiditeko)
-		this.cachedData = {
-			graduak: [],
-			proyectosExternos: []
-		};
-		this.currentRowId = null;
-
-		try {
-			const supabase = getSupabaseInstance();
-			if (!supabase) return;
-
-			// 2. DATUAK ESKATU (Azkeneko erregistroa bakarrik)
-			const { data: curriculumData, error: errorCurriculum } = await supabase
-				.from('curriculum_data')
-				.select('*')
-				.order('created_at', { ascending: false })
-				.limit(1);
-
-			if (errorCurriculum) {
-				console.error("❌ Error cargando curriculum_data:", errorCurriculum);
-				throw errorCurriculum;
-			}
-
-			// 3. DATUAK PROZESATU
-			if (curriculumData && curriculumData.length > 0) {
-				const row = curriculumData[0];
-				this.currentRowId = row.id;
-				
-				// Datuak cachean gorde (existitzen ez bada, array hutsak jarri)
-				if (row.datos) {
-					this.cachedData.graduak = row.datos.graduak || [];
-					// Ziurtatu izenak bat datozela zure DBarekin ('extProy' edo 'proyectosExternos')
-					this.cachedData.proyectosExternos = row.datos.proyectosExternos || row.datos.extProy || [];
-				}
-
-				console.log(`✅ Datuak kargatuta. ID: ${row.id}`);
-				console.log(`🎓 Graduak: ${this.cachedData.graduak.length}`);
-				
-				// 4. SEGURTASUNA: idAsig sortu falta bada (Legacy code support)
-				this.cachedData.graduak.forEach(grado => {
-					const gradoCodigo = grado.codigo || grado.id || 'G';
-					Object.entries(grado.year || {}).forEach(([yearNum, asignaturas]) => {
-						if (Array.isArray(asignaturas)) {
-							asignaturas.forEach((asig, asigIndex) => {
-								if (!asig.idAsig) {
-									asig.idAsig = `${gradoCodigo}_${yearNum}_${String(asigIndex + 1).padStart(3, '0')}`;
-								}
-							});
-						}
-					});
-				});
-				
-			} else {
-				console.log("ℹ️ Ez dago daturik Supabase-n. Hutsetik hasiko gara.");
-			}
-
-			// 5. UI EGUNERATU
-			// Orain selektorea beteko da, baina "Hautatu gradua..." markatuta geratuko da
-			this.populateDegreeSelect();
-
-			// Aukerakoa: Formularioa garbitu (aurreko saioetako datuak ez ikusteko)
-			if (this.clearForm) {
-				this.clearForm();
-			}
-
-		} catch (err) {
-			console.error("❌ Erroa loadData funtzioan:", err);
-			// Errorea egonda ere, saiatu selektorea marrazten (hutsik bada ere)
-			this.populateDegreeSelect();
-		}
-	}*/
-	
 // HEMEN DAGO ZURE saveData() FUNTZIO OSOA ZUZENDUTA
 async saveSubject(subjectData) {
     console.log("💾 SQLan Gordetzen (SCHEMA MATCHING):", subjectData.subjectTitle);
@@ -439,26 +364,6 @@ async saveSubject(subjectData) {
         }
     }
 	
-	// En GradosManager class, despu¨¦s del constructor
-	/*getZhFromCatalog(zhCode) {
-		if (!this.currentDegree?.zhCatalog) return null;
-		return this.currentDegree.zhCatalog.find(zh => zh.code === zhCode);
-	}*/
-	
-
-	/*getFullZhDescription(zhItem) {
-		// 1. Prioridad: Descripci¨®n espec¨ªfica de la asignatura
-		const localDesc = zhItem.zhDesc || zhItem.raDesc || zhItem.desc;
-		if (localDesc) return localDesc;
-		
-		// 2. Fallback: Buscar en el cat¨¢logo global por c¨®digo
-		const codeToSearch = zhItem.zhCode || zhItem.code || zhItem.raCode;
-		const catalogZh = this.currentDegree?.zhCatalog?.find(z => (z.zhCode || z.code) === codeToSearch);
-		
-		return catalogZh?.zhDesc || catalogZh?.desc || 'Deskribapenik gabe';
-	}*/
-
-
 // ? VERSI¨®N CORRECTA PARA CLASE (Sin ': function')
     loadUniqueSubjectTypes() {
         console.log("?? Obteniendo tipos de la memoria local...");
@@ -814,61 +719,6 @@ openEditSubjectModal() {
         
         console.log("✅ Selektorea beteta.");
     }
-    // 2. SELECT (Aukeraketa kudeatu) - HAU DA ZUZENA (LoadData barruan duena)
-	/*async selectDegree(e) {
-        const val = (e.target && e.target.value) ? e.target.value : e;
-        
-        if (val === "NEW_DEGREE") {
-            // this.createNewDegree(); // Deskomentatu funtzioa existitzen bada
-            console.log("Gradu berria sortzen...");
-            return;
-        }
-
-        console.log(`⏳ Gradua kargatzen: ${val}...`);
-        
-        this.currentDegree = this.degrees.find(d => d.idDegree === val || d.id === val);
-        
-        if (!this.currentDegree) {
-            console.error("Gradua ez da aurkitu.");
-            return;
-        }
-
-        try {
-            const { data: subjects, error } = await this.supabase
-                .from('irakasgaiak')
-                .select('*')
-                .eq('idDegree', this.currentDegree.idDegree || this.currentDegree.id) // ID zuzena ziurtatu
-                .order('year', { ascending: true })
-                .order('subjectTitle', { ascending: true });
-
-            if (error) throw error;
-
-            this.currentDegree.subjects = subjects.map(s => ({
-                ...s,
-                ...(s.content || {}) 
-            }));
-            
-            this.currentSubjects = this.currentDegree.subjects; // Honek laguntzen du beste lekuetan
-
-			// --- HEMEN DAGO ALDAKETA ---
-
-            console.log("🎨 UI eguneratzen...");
-
-            // 1. Alboko barra (Sidebar) marraztu (Botoiak agertzeko: 1.maila, 2.maila...)
-            if (window.ui && window.ui.renderSidebar) {
-                window.ui.renderSidebar(this.currentDegree);
-            }
-
-            // 2. LEHENENGO MAILA ERAKUTSI (Hau falta zitzaizun!)
-            // '1' zenbakia pasatzen diogu defektuz lehen maila kargatzeko.
-            if (window.ui && window.ui.renderYearView) {
-                window.ui.renderYearView(this.currentDegree, 1); 
-            }
-
-        } catch (err) {
-            console.error("❌ Errorea irakasgaiak kargatzean:", err);
-        }
-    }*/
 
 	async selectDegree(e) {
     const val = (e.target && e.target.value) ? e.target.value : e;
@@ -1238,32 +1088,6 @@ openOdsCatalogEditor() {
     modal.classList.remove('hidden');
 }
 	
-// Helper simple para limpiar bot¨®n guardar
-_setupSaveButtonRaw(modal) {
-    const oldBtn = modal.querySelector('button[onclick*="saveListEditor"]');
-    const newBtn = oldBtn.cloneNode(true);
-    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
-    
-    // Aldatu type "button" izatera
-    newBtn.type = 'button';
-    
-    // Ezarri onclick berria
-    newBtn.onclick = async () => {
-        newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        newBtn.disabled = true;
-        
-        try {
-            await window.gradosManager.saveRaChanges();
-        } catch (error) {
-            console.error("❌ Errorea:", error);
-        } finally {
-            newBtn.innerHTML = 'Gorde Aldaketak';
-            newBtn.disabled = false;
-        }
-    };
-    
-    return newBtn;
-}
 
 // ?? FUNCION 2: SELECTOR DE ASIGNATURA (Para seleccionar cu¨¢les se trabajan)
     // Solo permite marcar/desmarcar (Grid Visual)
@@ -3117,6 +2941,81 @@ openProjectsSelector() {
 			container.scrollTop = container.scrollHeight;
 		}
 
+async saveListEditor() {
+    if (!this.currentEditingField) return;
+    
+    const fieldName = this.currentEditingField;
+    const isDegree = this.isEditingDegree;
+    const modal = document.getElementById('listEditorModal');
+    const saveBtn = modal?.querySelector('#saveListBtn');
+
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+        saveBtn.disabled = true;
+    }
+
+    console.log(`💾 Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
+    
+    try {
+        const inputs = document.querySelectorAll('.list-item-input');
+        const newList = Array.from(inputs)
+            .map(i => i.value.trim())
+            .filter(v => v !== "");
+        
+        if (newList.length === 0) {
+            throw new Error('Gutxienez elementu bat gehitu behar duzu.');
+        }
+
+        if (isDegree) {
+            this.currentDegree[fieldName] = newList;
+            window.ui?.renderSidebar?.(this.currentDegree);
+        } else {
+            if (!this.currentSubject) {
+                throw new Error('Ez dago aukeratutako irakasgairik');
+            }
+            
+            // ✨ KRITIKOA: BETI gorde content-ean, eremu GUZTIETAN
+            if (!this.currentSubject.content) {
+                this.currentSubject.content = {};
+            }
+            
+            // Eguneratu content-ean
+            this.currentSubject.content[fieldName] = newList;
+            
+            // Eguneratu erroan UI-rentzat
+            this.currentSubject[fieldName] = newList;
+
+            window.ui?.renderSubjectDetail?.(this.currentSubject, this.currentDegree);
+        }
+        
+        await this.saveData();
+        
+        if (this.showNotification) {
+            this.showNotification(`${fieldName} gorde da!`, 'success');
+        }
+        
+        if (modal) {
+            modal.classList.add('hidden');
+            this.currentEditingField = null;
+            this.isEditingDegree = false;
+        }
+        
+    } catch (error) {
+        console.error("❌ Error al guardar:", error);
+        this.showNotification?.(`Errorea: ${error.message}`, 'error') || alert(`❌ Errorea: ${error.message}`);
+    } finally {
+        if (saveBtn) {
+            saveBtn.innerHTML = 'Gorde Aldaketak';
+            saveBtn.disabled = false;
+        }
+    }
+}
+
+_setupSaveButtonRaw(modal) {
+    const btn = modal.querySelector('button[onclick*="saveListEditor"]');
+    btn.onclick = () => this.saveListEditor(); // Ez klonatu!
+    return btn;
+}	
 	
 // ----------------------------------------------------------------------
     // 2. EDITOR DE RA DE ASIGNATURA (MODAL)
@@ -3208,32 +3107,6 @@ openRaEditor() {
 		modal.classList.remove('hidden');
 	}
 		
-// M¨¦todo auxiliar para crear filas
-	/*createRaRow(type, index, data = {}) {
-		const isZh = type === 'zh';
-		const div = document.createElement('div');
-		div.className = `flex gap-2 p-2 bg-white border rounded ${isZh ? 'border-teal-100' : 'border-blue-100'} group ra-row`;
-		
-		// Mapeo flexible: intenta leer la nueva clave, si no la vieja
-		const code = isZh ? (data.zhCode || data.zhCode || data.code || '') : (data.raCode || data.code || '');
-		const desc = isZh ? (data.zhDesc || data.zhDesc || data.desc || '') : (data.raDesc || data.desc || '');
-		
-		div.innerHTML = `
-			<span class="${isZh ? 'text-teal-600' : 'text-blue-600'} font-bold text-xs mt-1 w-6">${index}</span>
-			<div class="flex-1 space-y-1">
-				<div class="flex gap-2">
-					<input type="text" class="raCode w-32 text-xs font-bold border-b focus:outline-none" value="${code}" placeholder="Kodea">
-					<button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100">
-						<i class="fas fa-trash"></i>
-					</button>
-				</div>
-				<textarea class="ra-desc w-full text-xs border rounded p-1 resize-y min-h-[60px]" rows="2" placeholder="Deskribapena...">${desc}</textarea>
-			</div>
-		`;
-		return div;
-	}*/	
-
-
     // ----------------------------------------------------------------------
     // 3. GUARDADO DEL EDITOR (CRUCIAL: IMPORTA CRITERIOS DEL CAT¨¢LOGO)
 
@@ -3257,56 +3130,7 @@ openRaEditor() {
 	
 // En grados-manager.js
 
-/*async saveListEditor() {
-    if (!this.currentEditingField) return;
-    
-    const fieldName = this.currentEditingField;
-    const isDegree = this.isEditingDegree; 
 
-    console.log(`🔧 Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
-    
-    const inputs = document.querySelectorAll('.list-item-input');
-    const newList = Array.from(inputs)
-        .map(i => i.value.trim())
-        .filter(v => v !== "");
-    
-    // 1. ACTUALIZAR EL OBJETO EN MEMORIA
-    if (isDegree) {
-        // Guardar en el objeto Grado
-        this.currentDegree[fieldName] = newList;
-        
-        // Refrescar Sidebar inmediatamente
-        if (window.ui && window.ui.renderSidebar) {
-            window.ui.renderSidebar(this.currentDegree);
-        }
-    } else {
-        // Guardar en el objeto Asignatura
-        if (!this.currentSubject) return;
-        
-        // ✨ ALDAKETA HEMEN: content erabili beharrean, erroan zuzenean
-        // Datua erroko propietatean gorde
-        this.currentSubject[fieldName] = newList;
-
-        // Refrescar Detalle Asignatura
-        if (window.ui && window.ui.renderSubjectDetail) {
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        }
-    }
-    
-    // 2. GUARDAR EN SUPABASE (BD)
-    // Usamos 'await' para esperar a que se guarde antes de cerrar el modal
-    try {
-        await this.saveData(); 
-        console.log("✅ Datos guardados correctamente en BD");
-    } catch (e) {
-        console.error("❌ Error al guardar en BD:", e);
-        // Aquí podrías mostrar un aviso al usuario si falla
-    }
-
-    // 3. CERRAR MODAL
-    const modal = document.getElementById('listEditorModal');
-    if(modal) modal.classList.add('hidden');
-}*/
 	
 // Funci¨®n auxiliar para no repetir HTML
 	templateRA(codigo, desc, color, etiqueta) {
@@ -3694,26 +3518,7 @@ async saveRaChanges() {
     }
 }
 
-/*    normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
-        // Zure kode zaharraren normalizazioa jarri hemen
-        console.log("Kodeak normalizatzen...", subject, tecRAs, zhRAs);
-        
-        // Adibidez:
-        // 1. Teklikoak formatu koherentean
-        tecRAs.forEach(ra => {
-            if (ra.code && !ra.code.includes('_')) {
-                ra.code = `${subject.subjectCode}_${ra.code}`;
-            }
-        });
-        
-        // 2. Zeharkakoak ZH formatuan
-        zhRAs.forEach(ra => {
-            if (ra.code && !ra.code.toUpperCase().includes('ZH')) {
-                const num = ra.code.replace(/\D/g, '');
-                ra.code = `${subject.subjectCode}_ZH${num.padStart(2, '0')}`;
-            }
-        });
-    }*/
+
 
 // Laguntzailea: Toast mezua erakusteko (zure kode zaharretik kopiatua)
     showToast(message) {
@@ -4384,115 +4189,6 @@ openSignActEditor() {
     modal.classList.remove('hidden');
 }
 
-/*async saveListEditor() {
-    if (!this.currentEditingField) return;
-    
-    const fieldName = this.currentEditingField;
-    const isDegree = this.isEditingDegree;
-    const modal = document.getElementById('listEditorModal');
-    const saveBtn = modal?.querySelector('#saveListBtn');
-
-    // Deshabilitar botón durante guardado
-    if (saveBtn) {
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        saveBtn.disabled = true;
-    }
-
-    console.log(`💾 Guardando lista "${fieldName}" en ${isDegree ? 'GRADUA' : 'IRAKASGAIA'}`);
-    
-    try {
-        const inputs = document.querySelectorAll('.list-item-input');
-        const newList = Array.from(inputs)
-            .map(i => i.value.trim())
-            .filter(v => v !== "");
-        
-        // 1. VALIDACIÓN BÁSICA
-        if (newList.length === 0) {
-            throw new Error('Gutxienez elementu bat gehitu behar duzu.');
-        }
-
-        // 2. ACTUALIZAR EL OBJETO EN MEMORIA
-        if (isDegree) {
-            // Guardar en el objeto Grado
-            this.currentDegree[fieldName] = newList;
-            
-            // Refrescar Sidebar
-            if (window.ui?.renderSidebar) {
-                window.ui.renderSidebar(this.currentDegree);
-            }
-        } else {
-            // Guardar en el objeto Asignatura
-            if (!this.currentSubject) {
-                throw new Error('Ez dago aukeratutako irakasgairik');
-            }
-            
-            // ✨ ALDAKETA PRINCIPAL: erroan gorde
-            this.currentSubject[fieldName] = newList;
-            
-            // ✨ BATERAGARRIKOTASUNA: content-ean ere (aukerakoa)
-            // Mantener content si otros módulos lo necesitan
-            if (fieldName === 'idu' || fieldName === 'ods' || fieldName === 'external_projects') {
-                if (!this.currentSubject.content) {
-                    this.currentSubject.content = {};
-                }
-                this.currentSubject.content[fieldName] = newList;
-            }
-
-            // Refrescar Detalle Asignatura
-            if (window.ui?.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-        }
-        
-        // 3. GUARDAR EN BD
-        await this.saveData();
-        
-        console.log("✅ Datos guardados correctamente");
-        
-        // 4. NOTIFICACIÓN
-        if (this.showNotification) {
-            const fieldNames = {
-                'idu': 'IDU Zerrenda',
-                'ods': 'ODS Zerrenda', 
-                'external_projects': 'Proiektu Kanpoak',
-                'partners': 'Lankideak',
-                'skills': 'Gaitasunak'
-            };
-            
-            const displayName = fieldNames[fieldName] || fieldName;
-            this.showNotification(`${displayName} gorde da!`, 'success');
-        }
-        
-        // 5. CERRAR MODAL
-        if (modal) {
-            modal.classList.add('hidden');
-            
-            // Opcional: limpiar estado
-            this.currentEditingField = null;
-            this.isEditingDegree = false;
-        }
-        
-    } catch (error) {
-        console.error("❌ Error al guardar:", error);
-        
-        // Mostrar error al usuario
-        if (this.showNotification) {
-            this.showNotification(`Errorea: ${error.message}`, 'error');
-        } else {
-            alert(`❌ Errorea: ${error.message}`);
-        }
-        
-        // No cerrar el modal en caso de error
-        return;
-        
-    } finally {
-        // Restaurar botón
-        if (saveBtn) {
-            saveBtn.innerHTML = 'Gorde Aldaketak';
-            saveBtn.disabled = false;
-        }
-    }
-}*/
 
 // ==========================================
 // GESTI¨®N DE LA VISTA DE PLANIFICACI¨®N (GANTT)
@@ -4515,8 +4211,6 @@ openSignActEditor() {
 		// Al volver, actualizamos la vista de detalle por si cambiaron las horas
 		if (window.ui) window.ui.renderSubjectDetail(this.currentSubject);
 	}
-
-
 
 // ==========================================
 // RENDERIZADO DE UNA FILA DE ACTIVIDAD
@@ -6017,6 +5711,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
