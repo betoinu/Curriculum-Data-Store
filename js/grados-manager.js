@@ -296,6 +296,20 @@ async saveSubject(subjectData) {
         if (!dbPayload.idDegree && this.currentDegree) {
             dbPayload.idDegree = this.currentDegree.idDegree;
         }
+		
+		// 👇 GARBIKETA ZEHATZA ETA SEGURUA (GEHITU HAU HEMEN) 👇
+        // JSON-ean (contentPayload) sartu diren 'name' edo 'code' horiek
+        // benetan datu-baseko SQL zutabeetako bikoizketak badira, ezabatu egingo ditugu.
+        // Horrela, beste ezertarako erabiltzen diren 'name' edo 'code'-ak ez dira ukituko.
+        
+        if (contentPayload.code && contentPayload.code === dbPayload.idAsig) {
+            delete contentPayload.code;
+        }
+        
+        // Zure datu basean dbPayload.subjectTitle da izen ofiziala (Schema Matching)
+        if (contentPayload.name && contentPayload.name === dbPayload.subjectTitle) {
+            delete contentPayload.name;
+        }
 
         // 5. UNITATEAK GARBITU (Segurtasun geruza)
 		if (contentPayload.unitateak) {
@@ -567,10 +581,10 @@ async saveSubject(subjectData) {
 			signAct: [],
 			zhRAs: [],
             currentOfficialRAs: [],
-			"subjectCritEval": [],
-			"matrizAlineacion": [],
-			"matrizAsignatura": [],
-			"ganttPlanifikazioa": []
+			subjectCritEval: [],
+			matrizAlineacion: [],
+			matrizAsignatura: [],
+			ganttPlanifikazioa: []
         };
 
         // 3. GORDE (Zure saveData berriak dena egingo du: DB + Memoria)
@@ -5984,6 +5998,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
