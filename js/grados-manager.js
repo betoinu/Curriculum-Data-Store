@@ -3812,36 +3812,41 @@ openPreReqEditor() {
     };
 
     // 6. Gorde botoia
-    const saveBtn = document.getElementById('saveListBtn');
-	saveBtn.onclick = async () => {
-	    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-	    saveBtn.disabled = true;
-	
-	    try {
-	        const filteredList = localList.filter(item =>
-	            item.name?.trim() && item.area?.trim()
-	        );
-	
-	        if (localList.length > 0 && filteredList.length === 0) {
-	            alert("Mesedez, bete eremu guztiak edo ezabatu lerro hutsak.");
-	            return;
-	        }
-	
-	        await this.updateContentField('preReq', filteredList);
-	
-	        modal.classList.add('hidden');
-	        alert(`✅ ${filteredList.length} aurre-ezagutza gorde dira!`);
-	
-	    } catch (error) {
-	        console.error(error);
-	        alert(`Errorea gordetzean: ${error.message}`);
-	    } finally {
-	        saveBtn.innerHTML = 'Gorde';
-	        saveBtn.disabled = false;
-	    }
-	};
+// 6. Gorde botoia
+const saveBtn = document.getElementById('saveListBtn');
 
+if (!saveBtn) {
+    console.error("❌ saveListBtn no existe en el DOM");
+    return;
+}
 
+saveBtn.onclick = async () => {
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+    saveBtn.disabled = true;
+
+    try {
+        const filteredList = localList.filter(item =>
+            item.name?.trim() && item.area?.trim()
+        );
+
+        if (localList.length > 0 && filteredList.length === 0) {
+            alert("Mesedez, bete eremu guztiak edo ezabatu lerro hutsak.");
+            return;
+        }
+
+        await this.updateContentField('preReq', filteredList);
+
+        modal.classList.add('hidden');
+        alert(`✅ ${filteredList.length} aurre-ezagutza gorde dira!`);
+
+    } catch (error) {
+        console.error(error);
+        alert(`Errorea gordetzean: ${error.message}`);
+    } finally {
+        saveBtn.innerHTML = 'Gorde';
+        saveBtn.disabled = false;
+    }
+};
     // Hasieratu
     renderEditor();
     modal.classList.remove('hidden');
@@ -5708,6 +5713,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
