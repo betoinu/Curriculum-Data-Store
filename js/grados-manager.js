@@ -363,14 +363,11 @@ async updateContentField(field, value) {
     // 4. Actualizar memoria local
     this.currentSubject.content = mergedContent;
 
-    // 5. Actualizar UI
-    if (window.ui?.renderSubjectDetail) {
-        window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-    }
+    // 🔥 5. Sincronizar propiedades raíz con content
+    Object.assign(this.currentSubject, mergedContent);
 
     return mergedContent;
 }
-
 	
 	// --- CARGA DE GRADO ESPECÃFICO ---
 	async loadDegreeData(degreeId) {
@@ -5717,6 +5714,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
