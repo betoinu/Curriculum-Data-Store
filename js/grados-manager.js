@@ -2519,7 +2519,7 @@ openProjectsCatalogEditor() {
 	    if (!subject.content) subject.content = {};
 	
 	    // LECTURA COHERENTE: extProy
-	    const currentList = subject.extProy || subject.content.extProy || [];
+	    const currentList = subject.extProy || subject.content?.extProy || [];
 	
 	    // Katalogoa
 	    const catalog = this.adminCatalogs.externalProjects || [];
@@ -5769,6 +5769,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
