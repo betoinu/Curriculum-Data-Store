@@ -225,22 +225,6 @@ renderEngine(ras, allCes, s) {
         return html;
     }
 
-        // =========================================================
-        // 3. BENETAKO UMEZURTZAK (Segurtasun neurria)
-        // =========================================================
-        const huerfanos = allCes.filter(c => !cesProcesados.has(c.ceCode || c.id));
-        if (huerfanos.length > 0) {
-            html += `<tr class="bg-red-50"><td colspan="4" class="p-2 text-[9px] font-black text-red-500 uppercase text-center tracking-widest border-y border-red-200">⚠ Lotura Galduak (Erroreak Datu-basean)</td></tr>`;
-            
-            huerfanos.forEach((ce) => {
-                const ceRel = ce.raRelacionado || "EZEZAGUNA";
-                html += this.rowTemplate(ceRel, "⚠ Irakasgaiak ez dauka RA/ZH hau memorian. Ezabatu edo esleitu berriro.", ce, true, 1, s);
-            });
-        }
-        
-        return html;
-    }
-
     rowTemplate(raId, raDesc, ce, isFirst, total, s) {
         // ZUZENEKO DATUAK ERABILI (s.matrizAlineacion...)
         const ev = s.matrizAlineacion.evidencias.find(e => e.ceCode === ce.ceCode)?.evDesc || '';
@@ -520,6 +504,7 @@ renderEngine(ras, allCes, s) {
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
+
 
 
 
