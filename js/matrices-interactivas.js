@@ -136,23 +136,25 @@ class MatricesInteractivas {
             </div>`;
     }
 
-    renderEngine(ras, allCes, s) {
+renderEngine(ras, allCes, s) {
         let html = '';
         const cesProcesados = new Set();
 
         ras.forEach(ra => {
-            let raId = ra.raCode || ra.code || ra.zhCode;
-            if (ra.zhCode && raId && raId.length < 10 && s.subjectCode) {
-                const num = raId.replace(/\D/g, ''); 
-                const padded = num.padStart(2, '0');
-                raId = `${s.subjectCode}_ZH${padded}`;
-            }
-            const raDescription = ra.raDesc || ra.desc || ra.zhDesc || ''; 
-            const ces = allCes.filter(c => c.raRelacionado === ra.raCode || c.raRelacionado === ra.zhCode || c.raRelacionado === raId);
+            // 1. ZUZENEAN IRAKURRI (Ezer asmatu gabe)
+            // Supabasek 'zhCode' edo 'raCode' ekartzen badu (adib: "BD1_MAT_ZH1"), zuzenean hartu.
+            const raId = ra.zhCode || ra.raCode || ra.code || ra.id || "EZEZAGUNA";
+            const raDescription = ra.zhDesc || ra.raDesc || ra.desc || ra.description || ra.name || "";
+
+            // 2. LOTURA ZUZENA (1:1)
+            // JSON-eko "raRelacionado" eta RA-ren "raId" berdin-berdinak izan behar dira
+            const ces = allCes.filter(c => c.raRelacionado === raId);
             
             if (ces.length > 0) {
                 ces.forEach((ce, i) => {
-                    cesProcesados.add(ce.ceCode);
+                    // Irizpidea prozesatutzat jo
+                    cesProcesados.add(ce.ceCode || ce.id);
+                    // Errenkada marraztu
                     html += this.rowTemplate(raId, raDescription, ce, i === 0, ces.length, s);
                 });
             } else {
@@ -163,20 +165,25 @@ class MatricesInteractivas {
                     </td>
                     <td colspan="3" class="p-4 bg-indigo-50/10 border-b border-indigo-100">
                         <button onclick="window.matricesInteractivas.nuevoCE('${raId}')" class="w-full py-4 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-lg transition-all uppercase">
-                            <i class="fas fa-plus-circle mr-2"></i> Sortu lehen irizpidea
+                            <i class="fas fa-plus-circle mr-2"></i> Sortu lehen irizpidea (${raId})
                         </button>
                     </td>
                 </tr>`;
             }
         });
 
-        const huerfanos = allCes.filter(c => !cesProcesados.has(c.ceCode));
+        // 3. LOTURA GALDUAK / UMEZURTZAK
+        const huerfanos = allCes.filter(c => !cesProcesados.has(c.ceCode || c.id));
         if (huerfanos.length > 0) {
-            html += `<tr class="bg-slate-200"><td colspan="4" class="p-2 text-[9px] font-black text-slate-500 uppercase text-center tracking-widest">Beste Irizpideak / Zeharkakoak</td></tr>`;
-            huerfanos.forEach((ce, i) => {
-                html += this.rowTemplate(ce.raRelacionado || "EZEZAGUNA", "Beste batzuk", ce, i === 0, huerfanos.length, s);
+            html += `<tr class="bg-slate-200"><td colspan="4" class="p-2 text-[9px] font-black text-slate-500 uppercase text-center tracking-widest">Beste Irizpideak / Lotura Galduak</td></tr>`;
+            
+            huerfanos.forEach((ce) => {
+                const ceRel = ce.raRelacionado || "EZEZAGUNA";
+                // Zutabeak ez apurtzeko (true, 1) bidali behar da beti
+                html += this.rowTemplate(ceRel, "Deskribapen gabea", ce, true, 1, s);
             });
         }
+        
         return html;
     }
 
@@ -459,5 +466,6 @@ class MatricesInteractivas {
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
+
 
 
