@@ -2504,435 +2504,6 @@ openProjectsCatalogEditor() {
 }
 	
 	// ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
-/*	openProjectsSelector() {
-	    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
-	
-		const subject = this.currentSubject;
-        if (!subject) {
-            alert("Irakasgai bat hautatu behar duzu lehenik.");
-            return;
-        }
-	
-	    // -----------------------------------------
-	    // 1. DATUAK PRESTATU
-	    // -----------------------------------------
-	    if (!subject.content) subject.content = {};
-	
-	    // LECTURA COHERENTE: extProy
-	    const currentList = subject.extProy || subject.content?.extProy || [];
-	
-	    // Katalogoa
-	    const catalog = this.adminCatalogs.externalProjects || [];
-	
-	    // TYPE bakarrak (range ez dagoenez, TYPE da benetako kategoria)
-	    const uniqueTypes = [...new Set(
-	        catalog.map(item => item.type).filter(Boolean)
-	    )].sort();
-	
-	    // Estilo paleta (Tailwind segurua)
-	    const stylePalette = [
-	        { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    hoverBg: 'hover:bg-blue-100',    hoverText: 'hover:text-blue-800' },
-	        { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', hoverBg: 'hover:bg-emerald-100', hoverText: 'hover:text-emerald-800' },
-	        { bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200',  hoverBg: 'hover:bg-purple-100',  hoverText: 'hover:text-purple-800' },
-	        { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   hoverBg: 'hover:bg-amber-100',   hoverText: 'hover:text-amber-800' },
-	        { bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200',    hoverBg: 'hover:bg-rose-100',    hoverText: 'hover:text-rose-800' }
-	    ];
-	
-	    // TYPE → estiloa
-	    const categoryStyles = {};
-	    uniqueTypes.forEach((type, index) => {
-	        categoryStyles[type] = stylePalette[index % stylePalette.length];
-	    });
-	
-	    // Aurreko modalak garbitu
-	    document.querySelectorAll('.catalog-modal-overlay').forEach(m => m.remove());
-	
-	    // -----------------------------------------
-	    // 2. MODALA ERAIKI
-	    // -----------------------------------------
-	    const overlay = document.createElement('div');
-	    overlay.className = "catalog-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
-	
-	    const modal = document.createElement('div');
-	    modal.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden";
-	
-	    modal.innerHTML = `
-	        <div class="p-5 border-b flex justify-between items-center bg-gray-50">
-	            <div>
-	                <h3 class="font-bold text-xl text-gray-800">Proiektuak / PBL</h3>
-	                <p class="text-sm text-gray-500">
-	                    Hautatu <strong>${subject.subjectTitle || subject.name || ''}</strong> irakasgaiari dagozkionak
-	                </p>
-	            </div>
-	            <button id="closeProjModal" class="p-2 hover:bg-gray-200 rounded-full transition">
-	                <i class="fas fa-times text-xl"></i>
-	            </button>
-	        </div>
-	
-	        <div class="p-4 border-b bg-white flex flex-col sm:flex-row gap-3">
-	            <div class="flex-1 relative">
-	                <input type="text" id="projSearch" placeholder="Bilatu proiektua..."
-	                    class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none">
-	                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-	            </div>
-	            <div id="projFilters" class="flex gap-2 overflow-x-auto pb-1 sm:pb-0 items-center"></div>
-	        </div>
-	
-	        <div class="p-6 overflow-y-auto bg-gray-50 flex-1 relative">
-	            <div id="projContent" class="space-y-6"></div>
-	            <div id="noProjResults"
-	                class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-500">
-	                <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
-	                <p>Ez da emaitzarik aurkitu</p>
-	            </div>
-	        </div>
-	
-	        <div class="p-4 border-t bg-white flex justify-between items-center shadow-md">
-	            <div class="text-sm text-gray-600">
-	                <span id="selectedProjCount"
-	                    class="font-bold text-yellow-600 text-lg">${currentList.length}</span> hautatuta
-	            </div>
-	            <div class="flex gap-3">
-	                <button id="cancelProj"
-	                    class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">
-	                    Utzi
-	                </button>
-	                <button id="finishProj"
-	                    class="bg-yellow-500 text-white px-8 py-2 rounded-lg hover:bg-yellow-600 font-bold shadow-md transform active:scale-95 transition">
-	                    Gorde (${currentList.length})
-	                </button>
-	            </div>
-	        </div>
-	    `;
-	
-	    overlay.appendChild(modal);
-	    document.body.appendChild(overlay);
-	
-	// -----------------------------------------
-	// 3. LOGIKA ETA INTERAKZIOA
-	// -----------------------------------------
-	const container = modal.querySelector('#projContent');
-	const searchInput = modal.querySelector('#projSearch');
-	const filtersContainer = modal.querySelector('#projFilters');
-	const noResults = modal.querySelector('#noProjResults');
-	const selectedCountSpan = modal.querySelector('#selectedProjCount');
-	const finishBtn = modal.querySelector('#finishProj');
-	
-	let selectedIds = new Set(currentList.map(item => String(item.id)));
-	let currentFilter = 'all';
-	let currentSearch = '';
-	
-	// -----------------------------------------
-	// FILTROAK
-	// -----------------------------------------
-	const renderFilters = () => {
-	    filtersContainer.innerHTML = '';
-	
-	    // 1. HAUTATUAK
-	    const selectedBtn = document.createElement('button');
-	    selectedBtn.id = 'filterSelectedBtn';
-	    selectedBtn.dataset.filter = 'selected';
-	    selectedBtn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${selectedIds.size})`;
-	    selectedBtn.onclick = () => {
-	        currentFilter = 'selected';
-	        updateFilterStyles();
-	        renderContent();
-	    };
-	    filtersContainer.appendChild(selectedBtn);
-	
-	    // Divider
-	    const divider = document.createElement('div');
-	    divider.className = "w-px h-6 bg-gray-300 mx-1";
-	    filtersContainer.appendChild(divider);
-	
-	    // 2. GUZTIAK
-	    const allBtn = document.createElement('button');
-	    allBtn.textContent = 'Guztiak';
-	    allBtn.dataset.filter = 'all';
-	    allBtn.onclick = () => {
-	        currentFilter = 'all';
-	        updateFilterStyles();
-	        renderContent();
-	    };
-	    filtersContainer.appendChild(allBtn);
-	
-	    // 3. TYPE FILTROAK
-	    uniqueTypes.forEach(type => {
-	        const btn = document.createElement('button');
-	        btn.textContent = type;
-	        btn.dataset.filter = type;
-	        btn.onclick = () => {
-	            currentFilter = type;
-	            updateFilterStyles();
-	            renderContent();
-	        };
-	        filtersContainer.appendChild(btn);
-	    });
-	
-	    updateFilterStyles();
-	};
-	
-	// -----------------------------------------
-	// FILTROEN ESTILOAK
-	// -----------------------------------------
-	const updateFilterStyles = () => {
-	    const btns = filtersContainer.querySelectorAll('button');
-	
-	    btns.forEach(btn => {
-	        const filter = btn.dataset.filter;
-	        const isActive = filter === currentFilter;
-	
-	        // 1. HAUTATUAK
-	        if (filter === 'selected') {
-	            btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${selectedIds.size})`;
-	            btn.className =
-	                `px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap flex items-center ${
-	                    isActive
-	                        ? 'bg-yellow-100 text-yellow-700 border border-yellow-300 shadow-sm'
-	                        : 'bg-white text-gray-500 border border-gray-200 hover:bg-yellow-50 hover:text-yellow-600'
-	                }`;
-	            return;
-	        }
-	
-	        // 2. GUZTIAK
-	        if (filter === 'all') {
-	            btn.className =
-	                `px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap ${
-	                    isActive
-	                        ? 'bg-gray-800 text-white shadow-md'
-	                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-	                }`;
-	            return;
-	        }
-	
-	        // 3. TYPE botoiak
-	        const style = categoryStyles[filter] || {
-	            bg: 'bg-gray-100',
-	            text: 'text-gray-700',
-	            border: 'border-gray-200'
-	        };
-	
-	        btn.className = isActive
-	            ? `px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap ${style.bg} ${style.text} ${style.border} shadow-md`
-	            : `px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap bg-white text-gray-500 border-gray-200 hover:bg-gray-50`;
-	    });
-	};
-	
-	// --- EDUKIA MARRAZTU ---
-	const renderContent = () => {
-	    container.innerHTML = '';
-	
-	    let filtered = catalog.filter(item => {
-	        const matchesSearch =
-	            !currentSearch ||
-	            (item.name?.toLowerCase().includes(currentSearch.toLowerCase()));
-	
-	        let matchesFilter = true;
-	
-	        if (currentFilter === 'selected') {
-	            matchesFilter = selectedIds.has(String(item.id));
-	        } else if (currentFilter !== 'all') {
-	            matchesFilter = item.type === currentFilter;
-	        }
-	
-	        return matchesSearch && matchesFilter;
-	    });
-	
-	    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-	
-	    if (filtered.length === 0) {
-	        noResults.classList.remove('hidden');
-	        noResults.querySelector('p').textContent =
-	            currentFilter === 'selected'
-	                ? "Ez dago proiekturik hautatuta"
-	                : "Ez da emaitzarik aurkitu";
-	        return;
-	    }
-	    noResults.classList.add('hidden');
-	
-	    const groups = {};
-	    filtered.forEach(item => {
-	        const cat = item.type || 'BESTELAKOAK';
-	        if (!groups[cat]) groups[cat] = [];
-	        groups[cat].push(item);
-	    });
-	
-	    const categoriesToShow =
-	        (currentFilter === 'all' || currentFilter === 'selected')
-	            ? uniqueTypes.filter(t => groups[t])
-	            : [currentFilter];
-	
-	    categoriesToShow.forEach(category => {
-	        const items = groups[category];
-	        if (!items || items.length === 0) return;
-	
-	        const style = categoryStyles[category] || {
-	            bg: 'bg-gray-100',
-	            text: 'text-gray-700',
-	            border: 'border-gray-200'
-	        };
-	
-	        const section = document.createElement('div');
-	        section.innerHTML = `
-	            <div class="flex items-center gap-2 mb-3 px-2 sticky top-0 bg-gray-50/95 py-2 z-10 backdrop-blur-sm">
-	                <span class="px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}">
-	                    ${category}
-	                </span>
-	                <span class="text-xs text-gray-400 font-medium">${items.length}</span>
-	            </div>
-	            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"></div>
-	        `;
-	
-	        const grid = section.querySelector('.grid');
-	
-	        items.forEach(item => {
-	            const idStr = String(item.id);
-	            const isSelected = selectedIds.has(idStr);
-	            const hasLogo = !!item.logoBase64;
-	            const initials = (item.agent || '?').substring(0, 2).toUpperCase();
-	
-	            const card = document.createElement('div');
-	            card.className =
-	                `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
-	                    isSelected
-	                        ? 'bg-yellow-50 border-yellow-400 shadow-md'
-	                        : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
-	                }`;
-	
-	            card.innerHTML = `
-	                <div class="flex justify-between items-start">
-	                    <div class="flex items-center gap-2">
-	                        <div class="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
-	                             style="${!hasLogo ? `background-color: ${item.color || '#fdba74'}` : 'background-color: white'}">
-	                            ${
-	                                hasLogo
-	                                    ? `<img src="${item.logoBase64}" class="w-full h-full object-contain p-0.5">`
-	                                    : `<span class="text-white font-bold text-[10px]">${initials}</span>`
-	                            }
-	                        </div>
-	                        <span class="font-mono text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
-	                            ${item.type || 'PBL'}
-	                        </span>
-	                    </div>
-	
-	                    <div class="check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-	                        isSelected
-	                            ? 'bg-yellow-500 text-white scale-100'
-	                            : 'bg-gray-100 text-transparent scale-90'
-	                    }">
-	                        <i class="fas fa-check text-xs"></i>
-	                    </div>
-	                </div>
-	
-	                <p class="text-sm text-gray-700 font-medium leading-snug line-clamp-3 group-hover:text-gray-900">
-	                    ${item.name}
-	                </p>
-	            `;
-	
-	            card.onclick = () => {
-	                if (selectedIds.has(idStr)) {
-	                    selectedIds.delete(idStr);
-	                } else {
-	                    selectedIds.add(idStr);
-	                }
-	
-	                if (currentFilter === 'selected') {
-	                    renderContent();
-	                } else {
-	                    const isNowSelected = selectedIds.has(idStr);
-	                    card.className =
-	                        `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
-	                            isNowSelected
-	                                ? 'bg-yellow-50 border-yellow-400 shadow-md'
-	                                : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
-	                        }`;
-	
-	                    const checkCircle = card.querySelector('.check-circle');
-	                    checkCircle.className =
-	                        `check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-	                            isNowSelected
-	                                ? 'bg-yellow-500 text-white scale-100'
-	                                : 'bg-gray-100 text-transparent scale-90'
-	                        }`;
-	                }
-	
-	                const count = selectedIds.size;
-	                selectedCountSpan.textContent = count;
-	                finishBtn.innerHTML = `Gorde (${count})`;
-	
-	                const filterBtn = document.getElementById('filterSelectedBtn');
-	                if (filterBtn)
-	                    filterBtn.innerHTML =
-	                        `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${count})`;
-	            };
-	
-	            grid.appendChild(card);
-	        });
-	
-	        container.appendChild(section);
-	    });
-	};
-	
-	// --- ABIARAZI ---
-	renderFilters();
-	renderContent();
-	
-	// --- BILAKETA ---
-	searchInput.addEventListener('input', e => {
-	    currentSearch = e.target.value;
-	    renderContent();
-	});
-	
-	// --- MODALA ITXI ---
-	const closeModal = () => {
-	    overlay.style.opacity = '0'; // Aplicas la opacidad al overlay
-	    setTimeout(() => overlay.remove(), 200); // Borras el contenedor padre (que se lleva al modal por delante)
-	};
-	
-	modal.querySelector('#closeProjModal').onclick = closeModal;
-	modal.querySelector('#cancelProj').onclick = closeModal;
-	
-	// --- GORDE ---
-	finishBtn.onclick = async () => {
-	    finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-	    finishBtn.disabled = true;
-	
-	    try {
-	        const newSelection = Array.from(selectedIds).map(id => {
-	            const item = catalog.find(c => String(c.id) === id);
-	            return item ? {
-	                id: item.id,
-	                name: item.name,
-	                type: item.type,
-	                agent: item.agent,
-	                color: item.color,
-	                logoBase64: item.logoBase64
-	            } : null;
-	        }).filter(Boolean);
-	
-	        await this.updateContentField('extProy', newSelection);
-	
-	        if (window.ui?.renderSubjectDetail) {
-	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-	        }
-	
-	        closeModal();
-	        console.log(`✅ ${newSelection.length} proiektu gorde dira`);
-	
-	    } catch (error) {
-	        console.error("❌ Errorea:", error);
-	        alert("Errorea: " + error.message);
-	    } finally {
-	        finishBtn.innerHTML = `Gorde (${selectedIds.size})`;
-	        finishBtn.disabled = false;
-	    }
-	};
-	
-	// Autofocus
-	setTimeout(() => searchInput.focus(), 50);
-
-}*/
-
 	openProjectsSelector() {
 	    console.log("--> Proiektu hautatzailea irekitzen (UX berriarekin)");
 	
@@ -4292,7 +3863,7 @@ openPreReqEditor() {
     modal.classList.remove('hidden');
 }
 		
-openSignActEditor() {
+/*openSignActEditor() {
     if (!this.currentSubject) {
         alert("Irakasgai bat hautatu behar duzu.");
         return;
@@ -4577,6 +4148,321 @@ openSignActEditor() {
     };
 
     // 8. Inicializar
+    renderList();
+    modal.classList.remove('hidden');
+}*/
+
+openSignActEditor() {
+    if (!this.currentSubject) {
+        alert("Irakasgai bat hautatu behar duzu lehenik.");
+        return;
+    }
+
+    console.log("⭐ Jarduera esanguratsuen editorea:", this.currentSubject.subjectTitle);
+
+    // 1. Modal setup
+    const modal = document.getElementById('listEditorModal');
+    const container = document.getElementById('listEditorContainer');
+    const titleEl = document.getElementById('listEditorTitle');
+    const inputTop = document.getElementById('newItemInput')?.parentElement;
+
+    if (inputTop) inputTop.classList.add('hidden');
+    if (titleEl) {
+        titleEl.innerHTML = `
+            <div class="flex items-center gap-2">
+                <div class="p-2 bg-purple-100 rounded-lg text-purple-600">
+                    <i class="fas fa-star"></i>
+                </div>
+                <span>Jarduera Esanguratsuak - <span class="text-gray-500">${this.currentSubject.subjectTitle}</span></span>
+            </div>
+        `;
+    }
+
+    // 2. Datuak kargatu
+    let localList = [];
+    try {
+        localList = JSON.parse(JSON.stringify(
+            this.currentSubject.content?.signAct || this.currentSubject.signAct || []
+        ));
+    } catch (e) {
+        console.warn("❌ signAct datuak kargatzean errorea:", e);
+        localList = [];
+    }
+
+    // 3. Katalogoa prestatu
+    const projectsCatalog = this.adminCatalogs?.externalProjects || [];
+    const typeColorMap = {};
+    const agentsSet = new Set();
+    const typesSet = new Set();
+
+    projectsCatalog.forEach(proj => {
+        if (proj.type) {
+            typesSet.add(proj.type);
+            if (proj.color) typeColorMap[proj.type] = proj.color;
+        }
+        if (proj.agent) agentsSet.add(proj.agent);
+    });
+
+    const allAgents = [...agentsSet].sort();
+    const allTypes = [...typesSet].sort();
+
+    // 4. HTML EGITURA (UX hobetua baina aldaketa minimoekin)
+    container.innerHTML = `
+        <div id="signActEditor" class="space-y-4">
+            <!-- GOIBURUA + GEHITU BOTOIA -->
+            <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div>
+                    <h4 class="font-bold text-gray-800">Definitu Jarduerak</h4>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Sartu irakasgaian egingo diren jarduera berezien xehetasunak
+                    </p>
+                </div>
+                <button id="btnAddSignAct" 
+                    class="text-sm bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 font-bold flex items-center gap-2 shadow-sm transition-all active:scale-95">
+                    <i class="fas fa-plus"></i> Jarduera Berria
+                </button>
+            </div>
+
+            <!-- ZERBURUA + SELEKTORE AZKARRAK -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div class="grid grid-cols-12 gap-3 p-3 bg-gray-50 border-b text-xs font-bold text-gray-500 uppercase tracking-wider items-center">
+                    <div class="col-span-4 pl-2">Jarduera Izena</div>
+                    <div class="col-span-3">Agentea</div>
+                    <div class="col-span-3">Mota</div>
+                    <div class="col-span-2">Kolorea/Ekintzak</div>
+                </div>
+
+                <!-- SELEKTORE AZKARRAK (errenkada bereizi gisa, UX hobetua) -->
+                <div class="grid grid-cols-12 gap-3 p-2 bg-purple-50/50 border-b border-purple-100">
+                    <div class="col-span-4"></div>
+                    <div class="col-span-3">
+                        <select id="quickAgentSelect" class="w-full text-xs border border-purple-200 rounded px-2 py-1.5 bg-white focus:ring-1 focus:ring-purple-300 outline-none">
+                            <option value="">Agente azkarra...</option>
+                            ${allAgents.map(a => `<option value="${a}">${a}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="col-span-3">
+                        <select id="quickTypeSelect" class="w-full text-xs border border-purple-200 rounded px-2 py-1.5 bg-white focus:ring-1 focus:ring-purple-300 outline-none">
+                            <option value="">Mota azkarra...</option>
+                            ${allTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="col-span-2 text-xs text-purple-500 flex items-center justify-end pr-2">
+                        <i class="fas fa-bolt mr-1"></i> Lasterbidea
+                    </div>
+                </div>
+
+                <!-- ZERRENDA DINAMIKOA -->
+                <div id="signActList" class="max-h-[55vh] overflow-y-auto p-2 space-y-2 bg-gray-50/50"></div>
+            </div>
+        </div>
+    `;
+
+    const listContainer = document.getElementById('signActList');
+
+    // 5. ZERRENDAREN MARRAZKETA
+    const renderList = () => {
+        listContainer.innerHTML = "";
+
+        if (localList.length === 0) {
+            listContainer.innerHTML = `
+                <div class="text-center py-12 px-4">
+                    <div class="w-16 h-16 bg-purple-50 text-purple-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-clipboard-list text-2xl"></i>
+                    </div>
+                    <h3 class="text-gray-700 font-bold mb-1">Ez dago jarduerarik</h3>
+                    <p class="text-sm text-gray-500 mb-4">Irakasgai honek ez du jarduera esanguratsurik oraindik.</p>
+                    <button id="btnEmptyAdd" class="text-sm bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium">
+                        <i class="fas fa-plus mr-2 text-purple-500"></i> Sortu lehenengoa
+                    </button>
+                </div>
+            `;
+            document.getElementById('btnEmptyAdd')?.addEventListener('click', addNewItem);
+            return;
+        }
+
+        localList.forEach((item, index) => {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-12 gap-3 p-3 bg-white border border-gray-100 rounded-lg shadow-sm hover:border-purple-200 transition-colors items-center group';
+
+            const displayColor = item.color || '#e2e8f0';
+
+            row.innerHTML = `
+                <div class="col-span-4">
+                    <input type="text"
+                        class="w-full text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none px-3 py-2 field-name transition-shadow"
+                        value="${item.name || ''}"
+                        placeholder="Adib: Praktika laborategian..."
+                        data-index="${index}">
+                </div>
+
+                <div class="col-span-3">
+                    <select class="w-full text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none px-2 py-2 field-agent cursor-pointer bg-white" data-index="${index}">
+                        <option value="">Aukeratu...</option>
+                        ${allAgents.map(agent => `
+                            <option value="${agent}" ${agent === item.agent ? 'selected' : ''}>${agent}</option>
+                        `).join('')}
+                    </select>
+                </div>
+
+                <div class="col-span-3">
+                    <div class="relative flex items-center">
+                        <div class="absolute left-3 w-3 h-3 rounded-full border border-gray-300 shadow-sm z-10 indicator-color" style="background-color: ${displayColor}"></div>
+                        <select class="w-full text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-purple-100 focus:border-purple-400 outline-none pl-8 pr-2 py-2 field-type cursor-pointer bg-white" data-index="${index}">
+                            <option value="">Mota...</option>
+                            ${allTypes.map(type => `
+                                <option value="${type}" ${type === item.type ? 'selected' : ''}>${type}</option>
+                            `).join('')}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-span-2 flex items-center gap-2 justify-end">
+                    <input type="color" 
+                        class="w-8 h-8 p-0.5 border border-gray-300 rounded cursor-pointer field-color"
+                        value="${displayColor}"
+                        data-index="${index}"
+                        title="Aldatu kolorea">
+                    <button class="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-md delete-btn transition-colors" 
+                        data-index="${index}" 
+                        title="Ezabatu jarduera">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
+
+            listContainer.appendChild(row);
+
+            // Listeners (mantendu lehen bertsioaren logika, UX leunarekin)
+            const nameInput = row.querySelector('.field-name');
+            const agentInput = row.querySelector('.field-agent');
+            const typeInput = row.querySelector('.field-type');
+            const colorInput = row.querySelector('.field-color');
+            const colorIndicator = row.querySelector('.indicator-color');
+            const deleteBtn = row.querySelector('.delete-btn');
+
+            const updateItem = () => {
+                localList[index].name = nameInput.value;
+                localList[index].agent = agentInput.value;
+                localList[index].type = typeInput.value;
+                localList[index].color = colorInput.value;
+            };
+
+            nameInput.addEventListener('input', updateItem);
+            agentInput.addEventListener('change', updateItem);
+
+            typeInput.addEventListener('change', (e) => {
+                const newType = e.target.value;
+                if (newType && typeColorMap[newType]) {
+                    const newColor = typeColorMap[newType];
+                    colorInput.value = newColor;
+                    colorIndicator.style.backgroundColor = newColor;
+                }
+                updateItem();
+            });
+
+            colorInput.addEventListener('input', (e) => {
+                colorIndicator.style.backgroundColor = e.target.value;
+                updateItem();
+            });
+
+            deleteBtn.addEventListener('click', () => {
+                row.classList.add('opacity-50', 'scale-[0.98]');
+                setTimeout(() => {
+                    localList.splice(index, 1);
+                    renderList();
+                    // Snackbar estiloan feedback-a
+                    if (window.ui?.showNotification) {
+                        window.ui.showNotification('Jarduera ezabatu da', 'info');
+                    }
+                }, 150);
+            });
+        });
+    };
+
+    // 6. Elementu berriak sortzeko logika
+    const addNewItem = () => {
+        localList.push({
+            name: '',
+            agent: '',
+            type: '',
+            color: '#e2e8f0'
+        });
+        renderList();
+
+        setTimeout(() => {
+            const inputs = listContainer.querySelectorAll('.field-name');
+            if (inputs.length > 0) {
+                const lastInput = inputs[inputs.length - 1];
+                lastInput.focus();
+                lastInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 50);
+    };
+
+    // 7. Selektore azkarren logika
+    document.getElementById('quickAgentSelect')?.addEventListener('change', function() {
+        if (this.value && localList.length > 0) {
+            const lastIndex = localList.length - 1;
+            localList[lastIndex].agent = this.value;
+            renderList();
+            this.value = ''; // Reset
+        }
+    });
+
+    document.getElementById('quickTypeSelect')?.addEventListener('change', function() {
+        if (this.value && localList.length > 0) {
+            const lastIndex = localList.length - 1;
+            localList[lastIndex].type = this.value;
+            if (typeColorMap[this.value]) {
+                localList[lastIndex].color = typeColorMap[this.value];
+            }
+            renderList();
+            this.value = ''; // Reset
+        }
+    });
+
+    document.getElementById('btnAddSignAct').addEventListener('click', addNewItem);
+
+    // 8. Gorde botoiaren logika (ALERTrik GABE)
+    const saveBtn = document.getElementById('saveListBtn');
+    const newSaveBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+
+    newSaveBtn.onclick = async () => {
+        const filteredList = localList.filter(item => item.name && item.name.trim() !== '');
+        
+        if (filteredList.length < localList.length) {
+            console.warn(`⚠️ Izenik gabeko ${localList.length - filteredList.length} jarduera baztertu dira.`);
+        }
+
+        newSaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Gordetzen...';
+        newSaveBtn.disabled = true;
+
+        try {
+            await this.updateContentField('signAct', filteredList);
+
+            if (window.ui?.renderSubjectDetail) {
+                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+            }
+
+            modal.classList.add('hidden');
+            
+            // Snackbar erabili ALERT-en ordez
+            if (typeof this.showNotification === 'function') {
+                this.showNotification(`${filteredList.length} jarduera esanguratsu gorde dira!`, 'success');
+            }
+
+        } catch (error) {
+            console.error('❌ Errorea jarduerak gordetzean:', error);
+            alert(`Errorea gordetzean: ${error.message}`); // HAU BAI ONARTZEN DA (error kasuan bakarrik)
+        } finally {
+            newSaveBtn.innerHTML = 'Gorde Aldaketak';
+            newSaveBtn.disabled = false;
+        }
+    };
+
+    // 9. Abiarazi
     renderList();
     modal.classList.remove('hidden');
 }
@@ -6109,6 +5995,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
