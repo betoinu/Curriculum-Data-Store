@@ -2605,8 +2605,6 @@ openProjectsCatalogEditor() {
 	    overlay.appendChild(modal);
 	    document.body.appendChild(overlay);
 	
-	    // (Aquí paramos, como pediste)
-	}
 	// -----------------------------------------
 	// 3. LOGIKA ETA INTERAKZIOA
 	// -----------------------------------------
@@ -2923,8 +2921,7 @@ openProjectsCatalogEditor() {
 	        finishBtn.disabled = false;
 	    }
 	};
-
-    
+	
     setTimeout(() => searchInput.focus(), 50);
 }
 
@@ -5764,6 +5761,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
