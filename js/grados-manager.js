@@ -4233,7 +4233,7 @@ openSignActEditor() {
                 </div>
 
                 <!-- SELEKTORE AZKARRAK (errenkada bereizi gisa, UX hobetua) -->
-                <div class="grid grid-cols-12 gap-3 p-2 bg-purple-50/50 border-b border-purple-100">
+                <!-- <div class="grid grid-cols-12 gap-3 p-2 bg-purple-50/50 border-b border-purple-100">
                     <div class="col-span-4"></div>
                     <div class="col-span-3">
                         <select id="quickAgentSelect" class="w-full text-xs border border-purple-200 rounded px-2 py-1.5 bg-white focus:ring-1 focus:ring-purple-300 outline-none">
@@ -4250,7 +4250,7 @@ openSignActEditor() {
                     <div class="col-span-2 text-xs text-purple-500 flex items-center justify-end pr-2">
                         <i class="fas fa-bolt mr-1"></i> Lasterbidea
                     </div>
-                </div>
+                </div> -->
 
                 <!-- ZERRENDA DINAMIKOA -->
                 <div id="signActList" class="max-h-[55vh] overflow-y-auto p-2 space-y-2 bg-gray-50/50"></div>
@@ -5995,6 +5995,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
