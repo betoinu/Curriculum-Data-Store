@@ -138,7 +138,6 @@ class MatricesInteractivas {
 
 renderEngine(ras, allCes, s) {
         let html = '';
-        const cesProcesados = new Set();
 
         // =========================================================
         // 1. IKASKUNTZA EMAITZA TEKNIKOAK (RA)
@@ -146,26 +145,31 @@ renderEngine(ras, allCes, s) {
         const rasTeknikoak = s.currentOfficialRAs || [];
         
         rasTeknikoak.forEach(ra => {
-            const raId = String(ra.raCode || ra.code || ra.id || '').trim();
+            // ZUZENEAN hartu memorian dagoen kodea (Ezer asmatu gabe)
+            const idBistaratzeko = String(ra.raCode || ra.code || ra.id || '').trim();
             const raDescription = ra.raDesc || ra.desc || ra.description || ra.name || '';
             
-            // Lotura zehatza
-            const ces = allCes.filter(c => String(c.raRelacionado || '').trim() === raId);
-            
+            // Irizpideak irakurri kode zehatz horrekin
+            const ces = allCes.filter(c => {
+                const rel = String(c.raRelacionado || '').trim();
+                const code = String(c.ceCode || '').trim();
+                // Bat dator raRelacionado-rekin EDO bere ceCode horrela hasten bada (adib: "BD3_RA1_CE1")
+                return rel === idBistaratzeko || (idBistaratzeko && code.startsWith(`${idBistaratzeko}_`));
+            });
+
             if (ces.length > 0) {
                 ces.forEach((ce, i) => {
-                    cesProcesados.add(ce.ceCode || ce.id);
-                    html += this.rowTemplate(raId, raDescription, ce, i === 0, ces.length, s);
+                    html += this.rowTemplate(idBistaratzeko, raDescription, ce, i === 0, ces.length, s);
                 });
             } else {
                 html += `<tr>
                     <td class="p-4 border-r bg-slate-50/50 align-top">
-                        <span class="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[9px] font-black mb-2 border border-indigo-100">${raId}</span>
+                        <span class="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[9px] font-black mb-2 border border-indigo-100">${idBistaratzeko}</span>
                         <p class="text-[11px] text-slate-700 leading-tight">${raDescription}</p>
                     </td>
                     <td colspan="3" class="p-4 bg-indigo-50/10 border-b border-indigo-100">
-                        <button onclick="window.matricesInteractivas.nuevoCE('${raId}')" class="w-full py-4 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-lg transition-all uppercase">
-                            <i class="fas fa-plus-circle mr-2"></i> Sortu lehen irizpidea (${raId})
+                        <button onclick="window.matricesInteractivas.nuevoCE('${idBistaratzeko}')" class="w-full py-4 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-lg transition-all uppercase">
+                            <i class="fas fa-plus-circle mr-2"></i> Sortu lehen irizpidea (${idBistaratzeko})
                         </button>
                     </td>
                 </tr>`;
@@ -178,7 +182,6 @@ renderEngine(ras, allCes, s) {
         const rasZeharkakoak = s.zhRAs || [];
         
         if (rasZeharkakoak.length > 0) {
-            // Zeharkakoentzako Goiburu Berezia
             html += `<tr class="bg-slate-200">
                 <td colspan="4" class="p-3 text-[10px] font-black text-slate-700 uppercase tracking-widest border-y border-slate-300 bg-slate-200/80">
                     <i class="fas fa-project-diagram mr-2 text-indigo-500"></i> Zeharkako Ikaskuntza Emaitzak (ZH)
@@ -186,29 +189,21 @@ renderEngine(ras, allCes, s) {
             </tr>`;
             
             rasZeharkakoak.forEach(zh => {
-                const zhId = String(zh.zhCode || zh.code || zh.id || '').trim();
+                // ZUZENEAN hartu memorian dagoen kodea ("ZH1", "ZH2"...) zero estrarik gabe
+                const idBistaratzeko = String(zh.zhCode || zh.code || zh.id || '').trim();
                 const zhDescription = zh.zhDesc || zh.desc || zh.description || zh.name || '';
                 
-                // Formatu posibleak Supabase-rekin lotzeko (ZH1 edo BD1_MAT_ZH1)
-                let posiblesIds = [zhId];
-                if (s.subjectCode) {
-                    const num = zhId.replace(/\D/g, ''); 
-                    if (num) {
-                        posiblesIds.push(`${s.subjectCode}_ZH${num}`);                 
-                        posiblesIds.push(`${s.subjectCode}_ZH${num.padStart(2, '0')}`); 
-                    }
-                }
-
+                // Irizpideak irakurri kode zehatz horrekin
                 const ces = allCes.filter(c => {
                     const rel = String(c.raRelacionado || '').trim();
-                    return posiblesIds.includes(rel);
+                    const code = String(c.ceCode || '').trim();
+                    
+                    // Bat dator raRelacionado-rekin EDO bere ceCode horrela hasten bada (adib: "ZH1.CE1")
+                    return rel === idBistaratzeko || (idBistaratzeko && code.startsWith(`${idBistaratzeko}.`));
                 });
-
-                const idBistaratzeko = ces.length > 0 ? ces[0].raRelacionado : (posiblesIds[1] || zhId);
 
                 if (ces.length > 0) {
                     ces.forEach((ce, i) => {
-                        cesProcesados.add(ce.ceCode || ce.id);
                         html += this.rowTemplate(idBistaratzeko, zhDescription, ce, i === 0, ces.length, s);
                     });
                 } else {
@@ -226,6 +221,9 @@ renderEngine(ras, allCes, s) {
                 }
             });
         }
+
+        return html;
+    }
 
         // =========================================================
         // 3. BENETAKO UMEZURTZAK (Segurtasun neurria)
@@ -522,6 +520,7 @@ renderEngine(ras, allCes, s) {
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
+
 
 
 
