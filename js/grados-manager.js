@@ -3207,7 +3207,18 @@ openProjectsCatalogEditor() {
 	        updateToggleBtnStyle();
 	        renderContent();
 	    });
-	
+		
+		// --- ABIARAZI ---
+		renderFilters();
+		renderContent();
+		
+		// --- BILAKETA ---
+		searchInput.addEventListener('input', e => {
+		    currentSearch = e.target.value;
+		    renderContent();
+		});
+		
+		// --- MODALA ITXI ---
 	    const closeModal = () => {
 	        overlay.style.opacity = '0';
 	        setTimeout(() => overlay.remove(), 200);
@@ -6105,6 +6116,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
