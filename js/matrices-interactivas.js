@@ -403,17 +403,31 @@ class MatricesInteractivas {
 
     // --- GORDE ETA IRTEN ---
     volver() { this.matrizPanel.classList.add('hidden'); }
-    async guardar() { 
-        if (gradosManager?.saveData) { 
-            await gradosManager.saveData(); 
-            alert("✅ Gorde da!"); 
-        } 
-    }
+    async guardar() {
+        try {
+            // Esta función ya existe en tu módulo y construye la matriz completa
+            const matriz = this.generarMatrizFinal();
     
-    // Auto-Save funtzioa (lehen bezala)
-    async guardarSilencioso() { 
-        if (gradosManager?.saveData) await gradosManager.saveData(); 
+            await gradosManager.updateContentField('matrizAlineacion', matriz);
+    
+            alert("✅ Lerrokatze-matrizea gorde da!");
+    
+        } catch (err) {
+            console.error("❌ Errorea matrizea gordetzean:", err);
+            alert("Errorea gordetzean: " + err.message);
+        }
     }
+
+    // Auto-Save funtzioa (lehen bezala)
+    async guardarSilencioso() {
+        try {
+            const matriz = this.generarMatrizFinal();
+            await gradosManager.updateContentField('matrizAlineacion', matriz);
+        } catch (err) {
+            console.error("❌ Auto-save errorea:", err);
+        }
+    }
+
 }
 
 // ---------------------------------------------
@@ -422,4 +436,5 @@ class MatricesInteractivas {
 // ---------------------------------------------
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
+
 export default matricesInteractivas;
