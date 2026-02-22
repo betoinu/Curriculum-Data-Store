@@ -4650,11 +4650,10 @@ generateUnitAutoCode(index) {
 
 		tr.innerHTML = `
 			<td class="px-2 py-2 w-[15%] align-top">
-				<input type="text" class="unit-code-input w-full text-xs font-mono font-bold text-gray-600 bg-transparent border-b border-transparent hover:border-gray-300 focus:outline-none py-1" 
-					   value="${code}" 
-					   readonly 
-					   title="Automatikoki sortua. Ezin da aldatu."
-					   style="border-bottom-color: ${areaColor}30; cursor: not-allowed; opacity: 0.8;">
+				<input type="text" class="unit-code-input w-full text-xs font-mono font-bold text-gray-700 bg-transparent border-b border-gray-300 focus:outline-none py-1" 
+				       value="${code}" 
+				       placeholder="Kodea..."
+				       style="border-bottom-color: ${areaColor}80;">
 			</td>
 
 			<td class="px-2 py-2 w-[20%] align-top">
@@ -4698,45 +4697,51 @@ generateUnitAutoCode(index) {
 		textarea.style.height = (textarea.scrollHeight) + 'px';
 	}
 
-	saveUnitEditor() {
-		if (!this.currentSubject) return;
+async saveUnitEditor() {
+    if (!this.currentSubject) return;
 
-		const rows = document.querySelectorAll('#unitEditorBody tr');
-		const newUnits = [];
+    const rows = document.querySelectorAll('#unitEditorBody tr');
+    const newUnits = [];
 
-		rows.forEach(row => {
-			const code = row.querySelector('.unit-code-input')?.value.trim();
-			const name = row.querySelector('.unit-name-input')?.value.trim();
-			const hours = row.querySelector('.unit-hours-input')?.value.trim();
-			const descriptorsText = row.querySelector('.unit-descriptors-input')?.value.trim();
+    rows.forEach((row, index) => {
+        const code = row.querySelector('.unit-code-input')?.value.trim();
+        const name = row.querySelector('.unit-name-input')?.value.trim();
+        const hours = row.querySelector('.unit-hours-input')?.value.trim();
+        const descriptorsText = row.querySelector('.unit-descriptors-input')?.value.trim();
 
-			// Guardamos si hay c¨®digo O nombre (para evitar filas vac¨ªas fantasma)
-			if (code || name) {
-				const descriptors = descriptorsText 
-					? descriptorsText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
-					: [];
-				
-				newUnits.push({
-					unitCode: code,
-					unitName: name,
-					irauOrd: hours,
-					descriptores: descriptors
-				});
-			}
-		});
+        if (code || name) {
+            const descriptors = descriptorsText 
+                ? descriptorsText.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+                : [];
 
-		this.currentSubject.unitateak = newUnits;
-		this.saveData();
+            newUnits.push({
+                // 🔥 B + C: regenerar si está vacío, respetar si está escrito
+                unitCode: code || this.generateUnitAutoCode(index),
+                unitName: name,
+                irauOrd: hours,
+                descriptores: descriptors
+            });
+        }
+    });
 
-		// Actualizar UI
-		document.getElementById('unitEditorModal').classList.add('hidden');
-		if (window.ui && window.ui.renderSubjectDetail) {
-			window.ui.renderSubjectDetail(this.currentSubject);
-		}
-		
-		console.log(`?? Guardadas ${newUnits.length} unidades.`);
-	}
-	
+    try {
+        await this.updateContentField('unitateak', newUnits);
+
+        if (window.ui?.renderSubjectDetail) {
+            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+        }
+
+        document.getElementById('unitEditorModal').classList.add('hidden');
+
+        console.log(`✅ Guardadas ${newUnits.length} unidades.`);
+        alert(`Unitateak eguneratu dira (${newUnits.length})`);
+
+    } catch (error) {
+        console.error("❌ Errorea unitateak gordetzean:", error);
+        alert("Errorea unitateak gordetzean: " + error.message);
+    }
+}
+
 	
     // --- MODALES Y AREAS (MANTENIDOS IGUAL) ---
 	injectAreaModal() {
@@ -5685,6 +5690,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
