@@ -2507,12 +2507,12 @@ openProjectsCatalogEditor() {
 	openProjectsSelector() {
 	    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
 	
-	    const subject = this.currentSubject;
+		const subject = this.currentSubject;
 		if (!subject) { 
-			console.warn("⏳ Esperando a que se cargue el subject..."); 
-			setTimeout(() => 
-				this.openProjectsSelector(), 50); 
-			return; 
+		    console.error("❌ No hay subject disponible");
+		    // Mostrar mensaje al usuario
+		    alert("Error: No se ha seleccionado ninguna asignatura");
+		    return; // ¡SIN RECURSIÓN!
 		}
 	
 	    // -----------------------------------------
@@ -5771,6 +5771,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
