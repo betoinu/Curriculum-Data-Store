@@ -1372,10 +1372,12 @@ openOdsSelector(subject) {
     content.querySelector('#closeOdsModal').onclick = closeModal;
     content.querySelector('#cancelOds').onclick = closeModal;
 
+	// 7. Gorde eta Itxi
 	content.querySelector('#finishOds').onclick = async () => {
 	    const btn = content.querySelector('#finishOds');
 	    if (btn.disabled) return;
 	    
+	    // Estado de carga
 	    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
 	    btn.disabled = true;
 	
@@ -1390,41 +1392,35 @@ openOdsSelector(subject) {
 	                color: ods.color,
 	                odsCode: ods.code
 	            }));
-			
-		// 7. Gorde
-		btn.onclick = async () => {
-		    btn.disabled = true;
-		    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-		
-		    try {
-		        // 🔥 1. Guardar usando el nuevo sistema
-		        await this.updateContentField('detailODS', newDetailODS);
-		
-		        // 🔥 2. Refrescar UI
-		        if (window.ui?.renderSubjectDetail) {
-		            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-		        }
-		
-		        // 🔥 3. Cerrar modal
-		        closeModal();
-		
-		        console.log(`✅ ${newDetailODS.length} ODS gorde dira`);
-		        alert(`ODS eguneratu dira (${newDetailODS.length})`);
-		
-		    } catch (error) {
-		        console.error("❌ Errorea ODS gordetzean:", error);
-		        alert("Errorea ODS gordetzean: " + error.message);
-		    } finally {
-		        btn.innerHTML = 'Gorde';
-		        btn.disabled = false;
-		    }
-		};
-	} 
-	finally { 
-		console.log("openOdsSelector amaituta"); 
-	}
-    // Autofocus bilaketan
-    setTimeout(() => searchInput.focus(), 100);
+	        
+	        // 2. Guardar usando el nuevo sistema (Directamente, sin otro onclick)
+	        await this.updateContentField('detailODS', newDetailODS);
+	        
+	        // 3. Refrescar UI
+	        if (window.ui?.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
+	        
+	        // 4. Cerrar modal y notificar
+	        closeModal();
+	        console.log(`✅ ${newDetailODS.length} ODS gorde dira`);
+	        alert(`ODS eguneratu dira (${newDetailODS.length})`);
+	        
+	    } catch (error) {
+	        console.error("❌ Errorea ODS gordetzean:", error);
+	        alert("Errorea ODS gordetzean: " + error.message);
+	        
+	        // Si falla, debemos volver a habilitar el botón para que puedan reintentar
+	        btn.innerHTML = `Gorde (${selectedIds.size})`;
+	        btn.disabled = false;
+	    } finally {
+	        console.log("openOdsSelector amaituta"); 
+	    }
+	};
+	
+	// Autofocus bilaketan
+	setTimeout(() => searchInput.focus(), 100);
+
 }
 	
 	// ?? FUNCION 1: GESTI¨®N DEL CAT¨¢LOGO IDU (Para el Sidebar - Master)
@@ -5689,6 +5685,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
