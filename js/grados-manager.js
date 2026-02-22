@@ -1390,36 +1390,35 @@ openOdsSelector(subject) {
 	                color: ods.color,
 	                odsCode: ods.code
 	            }));
-	
-	        // ✅ 2. EGUNERATU this.currentSubject (LEHENA)
-	        if (!this.currentSubject.content) this.currentSubject.content = {};
-	        this.currentSubject.content.detailODS = newDetailODS;
-	
-	        // ✅ 3. SUPABASE GORDE (this.currentSubject erabiliz)
-	        const { error } = await this.supabase
-	            .from('irakasgaiak')
-	            .update({ 
-	                content: this.currentSubject.content,  // ← HEMEN
-	                updated_at: new Date().toISOString()
-	            })
-	            .eq('id', this.currentSubject.id);  // ← HEMEN
-	
-	        if (error) throw error;
-	        
-	        // ✅ 4. UI EGUNERATU (this.currentSubject erabiliz)
-	        if (window.ui && window.ui.renderSubjectDetail) {
-	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-	        }
-	
-	        closeModal();
-	
-	    } catch (error) {
-	        console.error("❌ Errorea ODS gordetzean:", error);
-	        alert("Errorea ODS gordetzean: " + error.message);
-	        btn.innerHTML = 'Saiatu berriro';
-	        btn.disabled = false;
-	    }
-	};
+			
+		// 7. Gorde
+		btn.onclick = async () => {
+		    btn.disabled = true;
+		    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+		
+		    try {
+		        // 🔥 1. Guardar usando el nuevo sistema
+		        await this.updateContentField('detailODS', newDetailODS);
+		
+		        // 🔥 2. Refrescar UI
+		        if (window.ui?.renderSubjectDetail) {
+		            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+		        }
+		
+		        // 🔥 3. Cerrar modal
+		        closeModal();
+		
+		        console.log(`✅ ${newDetailODS.length} ODS gorde dira`);
+		        alert(`ODS eguneratu dira (${newDetailODS.length})`);
+		
+		    } catch (error) {
+		        console.error("❌ Errorea ODS gordetzean:", error);
+		        alert("Errorea ODS gordetzean: " + error.message);
+		    } finally {
+		        btn.innerHTML = 'Gorde';
+		        btn.disabled = false;
+		    }
+		};
 
     // Autofocus bilaketan
     setTimeout(() => searchInput.focus(), 100);
@@ -2033,6 +2032,7 @@ openIduSelector() {
 	    finishBtn.disabled = true;
 	
 	    try {
+	        // 1. Construir selección final
 	        const newSelection = Array.from(selectedIds).map(id => {
 	            const item = getFullObject(id);
 	            return {
@@ -2044,52 +2044,28 @@ openIduSelector() {
 	            };
 	        }).filter(Boolean);
 	
-	        // 🔴 1. JSON EGUNERATU - ZURE LEKU ZUZENEAN
-	        if (!subject.content) subject.content = {};
-	        subject.content.idujar = newSelection;  // 🔴 HAU DA ZURE ERABILTZEN DUZUENA!
-	        
-	        // 🔴 2. MEMORIA OSOA EGUNERATU
-	        /*if (this.currentDegreeData) {
-	            const subjectIndex = this.currentDegreeData.findIndex(
-	                s => s.idAsig === subject.idAsig
-	            );
-	            
-	            if (subjectIndex !== -1) {
-	                if (!this.currentDegreeData[subjectIndex].content) {
-	                    this.currentDegreeData[subjectIndex].content = {};
-	                }
-	                this.currentDegreeData[subjectIndex].content.idujar = newSelection;
-	                console.log("✅ Memoria eguneratuta - content.idujar");
-	            }
-	        }*/
+	        // 2. Guardar usando el nuevo sistema
+	        await this.updateContentField('idujar', newSelection);
 	
-	        // 🔴 3. SUPABASE-N GORDE (ZUZENEAN)
-	        const { error } = await this.supabase
-	            .from('irakasgaiak')
-	            .update({ 
-	                content: subject.content,  // 🔴 JSON osoa gordetzen duzu
-	                updated_at: new Date().toISOString()
-	            })
-	            .eq('id', subject.id);
+	        // 3. Refrescar UI
+	        if (window.ui?.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
 	
-	        if (error) throw error;
-	
-	        console.log("✅ Supabase-n gordeta - content.idujar");
+	        // 4. Cerrar modal
 	        closeModal();
 	
-	        // 🔴 4. UI FRESKATU
-	        if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-	            window.ui.renderSubjectDetail(subject, this.currentDegree);
-	        }
+	        console.log(`✅ ${newSelection.length} IDU gorde dira`);
+	        alert(`IDU eguneratu dira (${newSelection.length})`);
 	
 	    } catch (error) {
 	        console.error("❌ Errorea:", error);
 	        alert("Errorea: " + error.message);
-	        finishBtn.innerHTML = 'Saiatu berriro';
+	    } finally {
+	        finishBtn.innerHTML = 'Gorde';
 	        finishBtn.disabled = false;
 	    }
 	};
-
     setTimeout(() => searchInput.focus(), 50);
 }
 	
@@ -2807,29 +2783,45 @@ openProjectsSelector() {
     content.querySelector('#closeProjModal').onclick = closeModal;
     content.querySelector('#cancelProj').onclick = closeModal;
 
-    finishBtn.onclick = async () => {
-        finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        finishBtn.disabled = true;
-        try {
-            const newSelection = Array.from(selectedIds).map(id => {
-                const item = catalog.find(c => String(c.id) === String(id));
-                return item ? { id: item.id, name: item.name, range: item.range, type: item.type } : null;
-            }).filter(Boolean);
-
-            subject.content.externalProjects = newSelection;
-            const { error } = await this.supabase.from('irakasgaiak').update({ content: subject.content, updated_at: new Date().toISOString() }).eq('id', subject.id);
-            if (error) throw error;
-
-            closeModal();
-            if (window.ui && typeof window.ui.renderSubjectDetail === 'function') window.ui.renderSubjectDetail(subject, this.currentDegree);
-            else window.location.reload();
-        } catch (error) {
-            console.error("❌ Errorea:", error);
-            alert("Errorea: " + error.message);
-            finishBtn.innerHTML = 'Saiatu berriro';
-            finishBtn.disabled = false;
-        }
-    };
+	// Gorde
+	finishBtn.onclick = async () => {
+	    finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+	    finishBtn.disabled = true;
+	
+	    try {
+	        // 1. Construir selección final desde el catálogo
+	        const newSelection = Array.from(selectedIds).map(id => {
+	            const item = catalog.find(c => String(c.id) === String(id));
+	            return item ? {
+	                id: item.id,
+	                name: item.name,
+	                range: item.range,
+	                type: item.type
+	            } : null;
+	        }).filter(Boolean);
+	
+	        // 2. Guardar usando el nuevo sistema
+	        await this.updateContentField('externalProjects', newSelection);
+	
+	        // 3. Refrescar UI
+	        if (window.ui?.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
+	
+	        // 4. Cerrar modal
+	        closeModal();
+	
+	        console.log(`✅ ${newSelection.length} kanpo jarduera gorde dira`);
+	        alert(`Kanpo jarduerak eguneratu dira (${newSelection.length})`);
+	
+	    } catch (error) {
+	        console.error("❌ Errorea:", error);
+	        alert("Errorea: " + error.message);
+	    } finally {
+	        finishBtn.innerHTML = 'Gorde';
+	        finishBtn.disabled = false;
+	    }
+	};
     
     setTimeout(() => searchInput.focus(), 50);
 }
@@ -4126,66 +4118,46 @@ openSignActEditor() {
     };
 
     // 5. Gorde botoia
-    const saveBtn = this._setupSaveButtonRaw(modal);
-    saveBtn.onclick = async () => {
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-        saveBtn.disabled = true;
-        
-        try {
-            // 1. Filtroak (izena ez dutenak kendu)
-            const filteredList = localList.filter(item => 
-                item.name && item.name.trim()
-            );
-            
-            // Nahiz eta zerrenda hutsa izan, agian erabiltzaileak guztiak ezabatu nahi ditu,
-            // beraz, ez dut return egiten 0 bada, baizik eta array hutsa gordetzen uzten dut.
-            // Baina abisua eman nahi baduzu:
-            /*
-            if (filteredList.length === 0 && localList.length > 0) {
-                 alert("Mesedez, jarri izena jarduerari.");
-                 saveBtn.innerHTML = 'Gorde';
-                 saveBtn.disabled = false;
-                 return;
-            }
-            */
-            
-            // 2. Eguneratu subject.content
-            if (!this.currentSubject.content) {
-                this.currentSubject.content = {};
-            }
-            this.currentSubject.content.signAct = filteredList;
-            
-            // 3. Supabase eguneratu
-            const { error } = await this.supabase
-                .from('irakasgaiak')
-                .update({ 
-                    content: this.currentSubject.content,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', this.currentSubject.id);
-            
-            if (error) throw error;
-            
-            // 4. UI eguneratu
-            if (window.ui && window.ui.renderSubjectDetail) {
-                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-            }
-            
-            // 5. Modal itxi
-            modal.classList.add('hidden');
-            
-            // 6. Feedback
-            console.log(`✅ ${filteredList.length} jarduera esanguratsu gorde dira`);
-            alert(`✅ ${filteredList.length} jarduera esanguratsu gorde dira!`);
-            
-        } catch (error) {
-            console.error('❌ Errorea jarduerak gordetzean:', error);
-            alert(`Errorea gordetzean: ${error.message}`);
-        } finally {
-            saveBtn.innerHTML = 'Gorde';
-            saveBtn.disabled = false;
+const saveBtn = document.getElementById('saveListBtn');
+
+if (!saveBtn) {
+    console.error("❌ saveListBtn no existe en el DOM");
+    return;
+}
+
+saveBtn.onclick = async () => {
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+    saveBtn.disabled = true;
+    
+    try {
+        // 1. Filtrar elementos válidos
+        const filteredList = localList.filter(item => 
+            item.name && item.name.trim()
+        );
+
+        // 2. Guardar en Supabase usando el nuevo sistema
+        await this.updateContentField('signAct', filteredList);
+
+        // 3. Refrescar UI
+        if (window.ui?.renderSubjectDetail) {
+            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
         }
-    };
+
+        // 4. Cerrar modal
+        modal.classList.add('hidden');
+
+        // 5. Feedback
+        console.log(`✅ ${filteredList.length} jarduera esanguratsu gorde dira`);
+        alert(`✅ ${filteredList.length} jarduera esanguratsu gorde dira!`);
+
+    } catch (error) {
+        console.error('❌ Errorea jarduerak gordetzean:', error);
+        alert(`Errorea gordetzean: ${error.message}`);
+    } finally {
+        saveBtn.innerHTML = 'Gorde';
+        saveBtn.disabled = false;
+    }
+};
 
     // Hasieratu
     renderEditor();
@@ -5714,6 +5686,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
