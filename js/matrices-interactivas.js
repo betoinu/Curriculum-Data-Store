@@ -140,21 +140,21 @@ renderEngine(ras, allCes, s) {
         let html = '';
         const cesProcesados = new Set();
 
-        ras.forEach(ra => {
-            // 1. ZUZENEAN IRAKURRI (Ezer asmatu gabe)
-            // Supabasek 'zhCode' edo 'raCode' ekartzen badu (adib: "BD1_MAT_ZH1"), zuzenean hartu.
-            const raId = ra.zhCode || ra.raCode || ra.code || ra.id || "EZEZAGUNA";
-            const raDescription = ra.zhDesc || ra.raDesc || ra.desc || ra.description || ra.name || "";
-
-            // 2. LOTURA ZUZENA (1:1)
-            // JSON-eko "raRelacionado" eta RA-ren "raId" berdin-berdinak izan behar dira
-            const ces = allCes.filter(c => c.raRelacionado === raId);
+        // =========================================================
+        // 1. IKASKUNTZA EMAITZA TEKNIKOAK (RA)
+        // =========================================================
+        const rasTeknikoak = s.currentOfficialRAs || [];
+        
+        rasTeknikoak.forEach(ra => {
+            const raId = String(ra.raCode || ra.code || ra.id || '').trim();
+            const raDescription = ra.raDesc || ra.desc || ra.description || ra.name || '';
+            
+            // Lotura zehatza
+            const ces = allCes.filter(c => String(c.raRelacionado || '').trim() === raId);
             
             if (ces.length > 0) {
                 ces.forEach((ce, i) => {
-                    // Irizpidea prozesatutzat jo
                     cesProcesados.add(ce.ceCode || ce.id);
-                    // Errenkada marraztu
                     html += this.rowTemplate(raId, raDescription, ce, i === 0, ces.length, s);
                 });
             } else {
@@ -172,15 +172,71 @@ renderEngine(ras, allCes, s) {
             }
         });
 
-        // 3. LOTURA GALDUAK / UMEZURTZAK
+        // =========================================================
+        // 2. ZEHARKAKO IKASKUNTZA EMAITZAK (ZH)
+        // =========================================================
+        const rasZeharkakoak = s.zhRAs || [];
+        
+        if (rasZeharkakoak.length > 0) {
+            // Zeharkakoentzako Goiburu Berezia
+            html += `<tr class="bg-slate-200">
+                <td colspan="4" class="p-3 text-[10px] font-black text-slate-700 uppercase tracking-widest border-y border-slate-300 bg-slate-200/80">
+                    <i class="fas fa-project-diagram mr-2 text-indigo-500"></i> Zeharkako Ikaskuntza Emaitzak (ZH)
+                </td>
+            </tr>`;
+            
+            rasZeharkakoak.forEach(zh => {
+                const zhId = String(zh.zhCode || zh.code || zh.id || '').trim();
+                const zhDescription = zh.zhDesc || zh.desc || zh.description || zh.name || '';
+                
+                // Formatu posibleak Supabase-rekin lotzeko (ZH1 edo BD1_MAT_ZH1)
+                let posiblesIds = [zhId];
+                if (s.subjectCode) {
+                    const num = zhId.replace(/\D/g, ''); 
+                    if (num) {
+                        posiblesIds.push(`${s.subjectCode}_ZH${num}`);                 
+                        posiblesIds.push(`${s.subjectCode}_ZH${num.padStart(2, '0')}`); 
+                    }
+                }
+
+                const ces = allCes.filter(c => {
+                    const rel = String(c.raRelacionado || '').trim();
+                    return posiblesIds.includes(rel);
+                });
+
+                const idBistaratzeko = ces.length > 0 ? ces[0].raRelacionado : (posiblesIds[1] || zhId);
+
+                if (ces.length > 0) {
+                    ces.forEach((ce, i) => {
+                        cesProcesados.add(ce.ceCode || ce.id);
+                        html += this.rowTemplate(idBistaratzeko, zhDescription, ce, i === 0, ces.length, s);
+                    });
+                } else {
+                    html += `<tr>
+                        <td class="p-4 border-r bg-slate-50/50 align-top">
+                            <span class="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[9px] font-black mb-2 border border-indigo-100">${idBistaratzeko}</span>
+                            <p class="text-[11px] text-slate-700 leading-tight">${zhDescription}</p>
+                        </td>
+                        <td colspan="3" class="p-4 bg-indigo-50/10 border-b border-indigo-100">
+                            <button onclick="window.matricesInteractivas.nuevoCE('${idBistaratzeko}')" class="w-full py-4 text-[10px] font-bold text-indigo-400 hover:text-indigo-600 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-lg transition-all uppercase">
+                                <i class="fas fa-plus-circle mr-2"></i> Sortu lehen irizpidea (${idBistaratzeko})
+                            </button>
+                        </td>
+                    </tr>`;
+                }
+            });
+        }
+
+        // =========================================================
+        // 3. BENETAKO UMEZURTZAK (Segurtasun neurria)
+        // =========================================================
         const huerfanos = allCes.filter(c => !cesProcesados.has(c.ceCode || c.id));
         if (huerfanos.length > 0) {
-            html += `<tr class="bg-slate-200"><td colspan="4" class="p-2 text-[9px] font-black text-slate-500 uppercase text-center tracking-widest">Beste Irizpideak / Lotura Galduak</td></tr>`;
+            html += `<tr class="bg-red-50"><td colspan="4" class="p-2 text-[9px] font-black text-red-500 uppercase text-center tracking-widest border-y border-red-200">⚠ Lotura Galduak (Erroreak Datu-basean)</td></tr>`;
             
             huerfanos.forEach((ce) => {
                 const ceRel = ce.raRelacionado || "EZEZAGUNA";
-                // Zutabeak ez apurtzeko (true, 1) bidali behar da beti
-                html += this.rowTemplate(ceRel, "Deskribapen gabea", ce, true, 1, s);
+                html += this.rowTemplate(ceRel, "⚠ Irakasgaiak ez dauka RA/ZH hau memorian. Ezabatu edo esleitu berriro.", ce, true, 1, s);
             });
         }
         
@@ -466,6 +522,7 @@ renderEngine(ras, allCes, s) {
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
+
 
 
 
