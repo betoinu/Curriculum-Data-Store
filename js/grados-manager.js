@@ -2508,7 +2508,12 @@ openProjectsCatalogEditor() {
 	    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
 	
 	    const subject = this.currentSubject;
-	    if (!subject) return;
+		if (!subject) { 
+			console.warn("⏳ Esperando a que se cargue el subject..."); 
+			setTimeout(() => 
+				this.openProjectsSelector(), 50); 
+			return; 
+		}
 	
 	    // -----------------------------------------
 	    // 1. DATUAK PRESTATU
@@ -5766,6 +5771,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
