@@ -2718,7 +2718,7 @@ openProjectsCatalogEditor() {
 	// --- EDUKIA MARRAZTU ---
 	const renderContent = () => {
 	    container.innerHTML = '';
-	    
+	
 	    let filtered = catalog.filter(item => {
 	        const matchesSearch =
 	            !currentSearch ||
@@ -2747,7 +2747,6 @@ openProjectsCatalogEditor() {
 	    }
 	    noResults.classList.add('hidden');
 	
-	    // Multzokatu TYPE arabera
 	    const groups = {};
 	    filtered.forEach(item => {
 	        const cat = item.type || 'BESTELAKOAK';
@@ -2755,7 +2754,6 @@ openProjectsCatalogEditor() {
 	        groups[cat].push(item);
 	    });
 	
-	    // TYPE ordena mantendu
 	    const categoriesToShow =
 	        (currentFilter === 'all' || currentFilter === 'selected')
 	            ? uniqueTypes.filter(t => groups[t])
@@ -2871,24 +2869,34 @@ openProjectsCatalogEditor() {
 	        container.appendChild(section);
 	    });
 	};
-
-    renderFilters();
-    renderContent();
-
-    searchInput.addEventListener('input', (e) => { currentSearch = e.target.value; renderContent(); });
-    const closeModal = () => { modal.style.opacity = '0'; setTimeout(() => modal.remove(), 200); };
-    content.querySelector('#closeProjModal').onclick = closeModal;
-    content.querySelector('#cancelProj').onclick = closeModal;
-
+	
+	// --- ABIARAZI ---
+	renderFilters();
+	renderContent();
+	
+	// --- BILAKETA ---
+	searchInput.addEventListener('input', e => {
+	    currentSearch = e.target.value;
+	    renderContent();
+	});
+	
+	// --- MODALA ITXI ---
+	const closeModal = () => {
+	    modal.style.opacity = '0';
+	    setTimeout(() => modal.remove(), 200);
+	};
+	
+	modal.querySelector('#closeProjModal').onclick = closeModal;
+	modal.querySelector('#cancelProj').onclick = closeModal;
+	
 	// --- GORDE ---
 	finishBtn.onclick = async () => {
 	    finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
 	    finishBtn.disabled = true;
 	
 	    try {
-	        // 1. Construir selección final desde el catálogo
 	        const newSelection = Array.from(selectedIds).map(id => {
-	            const item = catalog.find(c => String(c.id) === String(id));
+	            const item = catalog.find(c => String(c.id) === id);
 	            return item ? {
 	                id: item.id,
 	                name: item.name,
@@ -2899,19 +2907,14 @@ openProjectsCatalogEditor() {
 	            } : null;
 	        }).filter(Boolean);
 	
-	        // 2. Guardar COHERENTEMENTE en extProy
 	        await this.updateContentField('extProy', newSelection);
 	
-	        // 3. Refrescar UI
 	        if (window.ui?.renderSubjectDetail) {
 	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
 	        }
 	
-	        // 4. Cerrar modal
 	        closeModal();
-	
 	        console.log(`✅ ${newSelection.length} proiektu gorde dira`);
-	        alert(`Proiektuak eguneratu dira (${newSelection.length})`);
 	
 	    } catch (error) {
 	        console.error("❌ Errorea:", error);
@@ -2922,7 +2925,9 @@ openProjectsCatalogEditor() {
 	    }
 	};
 	
-    setTimeout(() => searchInput.focus(), 50);
+	// Autofocus
+	setTimeout(() => searchInput.focus(), 50);
+
 }
 
 	// Helper para configurar el bot¨®n guardar de estos modales
@@ -5761,6 +5766,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
