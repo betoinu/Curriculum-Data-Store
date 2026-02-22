@@ -463,10 +463,3 @@ const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
 
-// ---------------------------------------------
-// GAKOA: HEMEN INSTANTZIATZEN DA KLASEA
-// Honek botoiak (onclick) funtzionarazten ditu.
-// ---------------------------------------------
-const matricesInteractivas = new MatricesInteractivas();
-window.matricesInteractivas = matricesInteractivas;
-export default matricesInteractivas;
