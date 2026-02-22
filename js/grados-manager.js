@@ -2508,12 +2508,10 @@ openProjectsCatalogEditor() {
 	    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
 	
 		const subject = this.currentSubject;
-		if (!subject) { 
-		    console.error("❌ No hay subject disponible");
-		    // Mostrar mensaje al usuario
-		    alert("Error: No se ha seleccionado ninguna asignatura");
-		    return; // ¡SIN RECURSIÓN!
-		}
+        if (!subject) {
+            alert("Irakasgai bat hautatu behar duzu lehenik.");
+            return;
+        }
 	
 	    // -----------------------------------------
 	    // 1. DATUAK PRESTATU
@@ -2887,8 +2885,8 @@ openProjectsCatalogEditor() {
 	
 	// --- MODALA ITXI ---
 	const closeModal = () => {
-	    modal.style.opacity = '0';
-	    setTimeout(() => modal.remove(), 200);
+	    overlay.style.opacity = '0'; // Aplicas la opacidad al overlay
+	    setTimeout(() => overlay.remove(), 200); // Borras el contenedor padre (que se lleva al modal por delante)
 	};
 	
 	modal.querySelector('#closeProjModal').onclick = closeModal;
@@ -5771,6 +5769,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
