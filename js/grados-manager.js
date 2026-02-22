@@ -4357,6 +4357,7 @@ openSignActEditor() {
                     const newColor = typeColorMap[newType];
                     colorInput.value = newColor;
                     colorIndicator.style.backgroundColor = newColor;
+					localList[index].color = newColor; // ← GARRANTZITSUA: localStorage eguneratu
                 }
                 updateItem();
             });
@@ -4410,17 +4411,23 @@ openSignActEditor() {
         }
     });
 
-    document.getElementById('quickTypeSelect')?.addEventListener('change', function() {
-        if (this.value && localList.length > 0) {
-            const lastIndex = localList.length - 1;
-            localList[lastIndex].type = this.value;
-            if (typeColorMap[this.value]) {
-                localList[lastIndex].color = typeColorMap[this.value];
-            }
-            renderList();
-            this.value = ''; // Reset
-        }
-    });
+	document.getElementById('quickTypeSelect')?.addEventListener('change', function() {
+	    if (this.value && localList.length > 0) {
+	        const lastIndex = localList.length - 1;
+	        localList[lastIndex].type = this.value;
+	        if (typeColorMap[this.value]) {
+	            localList[lastIndex].color = typeColorMap[this.value]; // ← Kolorea automatikoki
+	        }
+	        renderList();
+	        this.value = ''; // Reset
+	        
+	        // UX: focus-a azken errenkadara
+	        setTimeout(() => {
+	            const lastRow = listContainer.lastChild;
+	            lastRow?.querySelector('.field-name')?.focus();
+	        }, 50);
+	    }
+	});
 
     document.getElementById('btnAddSignAct').addEventListener('click', addNewItem);
 
@@ -5995,6 +6002,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
