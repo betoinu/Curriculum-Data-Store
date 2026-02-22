@@ -3208,16 +3208,6 @@ openProjectsCatalogEditor() {
 	        renderContent();
 	    });
 		
-		// --- ABIARAZI ---
-		renderFilters();
-		renderContent();
-		
-		// --- BILAKETA ---
-		searchInput.addEventListener('input', e => {
-		    currentSearch = e.target.value;
-		    renderContent();
-		});
-		
 		// --- MODALA ITXI ---
 	    const closeModal = () => {
 	        overlay.style.opacity = '0';
@@ -3275,8 +3265,11 @@ openProjectsCatalogEditor() {
 	            }
 	        }
 	    };
-	
-	    // Autofocus azkarra bilatzailean
+		
+		// Abiarazi marrazketa modala irekitzean! (HAU DA FALTA ZENA)
+		renderContent();
+	    
+		// Autofocus azkarra bilatzailean
 	    setTimeout(() => searchInput.focus(), 50);
 	}
 
@@ -6116,6 +6109,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
