@@ -2503,276 +2503,376 @@ openProjectsCatalogEditor() {
     };
 }
 	
-// ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
-openProjectsSelector() {
-    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
-    const subject = this.currentSubject;
-    if (!subject) return;
-
-    // 1. DATUAK PRESTATU
-    // Ziurtatu .content dela eta ez .context
-    if (!subject.content) subject.content = {};
-    const currentList = subject.extProy || subject.content.extProy || [];
-    const catalog = this.adminCatalogs.externalProjects || [];
-
-    // Garbitu aurreko modalak
-    document.querySelectorAll('.catalog-modal-overlay').forEach(m => m.remove());
-
-    // Kategoriak atera
-    const uniqueCategories = [...new Set(catalog.map(item => {
-        return Array.isArray(item.range) ? item.range[0] : (item.range || 'PROIEKTUAK');
-    }))].filter(c => c).sort();
-
-    // Estilo paleta
-    const stylePalette = [
-        { name: 'blue', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-        { name: 'emerald', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-        { name: 'purple', bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
-        { name: 'amber', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-        { name: 'rose', bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }
-    ];
-    const categoryStyles = {};
-    uniqueCategories.forEach((cat, index) => {
-        categoryStyles[cat] = stylePalette[index % stylePalette.length];
-    });
-
-    // 2. MODALA ERAIKI
-    const modal = document.createElement('div');
-    modal.className = "catalog-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
-    
-    const content = document.createElement('div');
-    content.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden";
-    
-    content.innerHTML = `
-        <div class="p-5 border-b flex justify-between items-center bg-gray-50">
-            <div>
-                <h3 class="font-bold text-xl text-gray-800">Proiektuak / PBL</h3>
-                <p class="text-sm text-gray-500">Hautatu <strong>${subject.subjectTitle || subject.name}</strong> irakasgaiari dagozkionak</p>
-            </div>
-            <button id="closeProjModal" class="p-2 hover:bg-gray-200 rounded-full transition"><i class="fas fa-times text-xl"></i></button>
-        </div>
-        
-        <div class="p-4 border-b bg-white flex flex-col sm:flex-row gap-3">
-            <div class="flex-1 relative">
-                <input type="text" id="projSearch" placeholder="Bilatu proiektua..." class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none">
-                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-            </div>
-            <div id="projFilters" class="flex gap-2 overflow-x-auto pb-1 sm:pb-0 items-center"></div>
-        </div>
-        
-        <div class="p-6 overflow-y-auto bg-gray-50 flex-1 relative">
-            <div id="projContent" class="space-y-6"></div>
-            <div id="noProjResults" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-500">
-                <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
-                <p>Ez da emaitzarik aurkitu</p>
-            </div>
-        </div>
-
-        <div class="p-4 border-t bg-white flex justify-between items-center shadow-md">
-            <div class="text-sm text-gray-600">
-                <span id="selectedProjCount" class="font-bold text-yellow-600 text-lg">${currentList.length}</span> hautatuta
-            </div>
-            <div class="flex gap-3">
-                <button id="cancelProj" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">Utzi</button>
-                <button id="finishProj" class="bg-yellow-500 text-white px-8 py-2 rounded-lg hover:bg-yellow-600 font-bold shadow-md transform active:scale-95 transition">
-                    Gorde (${currentList.length})
-                </button>
-            </div>
-        </div>
-    `;
-
-    modal.appendChild(content);
-    document.body.appendChild(modal);
-
-    // 3. LOGIKA ETA INTERAKZIOA
-    const container = content.querySelector('#projContent');
-    const searchInput = content.querySelector('#projSearch');
-    const filtersContainer = content.querySelector('#projFilters');
-    const noResults = content.querySelector('#noProjResults');
-    const selectedCountSpan = content.querySelector('#selectedProjCount');
-    const finishBtn = content.querySelector('#finishProj');
-    
-    let selectedIds = new Set(currentList.map(item => String(item.id)));
-    let currentFilter = 'all'; // 'all', 'selected', edo kategoria izena
-    let currentSearch = '';
-
-    // --- FILTROAK ---
-    const renderFilters = () => {
-        filtersContainer.innerHTML = '';
-        
-        // 1. "HAUTATUAK" BOTOIA (Berria)
-        const selectedBtn = document.createElement('button');
-        selectedBtn.id = 'filterSelectedBtn';
-        selectedBtn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${selectedIds.size})`;
-        selectedBtn.dataset.category = 'selected';
-        selectedBtn.onclick = () => { currentFilter = 'selected'; updateFilterStyles(); renderContent(); };
-        filtersContainer.appendChild(selectedBtn);
-
-        // Banatzaile txiki bat
-        const divider = document.createElement('div');
-        divider.className = "w-px h-6 bg-gray-300 mx-1";
-        filtersContainer.appendChild(divider);
-
-        // 2. "GUZTIAK" BOTOIA
-        const allBtn = document.createElement('button');
-        allBtn.textContent = 'Guztiak';
-        allBtn.dataset.category = 'all';
-        allBtn.onclick = () => { currentFilter = 'all'; updateFilterStyles(); renderContent(); };
-        filtersContainer.appendChild(allBtn);
-
-        // 3. KATEGORIAK
-        uniqueCategories.forEach(cat => {
-            const btn = document.createElement('button');
-            btn.textContent = cat;
-            btn.dataset.category = cat;
-            btn.onclick = () => { currentFilter = cat; updateFilterStyles(); renderContent(); };
-            filtersContainer.appendChild(btn);
-        });
-        updateFilterStyles();
-    };
-
-    const updateFilterStyles = () => {
-        const btns = filtersContainer.querySelectorAll('button');
-        btns.forEach(btn => {
-            const cat = btn.dataset.category;
-            const isActive = cat === currentFilter;
-            
-            if (cat === 'selected') {
-                // Eguneratu kontagailua beti
-                btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${selectedIds.size})`;
-                btn.className = `px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap flex items-center ${
-                    isActive 
-                    ? 'bg-yellow-100 text-yellow-700 border border-yellow-300 shadow-sm' 
-                    : 'bg-white text-gray-500 border border-gray-200 hover:bg-yellow-50 hover:text-yellow-600'
-                }`;
-            } else if (cat === 'all') {
-                btn.className = `px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap ${
-                    isActive ? 'bg-gray-800 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
-                }`;
-            } else {
-                const style = categoryStyles[cat] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' };
-                if (isActive) {
-                    btn.className = `px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap ${style.bg} ${style.text} ${style.border} shadow-md ring-1 ring-${style.name}-300`;
-                } else {
-                    btn.className = `px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap bg-white text-gray-500 border-gray-200 hover:${style.bg} hover:${style.text}`;
-                }
-            }
-        });
-    };
-
-    // --- EDUKIA MARRAZTU ---
-    const renderContent = () => {
-        container.innerHTML = '';
-        
-        let filtered = catalog.filter(item => {
-            const matchesSearch = !currentSearch || (item.name?.toLowerCase().includes(currentSearch.toLowerCase()));
-            let matchesFilter = true;
-            
-            if (currentFilter === 'selected') {
-                matchesFilter = selectedIds.has(String(item.id));
-            } else if (currentFilter !== 'all') {
-                const itemRange = Array.isArray(item.range) ? item.range[0] : (item.range || 'PROIEKTUAK');
-                matchesFilter = itemRange === currentFilter;
-            }
-            return matchesSearch && matchesFilter;
-        });
-        
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-        
-        if (filtered.length === 0) {
-            noResults.classList.remove('hidden');
-            noResults.querySelector('p').textContent = currentFilter === 'selected' ? "Ez dago proiekturik hautatuta" : "Ez da emaitzarik aurkitu";
-            return;
-        }
-        noResults.classList.add('hidden');
-
-        // Multzokatu
-        const groups = {};
-        filtered.forEach(item => {
-            const cat = Array.isArray(item.range) ? item.range[0] : (item.range || 'PROIEKTUAK');
-            if (!groups[cat]) groups[cat] = [];
-            groups[cat].push(item);
-        });
-
-        // Zein kategoria erakutsi? ('selected' edo 'all' denean denak, bestela bakarra)
-        const categoriesToShow = (currentFilter === 'all' || currentFilter === 'selected') ? uniqueCategories : [currentFilter];
-
-        categoriesToShow.forEach(category => {
-            const items = groups[category];
-            if (!items || items.length === 0) return;
-
-            const style = categoryStyles[category] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' };
-            
-            const section = document.createElement('div');
-            section.innerHTML = `
-                <div class="flex items-center gap-2 mb-3 px-2 sticky top-0 bg-gray-50/95 py-2 z-10 backdrop-blur-sm">
-                    <span class="px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}">${category}</span>
-                    <span class="text-xs text-gray-400 font-medium">${items.length}</span>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"></div>
-            `;
-            const grid = section.querySelector('.grid');
-
-            items.forEach(item => {
-                const idStr = String(item.id);
-                const isSelected = selectedIds.has(idStr);
-                const hasLogo = !!item.logoBase64;
-                const initials = (item.agent || '?').substring(0, 2).toUpperCase();
-                
-                const card = document.createElement('div');
-                card.className = `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
-                    isSelected ? 'bg-yellow-50 border-yellow-400 shadow-md' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
-                }`;
-                
-                card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                         <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100" style="${!hasLogo ? `background-color: ${item.color || '#fdba74'}` : 'background-color: white'}">
-                                ${hasLogo ? `<img src="${item.logoBase64}" class="w-full h-full object-contain p-0.5">` : `<span class="text-white font-bold text-[10px]">${initials}</span>`}
-                            </div>
-                            <span class="font-mono text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${item.type || 'PBL'}</span>
-                        </div>
-                        <div class="check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${isSelected ? 'bg-yellow-500 text-white scale-100' : 'bg-gray-100 text-transparent scale-90'}">
-                            <i class="fas fa-check text-xs"></i>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-700 font-medium leading-snug line-clamp-3 group-hover:text-gray-900">${item.name}</p>
-                `;
-
-                card.onclick = () => {
-                    const checkCircle = card.querySelector('.check-circle');
-                    if (selectedIds.has(idStr)) {
-                        selectedIds.delete(idStr);
-                        card.className = card.className.replace('bg-yellow-50 border-yellow-400 shadow-md', 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm');
-                        checkCircle.classList.replace('bg-yellow-500', 'bg-gray-100');
-                        checkCircle.classList.replace('text-white', 'text-transparent');
-                        checkCircle.classList.replace('scale-100', 'scale-90');
-                        
-                        if (currentFilter === 'selected') {
-                            card.style.display = 'none'; // Berehala ezkutatu
-                        }
-                    } else {
-                        selectedIds.add(idStr);
-                        card.className = card.className.replace('bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm', 'bg-yellow-50 border-yellow-400 shadow-md');
-                        checkCircle.classList.replace('bg-gray-100', 'bg-yellow-500');
-                        checkCircle.classList.replace('text-transparent', 'text-white');
-                        checkCircle.classList.replace('scale-90', 'scale-100');
-                    }
-                    
-                    // UI eguneratu
-                    const count = selectedIds.size;
-                    selectedCountSpan.textContent = count;
-                    finishBtn.innerHTML = `Gorde (${count})`;
-                    
-                    // Botoiaren testua ere eguneratu behar da parentesia aldatzeko
-                    const filterBtn = document.getElementById('filterSelectedBtn');
-                    if(filterBtn) filterBtn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${count})`;
-                };
-                grid.appendChild(card);
-            });
-            container.appendChild(section);
-        });
-    };
+	// ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
+	openProjectsSelector() {
+	    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
+	
+	    const subject = this.currentSubject;
+	    if (!subject) return;
+	
+	    // -----------------------------------------
+	    // 1. DATUAK PRESTATU
+	    // -----------------------------------------
+	    if (!subject.content) subject.content = {};
+	
+	    // LECTURA COHERENTE: extProy
+	    const currentList = subject.content.extProy || [];
+	
+	    // Katalogoa
+	    const catalog = this.adminCatalogs.externalProjects || [];
+	
+	    // TYPE bakarrak (range ez dagoenez, TYPE da benetako kategoria)
+	    const uniqueTypes = [...new Set(
+	        catalog.map(item => item.type).filter(Boolean)
+	    )].sort();
+	
+	    // Estilo paleta (Tailwind segurua)
+	    const stylePalette = [
+	        { bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    hoverBg: 'hover:bg-blue-100',    hoverText: 'hover:text-blue-800' },
+	        { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', hoverBg: 'hover:bg-emerald-100', hoverText: 'hover:text-emerald-800' },
+	        { bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200',  hoverBg: 'hover:bg-purple-100',  hoverText: 'hover:text-purple-800' },
+	        { bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   hoverBg: 'hover:bg-amber-100',   hoverText: 'hover:text-amber-800' },
+	        { bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200',    hoverBg: 'hover:bg-rose-100',    hoverText: 'hover:text-rose-800' }
+	    ];
+	
+	    // TYPE → estiloa
+	    const categoryStyles = {};
+	    uniqueTypes.forEach((type, index) => {
+	        categoryStyles[type] = stylePalette[index % stylePalette.length];
+	    });
+	
+	    // Aurreko modalak garbitu
+	    document.querySelectorAll('.catalog-modal-overlay').forEach(m => m.remove());
+	
+	    // -----------------------------------------
+	    // 2. MODALA ERAIKI
+	    // -----------------------------------------
+	    const overlay = document.createElement('div');
+	    overlay.className = "catalog-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
+	
+	    const modal = document.createElement('div');
+	    modal.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden";
+	
+	    modal.innerHTML = `
+	        <div class="p-5 border-b flex justify-between items-center bg-gray-50">
+	            <div>
+	                <h3 class="font-bold text-xl text-gray-800">Proiektuak / PBL</h3>
+	                <p class="text-sm text-gray-500">
+	                    Hautatu <strong>${subject.subjectTitle || subject.name || ''}</strong> irakasgaiari dagozkionak
+	                </p>
+	            </div>
+	            <button id="closeProjModal" class="p-2 hover:bg-gray-200 rounded-full transition">
+	                <i class="fas fa-times text-xl"></i>
+	            </button>
+	        </div>
+	
+	        <div class="p-4 border-b bg-white flex flex-col sm:flex-row gap-3">
+	            <div class="flex-1 relative">
+	                <input type="text" id="projSearch" placeholder="Bilatu proiektua..."
+	                    class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none">
+	                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+	            </div>
+	            <div id="projFilters" class="flex gap-2 overflow-x-auto pb-1 sm:pb-0 items-center"></div>
+	        </div>
+	
+	        <div class="p-6 overflow-y-auto bg-gray-50 flex-1 relative">
+	            <div id="projContent" class="space-y-6"></div>
+	            <div id="noProjResults"
+	                class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+	                <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
+	                <p>Ez da emaitzarik aurkitu</p>
+	            </div>
+	        </div>
+	
+	        <div class="p-4 border-t bg-white flex justify-between items-center shadow-md">
+	            <div class="text-sm text-gray-600">
+	                <span id="selectedProjCount"
+	                    class="font-bold text-yellow-600 text-lg">${currentList.length}</span> hautatuta
+	            </div>
+	            <div class="flex gap-3">
+	                <button id="cancelProj"
+	                    class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">
+	                    Utzi
+	                </button>
+	                <button id="finishProj"
+	                    class="bg-yellow-500 text-white px-8 py-2 rounded-lg hover:bg-yellow-600 font-bold shadow-md transform active:scale-95 transition">
+	                    Gorde (${currentList.length})
+	                </button>
+	            </div>
+	        </div>
+	    `;
+	
+	    overlay.appendChild(modal);
+	    document.body.appendChild(overlay);
+	
+	    // (Aquí paramos, como pediste)
+	}
+	// -----------------------------------------
+	// 3. LOGIKA ETA INTERAKZIOA
+	// -----------------------------------------
+	const container = modal.querySelector('#projContent');
+	const searchInput = modal.querySelector('#projSearch');
+	const filtersContainer = modal.querySelector('#projFilters');
+	const noResults = modal.querySelector('#noProjResults');
+	const selectedCountSpan = modal.querySelector('#selectedProjCount');
+	const finishBtn = modal.querySelector('#finishProj');
+	
+	let selectedIds = new Set(currentList.map(item => String(item.id)));
+	let currentFilter = 'all';
+	let currentSearch = '';
+	
+	// -----------------------------------------
+	// FILTROAK
+	// -----------------------------------------
+	const renderFilters = () => {
+	    filtersContainer.innerHTML = '';
+	
+	    // 1. HAUTATUAK
+	    const selectedBtn = document.createElement('button');
+	    selectedBtn.id = 'filterSelectedBtn';
+	    selectedBtn.dataset.filter = 'selected';
+	    selectedBtn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${selectedIds.size})`;
+	    selectedBtn.onclick = () => {
+	        currentFilter = 'selected';
+	        updateFilterStyles();
+	        renderContent();
+	    };
+	    filtersContainer.appendChild(selectedBtn);
+	
+	    // Divider
+	    const divider = document.createElement('div');
+	    divider.className = "w-px h-6 bg-gray-300 mx-1";
+	    filtersContainer.appendChild(divider);
+	
+	    // 2. GUZTIAK
+	    const allBtn = document.createElement('button');
+	    allBtn.textContent = 'Guztiak';
+	    allBtn.dataset.filter = 'all';
+	    allBtn.onclick = () => {
+	        currentFilter = 'all';
+	        updateFilterStyles();
+	        renderContent();
+	    };
+	    filtersContainer.appendChild(allBtn);
+	
+	    // 3. TYPE FILTROAK
+	    uniqueTypes.forEach(type => {
+	        const btn = document.createElement('button');
+	        btn.textContent = type;
+	        btn.dataset.filter = type;
+	        btn.onclick = () => {
+	            currentFilter = type;
+	            updateFilterStyles();
+	            renderContent();
+	        };
+	        filtersContainer.appendChild(btn);
+	    });
+	
+	    updateFilterStyles();
+	};
+	
+	// -----------------------------------------
+	// FILTROEN ESTILOAK
+	// -----------------------------------------
+	const updateFilterStyles = () => {
+	    const btns = filtersContainer.querySelectorAll('button');
+	
+	    btns.forEach(btn => {
+	        const filter = btn.dataset.filter;
+	        const isActive = filter === currentFilter;
+	
+	        // 1. HAUTATUAK
+	        if (filter === 'selected') {
+	            btn.innerHTML = `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${selectedIds.size})`;
+	            btn.className =
+	                `px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap flex items-center ${
+	                    isActive
+	                        ? 'bg-yellow-100 text-yellow-700 border border-yellow-300 shadow-sm'
+	                        : 'bg-white text-gray-500 border border-gray-200 hover:bg-yellow-50 hover:text-yellow-600'
+	                }`;
+	            return;
+	        }
+	
+	        // 2. GUZTIAK
+	        if (filter === 'all') {
+	            btn.className =
+	                `px-3 py-2 text-xs font-bold rounded transition-colors whitespace-nowrap ${
+	                    isActive
+	                        ? 'bg-gray-800 text-white shadow-md'
+	                        : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'
+	                }`;
+	            return;
+	        }
+	
+	        // 3. TYPE botoiak
+	        const style = categoryStyles[filter] || {
+	            bg: 'bg-gray-100',
+	            text: 'text-gray-700',
+	            border: 'border-gray-200'
+	        };
+	
+	        btn.className = isActive
+	            ? `px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap ${style.bg} ${style.text} ${style.border} shadow-md`
+	            : `px-3 py-2 text-xs font-bold rounded border transition-colors whitespace-nowrap bg-white text-gray-500 border-gray-200 hover:bg-gray-50`;
+	    });
+	};
+	
+	// --- EDUKIA MARRAZTU ---
+	const renderContent = () => {
+	    container.innerHTML = '';
+	    
+	    let filtered = catalog.filter(item => {
+	        const matchesSearch =
+	            !currentSearch ||
+	            (item.name?.toLowerCase().includes(currentSearch.toLowerCase()));
+	
+	        let matchesFilter = true;
+	
+	        if (currentFilter === 'selected') {
+	            matchesFilter = selectedIds.has(String(item.id));
+	        } else if (currentFilter !== 'all') {
+	            matchesFilter = item.type === currentFilter;
+	        }
+	
+	        return matchesSearch && matchesFilter;
+	    });
+	
+	    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+	
+	    if (filtered.length === 0) {
+	        noResults.classList.remove('hidden');
+	        noResults.querySelector('p').textContent =
+	            currentFilter === 'selected'
+	                ? "Ez dago proiekturik hautatuta"
+	                : "Ez da emaitzarik aurkitu";
+	        return;
+	    }
+	    noResults.classList.add('hidden');
+	
+	    // Multzokatu TYPE arabera
+	    const groups = {};
+	    filtered.forEach(item => {
+	        const cat = item.type || 'BESTELAKOAK';
+	        if (!groups[cat]) groups[cat] = [];
+	        groups[cat].push(item);
+	    });
+	
+	    // TYPE ordena mantendu
+	    const categoriesToShow =
+	        (currentFilter === 'all' || currentFilter === 'selected')
+	            ? uniqueTypes.filter(t => groups[t])
+	            : [currentFilter];
+	
+	    categoriesToShow.forEach(category => {
+	        const items = groups[category];
+	        if (!items || items.length === 0) return;
+	
+	        const style = categoryStyles[category] || {
+	            bg: 'bg-gray-100',
+	            text: 'text-gray-700',
+	            border: 'border-gray-200'
+	        };
+	
+	        const section = document.createElement('div');
+	        section.innerHTML = `
+	            <div class="flex items-center gap-2 mb-3 px-2 sticky top-0 bg-gray-50/95 py-2 z-10 backdrop-blur-sm">
+	                <span class="px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}">
+	                    ${category}
+	                </span>
+	                <span class="text-xs text-gray-400 font-medium">${items.length}</span>
+	            </div>
+	            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"></div>
+	        `;
+	
+	        const grid = section.querySelector('.grid');
+	
+	        items.forEach(item => {
+	            const idStr = String(item.id);
+	            const isSelected = selectedIds.has(idStr);
+	            const hasLogo = !!item.logoBase64;
+	            const initials = (item.agent || '?').substring(0, 2).toUpperCase();
+	
+	            const card = document.createElement('div');
+	            card.className =
+	                `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
+	                    isSelected
+	                        ? 'bg-yellow-50 border-yellow-400 shadow-md'
+	                        : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
+	                }`;
+	
+	            card.innerHTML = `
+	                <div class="flex justify-between items-start">
+	                    <div class="flex items-center gap-2">
+	                        <div class="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
+	                             style="${!hasLogo ? `background-color: ${item.color || '#fdba74'}` : 'background-color: white'}">
+	                            ${
+	                                hasLogo
+	                                    ? `<img src="${item.logoBase64}" class="w-full h-full object-contain p-0.5">`
+	                                    : `<span class="text-white font-bold text-[10px]">${initials}</span>`
+	                            }
+	                        </div>
+	                        <span class="font-mono text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">
+	                            ${item.type || 'PBL'}
+	                        </span>
+	                    </div>
+	
+	                    <div class="check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+	                        isSelected
+	                            ? 'bg-yellow-500 text-white scale-100'
+	                            : 'bg-gray-100 text-transparent scale-90'
+	                    }">
+	                        <i class="fas fa-check text-xs"></i>
+	                    </div>
+	                </div>
+	
+	                <p class="text-sm text-gray-700 font-medium leading-snug line-clamp-3 group-hover:text-gray-900">
+	                    ${item.name}
+	                </p>
+	            `;
+	
+	            card.onclick = () => {
+	                if (selectedIds.has(idStr)) {
+	                    selectedIds.delete(idStr);
+	                } else {
+	                    selectedIds.add(idStr);
+	                }
+	
+	                if (currentFilter === 'selected') {
+	                    renderContent();
+	                } else {
+	                    const isNowSelected = selectedIds.has(idStr);
+	                    card.className =
+	                        `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
+	                            isNowSelected
+	                                ? 'bg-yellow-50 border-yellow-400 shadow-md'
+	                                : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
+	                        }`;
+	
+	                    const checkCircle = card.querySelector('.check-circle');
+	                    checkCircle.className =
+	                        `check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+	                            isNowSelected
+	                                ? 'bg-yellow-500 text-white scale-100'
+	                                : 'bg-gray-100 text-transparent scale-90'
+	                        }`;
+	                }
+	
+	                const count = selectedIds.size;
+	                selectedCountSpan.textContent = count;
+	                finishBtn.innerHTML = `Gorde (${count})`;
+	
+	                const filterBtn = document.getElementById('filterSelectedBtn');
+	                if (filterBtn)
+	                    filterBtn.innerHTML =
+	                        `<i class="fas fa-check-circle mr-1"></i> Hautatuak (${count})`;
+	            };
+	
+	            grid.appendChild(card);
+	        });
+	
+	        container.appendChild(section);
+	    });
+	};
 
     renderFilters();
     renderContent();
@@ -2782,7 +2882,7 @@ openProjectsSelector() {
     content.querySelector('#closeProjModal').onclick = closeModal;
     content.querySelector('#cancelProj').onclick = closeModal;
 
-	// Gorde
+	// --- GORDE ---
 	finishBtn.onclick = async () => {
 	    finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
 	    finishBtn.disabled = true;
@@ -2794,13 +2894,15 @@ openProjectsSelector() {
 	            return item ? {
 	                id: item.id,
 	                name: item.name,
-	                range: item.range,
-	                type: item.type
+	                type: item.type,
+	                agent: item.agent,
+	                color: item.color,
+	                logoBase64: item.logoBase64
 	            } : null;
 	        }).filter(Boolean);
 	
-	        // 2. Guardar usando el nuevo sistema
-	        await this.updateContentField('externalProjects', newSelection);
+	        // 2. Guardar COHERENTEMENTE en extProy
+	        await this.updateContentField('extProy', newSelection);
 	
 	        // 3. Refrescar UI
 	        if (window.ui?.renderSubjectDetail) {
@@ -2810,17 +2912,18 @@ openProjectsSelector() {
 	        // 4. Cerrar modal
 	        closeModal();
 	
-	        console.log(`✅ ${newSelection.length} kanpo jarduera gorde dira`);
-	        alert(`Kanpo jarduerak eguneratu dira (${newSelection.length})`);
+	        console.log(`✅ ${newSelection.length} proiektu gorde dira`);
+	        alert(`Proiektuak eguneratu dira (${newSelection.length})`);
 	
 	    } catch (error) {
 	        console.error("❌ Errorea:", error);
 	        alert("Errorea: " + error.message);
 	    } finally {
-	        finishBtn.innerHTML = 'Gorde';
+	        finishBtn.innerHTML = `Gorde (${selectedIds.size})`;
 	        finishBtn.disabled = false;
 	    }
 	};
+
     
     setTimeout(() => searchInput.focus(), 50);
 }
@@ -5661,6 +5764,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
