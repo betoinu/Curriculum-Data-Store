@@ -1419,7 +1419,10 @@ openOdsSelector(subject) {
 		        btn.disabled = false;
 		    }
 		};
-
+	} 
+	finally { 
+		console.log("openOdsSelector amaituta"); 
+	}
     // Autofocus bilaketan
     setTimeout(() => searchInput.focus(), 100);
 }
@@ -4118,46 +4121,46 @@ openSignActEditor() {
     };
 
     // 5. Gorde botoia
-const saveBtn = document.getElementById('saveListBtn');
-
-if (!saveBtn) {
-    console.error("❌ saveListBtn no existe en el DOM");
-    return;
-}
-
-saveBtn.onclick = async () => {
-    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
-    saveBtn.disabled = true;
-    
-    try {
-        // 1. Filtrar elementos válidos
-        const filteredList = localList.filter(item => 
-            item.name && item.name.trim()
-        );
-
-        // 2. Guardar en Supabase usando el nuevo sistema
-        await this.updateContentField('signAct', filteredList);
-
-        // 3. Refrescar UI
-        if (window.ui?.renderSubjectDetail) {
-            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
-        }
-
-        // 4. Cerrar modal
-        modal.classList.add('hidden');
-
-        // 5. Feedback
-        console.log(`✅ ${filteredList.length} jarduera esanguratsu gorde dira`);
-        alert(`✅ ${filteredList.length} jarduera esanguratsu gorde dira!`);
-
-    } catch (error) {
-        console.error('❌ Errorea jarduerak gordetzean:', error);
-        alert(`Errorea gordetzean: ${error.message}`);
-    } finally {
-        saveBtn.innerHTML = 'Gorde';
-        saveBtn.disabled = false;
-    }
-};
+	const saveBtn = document.getElementById('saveListBtn');
+	
+	if (!saveBtn) {
+	    console.error("❌ saveListBtn no existe en el DOM");
+	    return;
+	}
+	
+	saveBtn.onclick = async () => {
+	    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+	    saveBtn.disabled = true;
+	    
+	    try {
+	        // 1. Filtrar elementos válidos
+	        const filteredList = localList.filter(item => 
+	            item.name && item.name.trim()
+	        );
+	
+	        // 2. Guardar en Supabase usando el nuevo sistema
+	        await this.updateContentField('signAct', filteredList);
+	
+	        // 3. Refrescar UI
+	        if (window.ui?.renderSubjectDetail) {
+	            window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	        }
+	
+	        // 4. Cerrar modal
+	        modal.classList.add('hidden');
+	
+	        // 5. Feedback
+	        console.log(`✅ ${filteredList.length} jarduera esanguratsu gorde dira`);
+	        alert(`✅ ${filteredList.length} jarduera esanguratsu gorde dira!`);
+	
+	    } catch (error) {
+	        console.error('❌ Errorea jarduerak gordetzean:', error);
+	        alert(`Errorea gordetzean: ${error.message}`);
+	    } finally {
+	        saveBtn.innerHTML = 'Gorde';
+	        saveBtn.disabled = false;
+	    }
+	};
 
     // Hasieratu
     renderEditor();
@@ -5686,6 +5689,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
