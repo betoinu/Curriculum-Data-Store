@@ -2504,7 +2504,7 @@ openProjectsCatalogEditor() {
 }
 	
 	// ?? FUNCION 2: SELECTOR DE ASIGNATURA (Checklist)
-	openProjectsSelector() {
+/*	openProjectsSelector() {
 	    console.log("--> Proiektu hautatzailea irekitzen (Hautatuak botoiarekin)");
 	
 		const subject = this.currentSubject;
@@ -2931,7 +2931,343 @@ openProjectsCatalogEditor() {
 	// Autofocus
 	setTimeout(() => searchInput.focus(), 50);
 
-}
+}*/
+
+	openProjectsSelector() {
+	    console.log("--> Proiektu hautatzailea irekitzen (UX berriarekin)");
+	
+	    const subject = this.currentSubject;
+	    if (!subject) {
+	        alert("Irakasgai bat hautatu behar duzu lehenik.");
+	        return;
+	    }
+	
+	    // -----------------------------------------
+	    // 1. DATUAK PRESTATU ETA SEGURTASUNEZ IRAKURRI
+	    // -----------------------------------------
+	    if (!subject.content) subject.content = {};
+	
+	    // 🚨 KONPONBIDEA 1: Datuak ziurtasunez irakurri (batzuetan objektuak dira, besteetan ID hutsak)
+	    const rawList = Array.isArray(subject.extProy) ? subject.extProy 
+	                  : Array.isArray(subject.content?.extProy) ? subject.content.extProy 
+	                  : [];
+	                  
+	    // Atera IDak modu seguruan (objektua bada .id irakurri, bestela balioa bera)
+	    let selectedIds = new Set(rawList.map(item => String(item?.id || item)));
+	
+	    // Katalogoa eta motak
+	    const catalog = this.adminCatalogs?.externalProjects || [];
+	    const uniqueTypes = [...new Set(catalog.map(item => item?.type).filter(Boolean))].sort();
+	
+	    // Estilo paleta
+	    const stylePalette = [
+	        { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+	        { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+	        { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+	        { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+	        { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }
+	    ];
+	    const categoryStyles = {};
+	    uniqueTypes.forEach((type, index) => {
+	        categoryStyles[type] = stylePalette[index % stylePalette.length];
+	    });
+	
+	    // Aurreko modalak garbitu
+	    document.querySelectorAll('.catalog-modal-overlay').forEach(m => m.remove());
+	
+	    // -----------------------------------------
+	    // 2. MODALA ERAIKI (UX BERRI ETA GARBIA)
+	    // -----------------------------------------
+	    const overlay = document.createElement('div');
+	    overlay.className = "catalog-modal-overlay fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-200";
+	
+	    const modal = document.createElement('div');
+	    modal.className = "bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden";
+	
+	    modal.innerHTML = `
+	        <div class="p-5 border-b flex justify-between items-center bg-gray-50">
+	            <div>
+	                <h3 class="font-bold text-xl text-gray-800">Proiektuak / PBL</h3>
+	                <p class="text-sm text-gray-500">
+	                    Hautatu <strong>${subject.subjectTitle || subject.name || ''}</strong> irakasgaiari dagozkionak
+	                </p>
+	            </div>
+	            <button id="closeProjModal" class="p-2 hover:bg-gray-200 rounded-full transition">
+	                <i class="fas fa-times text-xl"></i>
+	            </button>
+	        </div>
+	
+	        <div class="p-4 border-b bg-white flex flex-col sm:flex-row gap-4 items-center justify-between">
+	            <div class="flex-1 relative w-full sm:w-auto">
+	                <input type="text" id="projSearch" placeholder="Bilatu proiektua..."
+	                    class="w-full text-sm px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none">
+	                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+	            </div>
+	            
+	            <div class="flex gap-3 w-full sm:w-auto items-center">
+	                <button id="toggleSelectedBtn" class="px-4 py-2 text-sm font-bold rounded-lg border transition-colors flex items-center whitespace-nowrap ${selectedIds.size > 0 ? 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50' : 'opacity-50 cursor-not-allowed bg-gray-50 text-gray-400'}">
+	                    <i class="fas fa-check-circle mr-2"></i> Hautatuak (<span id="btnSelectedCount">${selectedIds.size}</span>)
+	                </button>
+	                
+	                <select id="typeSelect" class="text-sm font-medium px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 outline-none bg-white cursor-pointer min-w-[150px]">
+	                    <option value="all">Mota guztiak</option>
+	                    ${uniqueTypes.map(t => `<option value="${t}">${t}</option>`).join('')}
+	                </select>
+	            </div>
+	        </div>
+	
+	        <div class="p-6 overflow-y-auto bg-gray-50 flex-1 relative">
+	            <div id="projContent" class="space-y-6"></div>
+	            <div id="noProjResults" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+	                <i class="fas fa-search text-4xl mb-3 text-gray-300"></i>
+	                <p>Ez da emaitzarik aurkitu bilaketa honetarako</p>
+	            </div>
+	        </div>
+	
+	        <div class="p-4 border-t bg-white flex justify-between items-center shadow-md">
+	            <div class="text-sm text-gray-600">
+	                <span id="selectedProjCount" class="font-bold text-yellow-600 text-lg">${selectedIds.size}</span> hautatuta
+	            </div>
+	            <div class="flex gap-3">
+	                <button id="cancelProj" class="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium">Utzi</button>
+	                <button id="finishProj" class="bg-yellow-500 text-white px-8 py-2 rounded-lg hover:bg-yellow-600 font-bold shadow-md transform active:scale-95 transition">
+	                    Gorde (${selectedIds.size})
+	                </button>
+	            </div>
+	        </div>
+	    `;
+	
+	    overlay.appendChild(modal);
+	    document.body.appendChild(overlay);
+	
+	    // -----------------------------------------
+	    // 3. LOGIKA ETA EGOERAK (STATES)
+	    // -----------------------------------------
+	    const container = modal.querySelector('#projContent');
+	    const searchInput = modal.querySelector('#projSearch');
+	    const typeSelect = modal.querySelector('#typeSelect');
+	    const toggleSelectedBtn = modal.querySelector('#toggleSelectedBtn');
+	    
+	    const noResults = modal.querySelector('#noProjResults');
+	    const selectedCountSpan = modal.querySelector('#selectedProjCount');
+	    const btnSelectedCount = modal.querySelector('#btnSelectedCount');
+	    const finishBtn = modal.querySelector('#finishProj');
+	
+	    let currentSearch = '';
+	    let currentTypeFilter = 'all';
+	    let showOnlySelected = false;
+	
+	    // --- EDUKIA MARRAZTU ---
+	    const renderContent = () => {
+	        container.innerHTML = '';
+	
+	        // Iragazkiak aplikatu
+	        let filtered = catalog.filter(item => {
+	            if (!item) return false;
+	            
+	            const matchesSearch = !currentSearch || (item.name || '').toLowerCase().includes(currentSearch.toLowerCase());
+	            const matchesType = currentTypeFilter === 'all' || item.type === currentTypeFilter;
+	            const matchesSelected = showOnlySelected ? selectedIds.has(String(item.id)) : true;
+	
+	            return matchesSearch && matchesType && matchesSelected;
+	        });
+	
+	        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+	
+	        if (filtered.length === 0) {
+	            noResults.classList.remove('hidden');
+	            return;
+	        }
+	        noResults.classList.add('hidden');
+	
+	        // Multzokatu Mota (Type) arabera
+	        const groups = {};
+	        filtered.forEach(item => {
+	            const cat = item.type || 'BESTELAKOAK';
+	            if (!groups[cat]) groups[cat] = [];
+	            groups[cat].push(item);
+	        });
+	
+	        // Multzoak marraztu
+	        Object.keys(groups).sort().forEach(category => {
+	            const items = groups[category];
+	            const style = categoryStyles[category] || { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-200' };
+	
+	            const section = document.createElement('div');
+	            section.innerHTML = `
+	                <div class="flex items-center gap-2 mb-3 px-2 sticky top-0 bg-gray-50/95 py-2 z-10 backdrop-blur-sm">
+	                    <span class="px-3 py-1 rounded-full text-xs font-bold border ${style.bg} ${style.text} ${style.border}">
+	                        ${category}
+	                    </span>
+	                    <span class="text-xs text-gray-400 font-medium">${items.length}</span>
+	                </div>
+	                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6"></div>
+	            `;
+	
+	            const grid = section.querySelector('.grid');
+	
+	            items.forEach(item => {
+	                const idStr = String(item.id);
+	                const isSelected = selectedIds.has(idStr);
+	                const hasLogo = !!item.logoBase64;
+	                const initials = (item.agent || '?').substring(0, 2).toUpperCase();
+	
+	                const card = document.createElement('div');
+	                card.className = `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
+	                    isSelected ? 'bg-yellow-50 border-yellow-400 shadow-md' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
+	                }`;
+	
+	                card.innerHTML = `
+	                    <div class="flex justify-between items-start">
+	                        <div class="flex items-center gap-2">
+	                            <div class="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden border border-gray-100"
+	                                 style="${!hasLogo ? `background-color: ${item.color || '#fdba74'}` : 'background-color: white'}">
+	                                ${hasLogo ? `<img src="${item.logoBase64}" class="w-full h-full object-contain p-0.5">` : `<span class="text-white font-bold text-[10px]">${initials}</span>`}
+	                            </div>
+	                            <span class="font-mono text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded">${item.type || 'PBL'}</span>
+	                        </div>
+	                        <div class="check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+	                            isSelected ? 'bg-yellow-500 text-white scale-100' : 'bg-gray-100 text-transparent scale-90'
+	                        }">
+	                            <i class="fas fa-check text-xs"></i>
+	                        </div>
+	                    </div>
+	                    <p class="text-sm text-gray-700 font-medium leading-snug line-clamp-3 group-hover:text-gray-900 mt-1">${item.name || 'Izenik gabe'}</p>
+	                `;
+	
+	                // Karta klikatzean...
+	                card.onclick = () => {
+	                    if (selectedIds.has(idStr)) {
+	                        selectedIds.delete(idStr);
+	                        // UX Leuna: Hautatuen bistako bat kentzen bada, ezkutatu karga gabe
+	                        if (showOnlySelected) {
+	                            card.style.display = 'none';
+	                        }
+	                    } else {
+	                        selectedIds.add(idStr);
+	                    }
+	
+	                    // Eguneratu kartaren itxura dinamikoki
+	                    const isNowSelected = selectedIds.has(idStr);
+	                    card.className = `group relative cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 flex flex-col gap-2 ${
+	                        isNowSelected ? 'bg-yellow-50 border-yellow-400 shadow-md' : 'bg-white border-gray-100 hover:border-gray-300 hover:shadow-sm'
+	                    }`;
+	                    card.querySelector('.check-circle').className = `check-circle w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+	                        isNowSelected ? 'bg-yellow-500 text-white scale-100' : 'bg-gray-100 text-transparent scale-90'
+	                    }`;
+	
+	                    // Kontagailuak eguneratu
+	                    const count = selectedIds.size;
+	                    selectedCountSpan.textContent = count;
+	                    btnSelectedCount.textContent = count;
+	                    finishBtn.innerHTML = `Gorde (${count})`;
+	                    
+	                    // Toggle botoiaren egoera eguneratu
+	                    if (count === 0 && showOnlySelected) {
+	                        showOnlySelected = false;
+	                        updateToggleBtnStyle();
+	                        renderContent(); // Hutsa geratu bada, guztiak erakutsi berriro
+	                    } else if (count === 0) {
+	                        toggleSelectedBtn.className = "px-4 py-2 text-sm font-bold rounded-lg border transition-colors flex items-center whitespace-nowrap opacity-50 cursor-not-allowed bg-gray-50 text-gray-400";
+	                    } else if (!showOnlySelected) {
+	                        toggleSelectedBtn.className = "px-4 py-2 text-sm font-bold rounded-lg border transition-colors flex items-center whitespace-nowrap bg-white text-gray-600 border-gray-300 hover:bg-gray-50";
+	                    }
+	                };
+	
+	                grid.appendChild(card);
+	            });
+	            container.appendChild(section);
+	        });
+	    };
+	
+	    // Toggle Botoiaren estiloa eguneratzeko laguntzailea
+	    const updateToggleBtnStyle = () => {
+	        if (selectedIds.size === 0) return; // Ez egin ezer hutsik badago
+	        if (showOnlySelected) {
+	            toggleSelectedBtn.className = "px-4 py-2 text-sm font-bold rounded-lg border transition-colors flex items-center whitespace-nowrap bg-yellow-100 text-yellow-700 border-yellow-300 shadow-sm";
+	        } else {
+	            toggleSelectedBtn.className = "px-4 py-2 text-sm font-bold rounded-lg border transition-colors flex items-center whitespace-nowrap bg-white text-gray-600 border-gray-300 hover:bg-gray-50";
+	        }
+	    };
+	
+	    // --- EVENT LISTENERS (UX Berria) ---
+	    searchInput.addEventListener('input', e => {
+	        currentSearch = e.target.value.trim();
+	        renderContent();
+	    });
+	
+	    typeSelect.addEventListener('change', e => {
+	        currentTypeFilter = e.target.value;
+	        renderContent();
+	    });
+	
+	    toggleSelectedBtn.addEventListener('click', () => {
+	        if (selectedIds.size === 0) return; // Ezin da sakatu hautaturik ez badago
+	        showOnlySelected = !showOnlySelected;
+	        updateToggleBtnStyle();
+	        renderContent();
+	    });
+	
+	    const closeModal = () => {
+	        overlay.style.opacity = '0';
+	        setTimeout(() => overlay.remove(), 200);
+	    };
+	
+	    modal.querySelector('#closeProjModal').onclick = closeModal;
+	    modal.querySelector('#cancelProj').onclick = closeModal;
+	
+	    // --- GORDE LOGIKA ---
+	    finishBtn.onclick = async () => {
+	        finishBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Gordetzen...';
+	        finishBtn.disabled = true;
+	
+	        try {
+	            // Objektuak garbi berreskuratu katalogo osotik
+	            const newSelection = Array.from(selectedIds).map(id => {
+	                const item = catalog.find(c => String(c.id) === id);
+	                return item ? {
+	                    id: item.id,
+	                    name: item.name,
+	                    type: item.type,
+	                    agent: item.agent,
+	                    color: item.color,
+	                    logoBase64: item.logoBase64
+	                } : null;
+	            }).filter(Boolean);
+	
+	            // Zure gordetze funtzioa deitu
+	            if (typeof this.updateContentField === 'function') {
+	                await this.updateContentField('extProy', newSelection);
+	            } else if (typeof this.saveSubject === 'function') {
+	                // Babesa: updateContentField falta bada, zuzenean memoriara eta saveSubject
+	                this.currentSubject.extProy = newSelection;
+	                if (!this.currentSubject.content) this.currentSubject.content = {};
+	                this.currentSubject.content.extProy = newSelection;
+	                await this.saveSubject(this.currentSubject);
+	            }
+	
+	            // UI berritu
+	            if (window.ui?.renderSubjectDetail) {
+	                window.ui.renderSubjectDetail(this.currentSubject, this.currentDegree);
+	            }
+	
+	            closeModal();
+	            console.log(`✅ ${newSelection.length} proiektu gorde dira`);
+	
+	        } catch (error) {
+	            console.error("❌ Errorea:", error);
+	            alert("Errorea: " + error.message);
+	        } finally {
+	            if (document.body.contains(finishBtn)) {
+	                finishBtn.innerHTML = `Gorde (${selectedIds.size})`;
+	                finishBtn.disabled = false;
+	            }
+	        }
+	    };
+	
+	    // Autofocus azkarra bilatzailean
+	    setTimeout(() => searchInput.focus(), 50);
+	}
 
 	// Helper para configurar el bot¨®n guardar de estos modales
 	_setupSaveButtonForSelector(modal) {
@@ -5769,6 +6105,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
