@@ -402,33 +402,58 @@ class MatricesInteractivas {
     }
 
     // --- GORDE ETA IRTEN ---
-    volver() { this.matrizPanel.classList.add('hidden'); }
-    async guardar() {
-        try {
-            // Esta función ya existe en tu módulo y construye la matriz completa
-            const matriz = this.generarMatrizFinal();
+        volver() { this.matrizPanel.classList.add('hidden'); }
     
-            await gradosManager.updateContentField('matrizAlineacion', matriz);
+        async guardar() { 
+            const s = gradosManager?.currentSubject;
+            if (!s) return;
     
-            alert("✅ Lerrokatze-matrizea gorde da!");
+            try {
+                // UX: Botoiari karga ikonoa jarri
+                const btn = document.querySelector('button[onclick="window.matricesInteractivas.guardar()"]');
+                if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GORDETZEN...';
     
-        } catch (err) {
-            console.error("❌ Errorea matrizea gordetzean:", err);
-            alert("Errorea gordetzean: " + err.message);
+                // Zure funtzio berriarekin bateragarria
+                if (typeof gradosManager.updateContentField === 'function') {
+                    // Biak sekuentzialki gorde Supabasen gatazkarik ez sortzeko
+                    await gradosManager.updateContentField('matrizAlineacion', s.matrizAlineacion);
+                    await gradosManager.updateContentField('subjectCritEval', s.subjectCritEval);
+                } 
+                // Badaezpadako fallback-a (funtzio zaharra balego)
+                else if (gradosManager?.saveData) {
+                    await gradosManager.saveData();
+                }
+    
+                if (btn) btn.innerHTML = '<i class="fas fa-save"></i> GORDE';
+                alert("✅ Matrizea eta Ebaluazio Irizpideak ondo gorde dira!"); 
+                
+            } catch (error) {
+                console.error("❌ Errorea matrizea gordetzean:", error);
+                alert("Errorea gordetzean: " + error.message);
+                
+                // Botoia leheneratu errore bat badago
+                const btn = document.querySelector('button[onclick="window.matricesInteractivas.guardar()"]');
+                if (btn) btn.innerHTML = '<i class="fas fa-save"></i> GORDE';
+            }
+        }
+        
+        // Auto-Save funtzio isila (UI-a aldatu gabe)
+        async guardarSilencioso() { 
+            const s = gradosManager?.currentSubject;
+            if (!s) return;
+    
+            try {
+                if (typeof gradosManager.updateContentField === 'function') {
+                    await gradosManager.updateContentField('matrizAlineacion', s.matrizAlineacion);
+                    await gradosManager.updateContentField('subjectCritEval', s.subjectCritEval);
+                } else if (gradosManager?.saveData) {
+                    await gradosManager.saveData(); 
+                }
+            } catch (error) {
+                console.error("❌ Auto-save errorea:", error);
+            }
         }
     }
-
-    // Auto-Save funtzioa (lehen bezala)
-    async guardarSilencioso() {
-        try {
-            const matriz = this.generarMatrizFinal();
-            await gradosManager.updateContentField('matrizAlineacion', matriz);
-        } catch (err) {
-            console.error("❌ Auto-save errorea:", err);
-        }
-    }
-
-}
 
 // ---------------------------------------------
 // GAKOA: HEMEN INSTANTZIATZEN DA KLASEA
@@ -436,5 +461,12 @@ class MatricesInteractivas {
 // ---------------------------------------------
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
+export default matricesInteractivas;
 
+// ---------------------------------------------
+// GAKOA: HEMEN INSTANTZIATZEN DA KLASEA
+// Honek botoiak (onclick) funtzionarazten ditu.
+// ---------------------------------------------
+const matricesInteractivas = new MatricesInteractivas();
+window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
