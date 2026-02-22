@@ -438,21 +438,18 @@ class MatricesInteractivas {
         }
         
         // Auto-Save funtzio isila (UI-a aldatu gabe)
-        async guardarSilencioso() { 
-            const s = gradosManager?.currentSubject;
-            if (!s) return;
-    
-            try {
-                if (typeof gradosManager.updateContentField === 'function') {
-                    await gradosManager.updateContentField('matrizAlineacion', s.matrizAlineacion);
-                    await gradosManager.updateContentField('subjectCritEval', s.subjectCritEval);
-                } else if (gradosManager?.saveData) {
-                    await gradosManager.saveData(); 
-                }
-            } catch (error) {
-                console.error("❌ Auto-save errorea:", error);
+        guardarSilencioso() { 
+                if (this.saveTimeout) clearTimeout(this.saveTimeout);
+                // Espera 1.5s desde que dejas de teclear/arrastrar para no saturar la BD
+                this.saveTimeout = setTimeout(async () => {
+                    const s = gradosManager?.currentSubject;
+                    if (s && typeof gradosManager.updateContentField === 'function') {
+                        // Guarda directamente usando tu función unificada
+                        await gradosManager.updateContentField('matrizAlineacion', s.matrizAlineacion);
+                        await gradosManager.updateContentField('subjectCritEval', s.subjectCritEval);
+                    }
+                }, 1500);
             }
-        }
     }
 
 // ---------------------------------------------
@@ -462,4 +459,5 @@ class MatricesInteractivas {
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
+
 
