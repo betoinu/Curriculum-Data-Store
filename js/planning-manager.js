@@ -468,16 +468,25 @@ class PlanningManager {
         `;
     }
 
-    saveCalendarConfig() {
-        this.config.startDate = document.getElementById('calStart').value;
-        this.config.endDate = document.getElementById('calEnd').value;
-        const inputs = document.querySelectorAll('.daily-input');
-        this.config.schedule = Array.from(inputs).map(inp => parseFloat(inp.value)||0);
-        this.currentSubject.calendarConfig = this.config;
-        if(window.gradosManager?.saveData) window.gradosManager.saveData();
+async saveCalendarConfig() {
+    this.config.startDate = document.getElementById('calStart').value;
+    this.config.endDate = document.getElementById('calEnd').value;
+
+    const inputs = document.querySelectorAll('.daily-input');
+    this.config.schedule = Array.from(inputs).map(inp => parseFloat(inp.value) || 0);
+
+    try {
+        await gradosManager.updateContentField('calendarConfig', this.config);
+
         document.getElementById('calendarModal').classList.add('hidden');
         this.render();
+
+        console.log("✅ CalendarConfig eguneratuta");
+    } catch (err) {
+        console.error("❌ Errorea CalendarConfig gordetzean:", err);
+        alert("Errorea gordetzean: " + err.message);
     }
+}
 
     openCalendarEditor() {
         const modal = document.getElementById('calendarModal');
@@ -675,18 +684,30 @@ class PlanningManager {
         `}).join('');
     }
 
-    saveActivityFromModal() {
-        const { uIdx, aIdx } = this.editContext;
-        const act = this.currentSubject.unitateak[uIdx].activities[aIdx];
-        act.name = document.getElementById('inputActName').value;
-        act.description = document.getElementById('inputActDesc').value;
-        act.duration = parseFloat(document.getElementById('inputActHours').value) || 0;
-        act.fixedDate = document.getElementById('inputActFixedDate').value || null; 
-        act.resources = document.getElementById('inputActResources').value;
-        act.evaluation = document.getElementById('inputActEval').value;
+async saveActivityFromModal() {
+    const { uIdx, aIdx } = this.editContext;
+    const act = this.currentSubject.content.unitateak[uIdx].activities[aIdx];
+
+    act.name = document.getElementById('inputActName').value;
+    act.description = document.getElementById('inputActDesc').value;
+    act.duration = parseFloat(document.getElementById('inputActHours').value) || 0;
+    act.fixedDate = document.getElementById('inputActFixedDate').value || null;
+    act.resources = document.getElementById('inputActResources').value;
+    act.evaluation = document.getElementById('inputActEval').value;
+
+    try {
+        await gradosManager.updateContentField('unitateak', this.currentSubject.content.unitateak);
+
         document.getElementById('activityModal').classList.add('hidden');
         this.render();
+
+        console.log("✅ Jarduera eguneratuta");
+    } catch (err) {
+        console.error("❌ Errorea jarduera gordetzean:", err);
+        alert("Errorea gordetzean: " + err.message);
     }
+}
+
 
     deleteActivityFromModal() {
         if(confirm('Ezabatu?')) {
@@ -743,5 +764,6 @@ class PlanningManager {
         return new Date(d).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' }); 
     }
 }
+
 
 window.planningManager = new PlanningManager();
