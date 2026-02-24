@@ -354,15 +354,32 @@ renderEngine(ras, allCes, s) {
         return Array.from(set).sort();
     }
 
+    getRaZhDescription(code) {
+    const s = gradosManager.currentSubject;
+    if (!code) return "";
+
+    // RA
+    const ra = (s.ras || []).find(r => r.code === code);
+    if (ra) return ra.desc || "";
+
+    // ZH
+    const zh = (s.zhs || []).find(z => z.code === code);
+    if (zh) return zh.desc || "";
+
+    return "";
+    }
+
     // --- CSV (Zure funtzio berdinak) ---
     exportarCSV() {
         const s = gradosManager.currentSubject;
-        let csv = "\ufeffRA;CE_KODEA;CE_DESKRIBAPENA;EBIDENTZIA;DESKRIPTOREAK\n";
+        let csv = "\ufeffRA;CE_DESKRIBAPENA;CE_KODEA;CE_DESKRIBAPENA;EBIDENTZIA;DESKRIPTOREAK\n";
         (s.subjectCritEval || []).forEach(ce => {
             const ev = (s.matrizAlineacion.evidencias.find(e => e.ceCode === ce.ceCode)?.evDesc || "").replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '""');
             const ds = s.matrizAlineacion.descriptores.filter(d => d.ceCode === ce.ceCode).map(d => d.desc).join(" | ");
             const descCe = (ce.ceDesc || "").replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '""');
-            csv += `${ce.raRelacionado};${ce.ceCode};"${descCe}";"${ev}";"${ds}"\n`;
+            const raDescReal = this.getRaZhDescription(ce.raRelacionado);
+            csv += `${ce.raRelacionado};"${raDescReal}";${ce.ceCode};"${descCe}";"${ev}";"${ds}"\n`;
+
         });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
@@ -398,10 +415,24 @@ renderEngine(ras, allCes, s) {
             if (parts.length < 2) continue; 
 
             const raId = parts[0]?.trim();
-            const ceCode = parts[1]?.trim();
-            const ceDesc = parts[2]?.trim() || ""; 
-            const evDesc = parts[3]?.trim() || "";
-            const descString = parts[4]?.trim() || "";
+            const raDesc = parts[1]?.trim();  // ← ESTE ES EL NUEVO
+            const ceCode = parts[2]?.trim();
+            const ceDesc = parts[3]?.trim() || "";
+            const evDesc = parts[4]?.trim() || "";
+            const descString = parts[5]?.trim() || "";
+
+            // --- ACTUALIZAR RA O ZH DESDE EL CSV ---
+            if (raId && raDesc) {
+                const s = gradosManager.currentSubject;
+            
+                // RA
+                let ra = (s.ras || []).find(r => r.code === raId);
+                if (ra) ra.desc = raDesc;
+            
+                // ZH
+                let zh = (s.zhs || []).find(z => z.code === raId);
+                if (zh) zh.desc = raDesc;
+            }
 
             if (!ceCode) continue;
 
@@ -504,6 +535,7 @@ renderEngine(ras, allCes, s) {
 const matricesInteractivas = new MatricesInteractivas();
 window.matricesInteractivas = matricesInteractivas;
 export default matricesInteractivas;
+
 
 
 
