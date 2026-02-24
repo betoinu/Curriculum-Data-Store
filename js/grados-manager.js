@@ -3340,6 +3340,14 @@ addRaRow(type, data = {}) {
 	        infoDiv.classList.remove('hidden');
 	    }
 	}
+	// --- FORZAR TOOLTIP INICIAL ---
+	const opt = selector.options[selector.selectedIndex];
+	if (opt && opt.dataset) {
+	    selectedCodeSpan.textContent = selector.value;
+	    selectedTitleSpan.textContent = opt.dataset.title || selector.value;
+	    selectedDescSpan.textContent = opt.dataset.fulltext || '';
+	    infoDiv.classList.remove('hidden');
+	}
 }
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
@@ -6013,6 +6021,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
