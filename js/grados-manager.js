@@ -3329,6 +3329,16 @@ addRaRow(type, data = {}) {
             selector.dispatchEvent(event);
         }
     }
+	// --- FORZAR BOKADILOA HASIERAN (RA/ZH existitzen bada) ---
+	if (selector.value) {
+	    const opt = selector.options[selector.selectedIndex];
+	    if (opt && opt.dataset) {
+	        selectedCodeSpan.textContent = selector.value;
+	        selectedTitleSpan.textContent = selector.value + ' - ' + (opt.dataset.title || '');
+	        selectedDescSpan.textContent = opt.dataset.fulltext || '';
+	        infoDiv.classList.remove('hidden');
+	    }
+	}
 }
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
@@ -6002,6 +6012,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
