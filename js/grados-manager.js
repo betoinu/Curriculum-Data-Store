@@ -3241,21 +3241,21 @@ openRaEditor() {
                         const short = full.length > 60 ? full.substring(0, 60) + "..." : full;
 
                         return `
-                            <div class="dropdown-item px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 group"
-                                 data-code="${cCode}"
-                                 data-full="${full.replace(/"/g, '&quot;')}">
-
-                                <div class="font-bold text-blue-700">${cCode}</div>
-                                <div class="text-gray-600">${short}</div>
-
-                                <!-- Tooltip handia -->
-                                <div class="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-64 p-2
-                                            bg-slate-800 text-white text-[9px] rounded-lg shadow-xl
-                                            opacity-0 invisible group-hover:opacity-100 group-hover:visible
-                                            transition-all duration-200 pointer-events-none">
-                                    ${full}
-                                </div>
-                            </div>
+							<div class="dropdown-item px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 group whitespace-normal break-words"
+							     data-code="${cCode}"
+							     data-full="${full.replace(/"/g, '&quot;')}">
+							
+							    <div class="font-bold text-blue-700">${cCode}</div>
+							    <div class="text-gray-600 whitespace-normal break-words">${short}</div>
+							
+							    <!-- Tooltip handia -->
+							    <div class="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-64 p-2
+							                bg-slate-800 text-white text-[9px] rounded-lg shadow-xl
+							                opacity-0 invisible group-hover:opacity-100 group-hover:visible
+							                transition-all duration-200 pointer-events-none">
+							        ${full}
+							    </div>
+							</div>
                         `;
                     }).join('')}
                 </div>
@@ -6015,6 +6015,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
