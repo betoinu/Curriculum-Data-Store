@@ -3262,21 +3262,22 @@ addRaRow(type, data = {}) {
                 ${options}
             </select>
             
-            <!-- BOKADILO EREMUA - Hemen testu osoa erakutsiko da -->
-            <div id="${infoId}" class="relative group hidden mt-1">
-                <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-flex items-center gap-1">
-                    <i class="fas fa-info-circle text-[10px]"></i>
-                    <span class="selected-code"></span>
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
-                        <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
-                            <span class="selected-title"></span>
-                        </div>
-                        <div class="whitespace-normal selected-description max-h-32 overflow-y-auto"></div>
-                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+		<!-- BOKADILO EREMUA - Hemen testu osoa erakutsiko da -->
+		<div id="${infoId}" class="relative hidden mt-1">
+		    <div class="group inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-bold cursor-help bg-purple-100 text-purple-700 border-purple-200">
+		        <i class="fas fa-info-circle text-[10px]"></i>
+		        <span class="selected-code"></span>
+		
+		        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+		            <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
+		                <span class="selected-title"></span>
+		            </div>
+		            <div class="whitespace-normal selected-description max-h-32 overflow-y-auto"></div>
+		            <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+		        </div>
+		    </div>
+		</div>
+		
         <button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
             <i class="fas fa-trash-alt"></i>
         </button>
@@ -6021,6 +6022,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
