@@ -3177,7 +3177,7 @@ openRaEditor() {
 			</div>`;
 	}
 
-	addRaRow(type, data = {}) {
+/*addRaRow(type, data = {}) {
     const isZh = type === 'zh';
     const containerId = isZh ? 'editListZh' : 'editListTec';
     const container = document.getElementById(containerId);
@@ -3342,7 +3342,202 @@ openRaEditor() {
             infoDiv.classList.remove("hidden");
         }
     }
+}*/
+
+addRaRow(type, data = {}) {
+    const isZh = type === 'zh';
+    const containerId = isZh ? 'editListZh' : 'editListTec';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const colorClass = isZh ? 'teal' : 'blue';
+
+    // DATUAK
+    let codeValue = isZh ? (data.zhCode || '') : (data.raCode || '');
+    let descValue = isZh ? (data.zhDesc || '') : (data.raDesc || '');
+    const linkedValue = data.linkedCompetency || data.raRelacionado || '';
+
+    if (!codeValue) {
+        const count = container.children.length + 1;
+        codeValue = `${isZh ? 'ZH' : 'RA'}${count}`;
+    }
+
+    // HTML SORTU
+    const div = document.createElement('div');
+    div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
+    div.dataset.linked = linkedValue || "";
+
+    const infoId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+
+    div.innerHTML = `
+        <div class="flex flex-col gap-1 w-24 shrink-0">
+            <input type="text"
+                class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase"
+                value="${codeValue}" placeholder="KODEA">
+        </div>
+
+        <div class="flex-1 flex flex-col gap-1">
+
+            <!-- DESKRIBAPENA -->
+            <div class="relative">
+                <textarea class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8
+                               focus:ring-1 focus:ring-${colorClass}-300 outline-none"
+                          placeholder="Deskribapena..." rows="2">${descValue}</textarea>
+
+                <button type="button"
+                    onclick="this.previousElementSibling.rows = this.previousElementSibling.rows === 2 ? 4 : 2"
+                    class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
+                    <i class="fas fa-expand-alt text-xs"></i>
+                </button>
+            </div>
+
+            <!-- DROPDOWN PERTSONALIZATUA TOOLTIP-AREKIN -->
+            <div class="relative">
+                <button type="button"
+                    class="dropdown-btn w-full text-xs p-1.5 border rounded bg-gray-50 text-gray-700 flex justify-between items-center">
+                    <span class="dropdown-label">-- Lotura gabe --</span>
+                    <i class="fas fa-chevron-down text-[10px]"></i>
+                </button>
+
+                <div class="dropdown-menu absolute left-0 right-0 bg-white border rounded shadow-lg mt-1
+                            max-h-60 overflow-y-auto hidden z-50">
+                    ${this.tempEgresoComps.map(c => {
+                        const cCode = c.autoCode || c.code;
+                        const full = c.text || "";
+                        const short = full.length > 60 ? full.substring(0, 60) + "..." : full;
+                        const range = c.range || c.area || '';
+
+                        return `
+                            <div class="dropdown-item relative group px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 whitespace-normal break-words border-b border-gray-100 last:border-0"
+                                 data-code="${cCode}"
+                                 data-full="${full.replace(/"/g, '&quot;')}">
+                                
+                                <div class="font-bold text-blue-700">${cCode}</div>
+                                <div class="text-gray-600 whitespace-normal break-words text-[10px]">${short}</div>
+                                
+                                <!-- TOOLTIP - IDU jarraibideen estilo berean -->
+                                <div class="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-64 p-2 
+                                            bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl 
+                                            opacity-0 invisible group-hover:opacity-100 group-hover:visible 
+                                            transition-all duration-200 z-[100] pointer-events-none">
+                                    <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">${range || 'KONPETENTZIA'}</div>
+                                    <div class="whitespace-normal max-h-32 overflow-y-auto">${full}</div>
+                                    <div class="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-slate-800 rotate-45"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+
+            <!-- INFORMAZIO PANELA (hautatutako konpetentzia erakusteko) -->
+            <div id="${infoId}" class="relative hidden mt-1">
+                <div class="group inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px]
+                            font-bold cursor-help bg-purple-100 text-purple-700 border-purple-200">
+                    <i class="fas fa-info-circle text-[10px]"></i>
+                    <span class="selected-code"></span>
+                    
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2
+                                bg-slate-800 text-white text-[9px] leading-tight rounded-lg shadow-xl
+                                opacity-0 invisible group-hover:opacity-100 group-hover:visible
+                                transition-all duration-200 z-[100] pointer-events-none">
+                        <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
+                            <span class="selected-title"></span>
+                        </div>
+                        <div class="whitespace-normal selected-description max-h-32 overflow-y-auto"></div>
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2
+                                    bg-slate-800 rotate-45"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="this.closest('.ra-row').remove()"
+                class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    `;
+
+    container.appendChild(div);
+
+    // ELEMENTUAK
+    const dropdownBtn = div.querySelector('.dropdown-btn');
+    const dropdownMenu = div.querySelector('.dropdown-menu');
+    const dropdownLabel = div.querySelector('.dropdown-label');
+
+    const infoDiv = div.querySelector(`#${infoId}`);
+    const selectedCodeSpan = infoDiv.querySelector('.selected-code');
+    const selectedTitleSpan = infoDiv.querySelector('.selected-title');
+    const selectedDescSpan = infoDiv.querySelector('.selected-description');
+
+    // DROPDOWN IREKI / ITXI
+    dropdownBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Itxi beste dropdown guztiak
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+            if (menu !== dropdownMenu) menu.classList.add('hidden');
+        });
+        dropdownMenu.classList.toggle('hidden');
+    });
+
+    // KANpoan klik egitean itxi dropdown-a
+    document.addEventListener('click', (e) => {
+        if (!div.contains(e.target)) {
+            dropdownMenu.classList.add('hidden');
+        }
+    });
+
+    // AUKERA HAUTATU
+    dropdownMenu.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const code = item.dataset.code;
+            const full = item.dataset.full;
+            
+            // Aurkitu konpetentzia osoa range-a lortzeko
+            const comp = this.tempEgresoComps.find(c => 
+                (c.autoCode || c.code) === code
+            );
+            const range = comp?.range || comp?.area || '';
+
+            dropdownLabel.textContent = code;
+            div.dataset.linked = code;
+
+            selectedCodeSpan.textContent = code;
+            selectedTitleSpan.textContent = range || code;
+            selectedDescSpan.textContent = full;
+
+            infoDiv.classList.remove('hidden');
+            dropdownMenu.classList.add('hidden');
+        });
+
+        // Tooltip-a ez dadin desagertu azkarregi
+        item.addEventListener('mouseenter', () => {
+            // Tooltip-a mantendu
+        });
+    });
+
+    // HASIERAKO BALIOA KARGATU (lotura badago)
+    if (linkedValue) {
+        dropdownLabel.textContent = linkedValue;
+        const comp = this.tempEgresoComps.find(c =>
+            (c.autoCode || c.code) === linkedValue
+        );
+
+        if (comp) {
+            const fullText = comp.text || "";
+            const range = comp.range || comp.area || linkedValue;
+            
+            selectedCodeSpan.textContent = linkedValue;
+            selectedTitleSpan.textContent = range;
+            selectedDescSpan.textContent = fullText;
+            infoDiv.classList.remove("hidden");
+        }
+    }
+
+    return div;
 }
+	
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -6015,6 +6210,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
