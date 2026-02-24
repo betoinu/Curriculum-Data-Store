@@ -3211,8 +3211,9 @@ addRaRow(type, data = {}) {
     if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
         options += this.tempEgresoComps.map(c => {
             const cCode = c.code || c.autoCode || '';
-            const rawText = c.text || c.desc || c.description || c.title || ''; 
-            const title = c.title || c.name || '';
+			const rawText = c.text || '';
+			const title = c.area || c.autoCode || '';
+
             
             // Testuaren hasiera (60 karaktere) moztuta
             const shortText = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
@@ -6012,6 +6013,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
