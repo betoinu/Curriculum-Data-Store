@@ -211,9 +211,10 @@ async saveSubject(subjectData) {
 
         // 4. MAPAKETA BEREZIAK (JS -> SQL)
         // Zure memorian 'code' erabiltzen duzu, baina DBan '' da gako nagusia
-        if (!dbPayload. && subjectData.code) {
-            dbPayload. = subjectData.code;
-        }
+		if (!dbPayload.idAsig && subjectData.code) {
+		    dbPayload.idAsig = subjectData.code;
+		}
+		
         // Agian 'credits' duzu memorian, baina DBan 'subjectCredits' da
         if (!dbPayload.subjectCredits && subjectData.credits) {
             dbPayload.subjectCredits = subjectData.credits;
@@ -6018,6 +6019,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
