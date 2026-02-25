@@ -172,7 +172,8 @@ async saveSubject(subjectData) {
         const dbFields = [
             /*'id',*/
             '',        // text not null
-            'subjectTitle',  // text not null
+            'idAsig',
+			'subjectTitle',  // text not null
             'user_id',// uuid
             'created_at', 
             'updated_at',
