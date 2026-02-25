@@ -170,8 +170,8 @@ async saveSubject(subjectData) {
         // 1. ZURE TAULAKO ZUTABE OFIZIALAK (Eskemaren arabera)
         // Hauek erroan joan behar dute derrigorrez SQLan ondo gordetzeko.
         const dbFields = [
-            'id', 
-            'idAsig',        // text not null
+            /*'id',*/
+            '',        // text not null
             'subjectTitle',  // text not null
             'user_id',// uuid
             'created_at', 
@@ -209,9 +209,9 @@ async saveSubject(subjectData) {
         });
 
         // 4. MAPAKETA BEREZIAK (JS -> SQL)
-        // Zure memorian 'code' erabiltzen duzu, baina DBan 'idAsig' da gako nagusia
-        if (!dbPayload.idAsig && subjectData.code) {
-            dbPayload.idAsig = subjectData.code;
+        // Zure memorian 'code' erabiltzen duzu, baina DBan '' da gako nagusia
+        if (!dbPayload. && subjectData.code) {
+            dbPayload. = subjectData.code;
         }
         // Agian 'credits' duzu memorian, baina DBan 'subjectCredits' da
         if (!dbPayload.subjectCredits && subjectData.credits) {
@@ -260,13 +260,13 @@ async saveSubject(subjectData) {
         dbPayload.content = contentPayload;
 
         console.log("📤 PAYLOAD:", { 
-            ID: dbPayload.idAsig,
+            ID: dbPayload.,
             SQL_ZUTABEAK: Object.keys(dbPayload).filter(k => k !== 'content'),
             JSON_EDUKIA: Object.keys(dbPayload.content)
         });
 
         // 7. SUPABASE DEIA
-        // 'idAsig' da zure unique constraint (irakasgaiak_code_key)
+        // '' da zure unique constraint (irakasgaiak_code_key)
         const { data, error } = await this.supabase
             .from('irakasgaiak')
             .upsert(dbPayload, { onConflict: 'idAsig' }) 
@@ -6017,6 +6017,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
