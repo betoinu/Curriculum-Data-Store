@@ -332,13 +332,14 @@ async updateContentField(field, value) {
         throw new Error("Ez dago aukeratutako irakasgairik");
     }
 
-    const subjectId = this.currentSubject.id;
+    // ❗ ZUZENA: idAsig da zure identifikatzaile logikoa
+    const subjectId = this.currentSubject.idAsig;
 
     // 1. Leer JSON completo desde Supabase
     const { data: existing, error: fetchError } = await this.supabase
         .from('irakasgaiak')
         .select('content')
-        .eq('id', subjectId)
+        .eq('idAsig', subjectId)   // ❗ ZUZENA
         .single();
 
     if (fetchError) throw fetchError;
@@ -356,14 +357,14 @@ async updateContentField(field, value) {
             content: mergedContent,
             updated_at: new Date().toISOString()
         })
-        .eq('id', subjectId);
+        .eq('idAsig', subjectId);  // ❗ ZUZENA
 
     if (updateError) throw updateError;
 
     // 4. Actualizar memoria local
     this.currentSubject.content = mergedContent;
 
-    // 🔥 5. Sincronizar propiedades raíz con content
+    // 5. Sincronizar propiedades raíz con content
     Object.assign(this.currentSubject, mergedContent);
 
     return mergedContent;
@@ -6016,6 +6017,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
