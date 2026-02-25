@@ -34,7 +34,7 @@ class GradosManager {
             'year',             // Maila (Integer)
             'idDegree',         // FK Graduarekin lotura
             'subjectArea',      // Eremua (Testua) - Orain zutabe independentea
-            'coordinatorId'    // Irakasle arduraduna
+            'user_id'    // Irakasle arduraduna
         ];
 
         // Zerrenda honek definitzen du zein datu sartu behar diren 'content'
@@ -173,7 +173,7 @@ async saveSubject(subjectData) {
             'id', 
             'idAsig',        // text not null
             'subjectTitle',  // text not null
-            'coordinatorId',// uuid
+            'user_id',// uuid
             'createdAt', 
             'updatedAt',
             'subjectCode',   // text
@@ -6016,6 +6016,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
