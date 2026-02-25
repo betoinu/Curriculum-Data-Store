@@ -174,8 +174,8 @@ async saveSubject(subjectData) {
             'idAsig',        // text not null
             'subjectTitle',  // text not null
             'user_id',// uuid
-            'createdAt', 
-            'updatedAt',
+            'created_at', 
+            'updated_at',
             'subjectCode',   // text
             'subjectCredits',// numeric
             'language',      // text
@@ -354,7 +354,7 @@ async updateContentField(field, value) {
         .from('irakasgaiak')
         .update({
             content: mergedContent,
-            updatedAt: new Date().toISOString()
+            updated_at: new Date().toISOString()
         })
         .eq('id', subjectId);
 
@@ -6016,6 +6016,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
