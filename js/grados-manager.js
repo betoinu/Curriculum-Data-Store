@@ -277,19 +277,11 @@ async saveSubject(subjectData) {
 
         console.log("✅ DBan eguneratua. ID:", data.id);
 
-        // 8. MEMORIA EGUNERATU (DESPAKETATU / UNFLATTEN)
-        // Datu baseko zutabeak + JSONeko edukiak maila berean jartzen ditugu
-        /*this.currentSubject = {
-            ...data,           // SQL datuak (year, credits...)
-            ...data.content,   // JSON barrukoa (unitateak, zhRAs...) kanpora!
-            content: undefined // Poltsa ezabatu
-        };*/
-
 		// 8. MEMORIA EGUNERATU - ESTRUCTURA LIMPIA (sin duplicidad)
 		this.currentSubject = {
-	    ...data,                    // SQL datuak
-	    content: data.content || {}  // content es el ÚNICO lugar para datos anidados
-	    // NO desempaquetamos data.content en la raíz
+		    ...data,           // SQL datuak
+		    ...data.content,   // JSON barrukoa (unitateak, zhRAs...) kanpora!
+		    content: undefined // Poltsa ezabatu
 		};
 
         // UI Eguneratu
@@ -6025,6 +6017,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
