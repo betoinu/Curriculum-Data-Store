@@ -262,7 +262,7 @@ async saveSubject(subjectData) {
         dbPayload.content = contentPayload;
 
         console.log("📤 PAYLOAD:", { 
-            ID: dbPayload.,
+            ID: dbPayload.idAsig,
             SQL_ZUTABEAK: Object.keys(dbPayload).filter(k => k !== 'content'),
             JSON_EDUKIA: Object.keys(dbPayload.content)
         });
@@ -6019,6 +6019,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
