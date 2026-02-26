@@ -3127,7 +3127,8 @@ openRaEditor() {
 		const listZh = document.getElementById('editListZh');
 
 		// A) RA TEKNIKOAK (currentOfficialRAs)
-		const tecs = this.currentSubject.currentOfficialRAs || [];
+		const content = this.currentSubject.content || {};
+		const tecs = content.currentOfficialRAs || this.currentSubject.currentOfficialRAs || [];
 		if (tecs.length > 0) {
 			tecs.forEach(ra => this.addRaRow('tec', ra));
 		} else {
@@ -3136,7 +3137,7 @@ openRaEditor() {
 
 		// B) ZEHARKAKOAK (zhRAs)
 		// Zure JSONean "zhRAs" agertzen da, beraz hori irakurtzen dugu.
-		const zhs = this.currentSubject.zhRAs || [];
+		const zhs = content.zhRAs || this.currentSubject.zhRAs || [];
 		if (zhs.length > 0) {
 			zhs.forEach(zh => this.addRaRow('zh', zh));
 		} else {
@@ -6024,6 +6025,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
