@@ -170,6 +170,8 @@ async saveSubject(subjectData) {
         // 1. ZURE TAULAKO ZUTABE OFIZIALAK (Eskemaren arabera)
         // Hauek erroan joan behar dute derrigorrez SQLan ondo gordetzeko.
         const dbFields = [
+			'id',
+    		'',        // text not null  ← ¡ERROR GRAVE!
             'idAsig',
 			'subjectTitle',  // text not null
             'user_id',// uuid
@@ -6017,6 +6019,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
