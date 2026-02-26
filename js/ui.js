@@ -921,10 +921,10 @@ renderSubjectDetail: async (subject, degree) => {
         // =========================================================
         // 10. UNITATEAK (Units)
         // =========================================================
-        const unitsTable = document.getElementById('detailUnitsTable');
+        /*const unitsTable = document.getElementById('detailUnitsTable');
         if (unitsTable) {
             unitsTable.innerHTML = '';
-            const unitsList = subject.unitateak || subject.units || [];
+            const unitsList = subject.unitateak || subject.content?.unitateak || [];
             
             if (unitsList.length === 0) {
                 unitsTable.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center"><div class="text-gray-400"><i class="fas fa-inbox text-2xl mb-2"></i><p class="text-sm italic">Ez dago unitaterik sortuta.</p></div></td></tr>`;
@@ -934,8 +934,8 @@ renderSubjectDetail: async (subject, degree) => {
                 const descriptorBgColor = `color-mix(in srgb, ${areaColor} 12%, transparent)`;
                 
                 unitsList.forEach((ud, index) => {
-                    const descriptors = ud.descriptores || ud.descriptors || [];
-                    const uCode = ud.unitCode || ud.code || '-';
+					const descriptors = ud.descriptores || ud.descriptors || [];
+					const uCode = ud.unitCode || ud.code || '-';
                     
                     unitsTable.innerHTML += `
                         <tr class="bg-white border-b hover:bg-gray-50 transition" data-unit-index="${index}">
@@ -960,8 +960,55 @@ renderSubjectDetail: async (subject, degree) => {
                             <td class="px-3 py-3 text-right text-xs text-gray-500 font-mono align-top">${ud.irauOrd || ud.hours || 0}h</td>
                         </tr>`;
                 });
-                unitsTable.innerHTML += `<tr id="dropZoneRow" class="h-2 transition-all"><td colspan="4" class="p-0"><div class="drop-zone h-2 bg-transparent"></div></td></tr>`;
-                
+                unitsTable.innerHTML += `<tr id="dropZoneRow" class="h-2 transition-all"><td colspan="4" class="p-0"><div class="drop-zone h-2 bg-transparent"></div></td></tr>`;*/
+
+		// =========================================================
+		// 10. UNITATEAK (Units)
+		// =========================================================
+		const unitsTable = document.getElementById('detailUnitsTable');
+		if (unitsTable) {
+		    unitsTable.innerHTML = '';
+		    const unitsList = subject.unitateak || subject.content?.unitateak || subject.units || [];
+		    
+		    if (unitsList.length === 0) {
+		        unitsTable.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center"><div class="text-gray-400"><i class="fas fa-inbox text-2xl mb-2"></i><p class="text-sm italic">Ez dago unitaterik sortuta.</p></div></td></tr>`;
+		    } else {
+		        const bgColor = `color-mix(in srgb, ${areaColor} 15%, transparent)`;
+		        const borderColor = `color-mix(in srgb, ${areaColor} 25%, transparent)`;
+		        const descriptorBgColor = `color-mix(in srgb, ${areaColor} 12%, transparent)`;
+		        
+		        unitsList.forEach((ud, index) => {
+		            // ✅ CORREGIDO: Acceso directo a propiedades de unidad
+		            const descriptors = ud.descriptores || ud.descriptors || [];
+		            const uCode = ud.unitCode || ud.code || '-';
+		            const uName = ud.unitName || ud.name || '';
+		            const hours = ud.irauOrd || ud.hours || 0;
+		            
+		            unitsTable.innerHTML += `
+		                <tr class="bg-white border-b hover:bg-gray-50 transition" data-unit-index="${index}">
+		                    <td class="px-3 py-3 w-8"><div class="text-gray-300 cursor-grab active:cursor-grabbing"><i class="fas fa-list-ul"></i></div></td>
+		                    <td class="px-3 py-3 font-mono text-xs font-bold text-gray-600 align-top">${uCode}</td>
+		                    <td class="px-3 py-3">
+		                        <div class="font-medium text-gray-800 mb-2">${uName}</div>
+		                        ${descriptors.length > 0 ? `
+		                            <div class="mt-3">
+		                                <div class="descriptors-container flex flex-wrap gap-2 min-h-[40px] p-1" data-unit-index="${index}">
+		                                    ${descriptors.map((desc, descIndex) => `
+		                                        <div class="descriptor-tag draggable-descriptor group relative" data-unit-index="${index}" data-descriptor-index="${descIndex}" draggable="true">
+		                                            <span class="descriptor-content flex items-center gap-1 text-xs px-3 py-2 rounded-lg text-gray-700 font-medium transition-all hover:scale-[1.02] cursor-move border" style="background-color: ${descriptorBgColor}; border-color: ${borderColor}; min-height: 36px; max-width: 100%;">
+		                                                <i class="fas fa-grip-lines text-gray-400 text-xs flex-shrink-0"></i>
+		                                                <span class="descriptor-text flex-1 truncate">${desc}</span>
+		                                            </span>
+		                                        </div>`).join('')}
+		                                    <div class="descriptor-drop-zone hidden h-10 w-full border-2 border-dashed rounded-lg border-gray-300 bg-gray-50/50"></div>
+		                                </div>
+		                            </div>` : ''}
+		                    </td>
+		                    <td class="px-3 py-3 text-right text-xs text-gray-500 font-mono align-top">${hours}h</td>
+		                </tr>`;
+		        });
+		        unitsTable.innerHTML += `<tr id="dropZoneRow" class="h-2 transition-all"><td colspan="4" class="p-0"><div class="drop-zone h-2 bg-transparent"></div></td></tr>`;
+	        
                 const styleId = 'drag-drop-descriptors-styles';
                 if (!document.getElementById(styleId)) {
                     const style = document.createElement('style');
@@ -1592,6 +1639,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
