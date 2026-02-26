@@ -282,7 +282,7 @@ async saveSubject(subjectData) {
         this.currentSubject = {
             ...data,           // SQL datuak (year, credits...)
             ...data.content,   // JSON barrukoa (unitateak, zhRAs...) kanpora!
-            content: undefined // Poltsa ezabatu
+            /*content: undefined*/ // Poltsa ezabatu
         };
 
         // UI Eguneratu
@@ -6017,6 +6017,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
