@@ -3184,165 +3184,152 @@ addRaRow(type, data = {}) {
     const isZh = type === 'zh';
     const containerId = isZh ? 'editListZh' : 'editListTec';
     const container = document.getElementById(containerId);
+    
     if (!container) return;
 
     const colorClass = isZh ? 'teal' : 'blue';
 
-    // DATUAK
-    let codeValue = isZh ? (data.zhCode || '') : (data.raCode || '');
-    let descValue = isZh ? (data.zhDesc || '') : (data.raDesc || '');
+    // DATUAK IRAKURTZEA
+    let codeValue = '';
+    let descValue = '';
+    
+    if (isZh) {
+        codeValue = data.zhCode || '';
+        descValue = data.zhDesc || '';
+    } else {
+        codeValue = data.raCode  || '';
+        descValue = data.raDesc || '';
+    }
+    
     const linkedValue = data.linkedCompetency || data.raRelacionado || '';
 
     if (!codeValue) {
         const count = container.children.length + 1;
-        codeValue = `${isZh ? 'ZH' : 'RA'}${count}`;
+        const suffix = isZh ? 'ZH' : 'RA';
+        codeValue = `${suffix}${count}`; 
     }
 
-    // HTML SORTU
+    // --- SELEKTOREA: Kodea + testuaren hasiera (moztuta) ---
+    let options = '<option value="">-- Lotura gabe --</option>';
+    if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
+        options += this.tempEgresoComps.map(c => {
+            const cCode = c.code || c.autoCode || '';
+            const rawText = c.text || c.desc || c.description || c.title || ''; 
+            const title = c.title || c.name || '';
+            
+            // Testuaren hasiera (60 karaktere) moztuta
+            const shortText = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
+            
+            const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
+            
+            // Kodea + testuaren hasiera erakusten dugu
+            // Eta data atributuetan testu osoa gordetzen dugu bokadiloan erakusteko
+            return `<option value="${cCode}" ${selected} 
+                    data-fulltext="${rawText.replace(/"/g, '&quot;')}"
+                    data-title="${title.replace(/"/g, '&quot;')}">
+                    ${cCode} - ${shortText}
+            </option>`;
+        }).join('');
+    }
+
+    // HTML Sortu
     const div = document.createElement('div');
     div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
-    div.dataset.linked = linkedValue || "";
-
+    
+    // Sortu ID bakarra infoDiv-rako
     const infoId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
-
+    
     div.innerHTML = `
         <div class="flex flex-col gap-1 w-24 shrink-0">
-            <input type="text"
-                class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase"
-                value="${codeValue}" placeholder="KODEA">
+            <input type="text" 
+                class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
+                value="${codeValue}" 
+                placeholder="KODEA">
         </div>
-
         <div class="flex-1 flex flex-col gap-1">
-
-            <!-- DESKRIBAPENA -->
             <div class="relative">
-                <textarea class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8
-                               focus:ring-1 focus:ring-${colorClass}-300 outline-none"
-                          placeholder="Deskribapena..." rows="2">${descValue}</textarea>
-
-                <button type="button"
-                    onclick="this.previousElementSibling.rows = this.previousElementSibling.rows === 2 ? 4 : 2"
-                    class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
+                <textarea 
+                    class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
+                    placeholder="Deskribapena..." 
+                    rows="2">${descValue}</textarea>
+                <button type="button" 
+                        onclick="this.previousElementSibling.rows = this.previousElementSibling.rows === 2 ? 4 : 2"
+                        class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
                     <i class="fas fa-expand-alt text-xs"></i>
                 </button>
             </div>
-
-            <!-- DROPDOWN PERTSONALIZATUA -->
-            <div class="relative">
-                <button type="button"
-                    class="dropdown-btn w-full text-xs p-1.5 border rounded bg-gray-50 text-gray-700 flex justify-between items-center">
-                    <span class="dropdown-label">-- Lotura gabe --</span>
-                    <i class="fas fa-chevron-down text-[10px]"></i>
-                </button>
-
-                <div class="dropdown-menu absolute left-0 right-0 bg-white border rounded shadow-lg mt-1
-                            max-h-60 overflow-y-auto hidden z-50">
-
-                    ${this.tempEgresoComps.map(c => {
-                        const cCode = c.autoCode || c.code;
-                        const full = c.text || "";
-                        const short = full.length > 60 ? full.substring(0, 60) + "..." : full;
-
-                        return `
-                            <div class="dropdown-item px-2 py-1 text-xs cursor-pointer hover:bg-blue-50 group"
-                                 data-code="${cCode}"
-                                 data-full="${full.replace(/"/g, '&quot;')}">
-
-                                <div class="font-bold text-blue-700">${cCode}</div>
-                                <div class="text-gray-600">${short}</div>
-
-                                <!-- Tooltip handia -->
-                                <div class="absolute left-full top-1/2 -translate-y-1/2 ml-2 w-64 p-2
-                                            bg-slate-800 text-white text-[9px] rounded-lg shadow-xl
-                                            opacity-0 invisible group-hover:opacity-100 group-hover:visible
-                                            transition-all duration-200 pointer-events-none">
-                                    ${full}
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-            </div>
-
-            <!-- TOOLTIP TXIKIA -->
-            <div id="${infoId}" class="relative hidden mt-1">
-                <div class="group inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px]
-                            font-bold cursor-help bg-purple-100 text-purple-700 border-purple-200">
-
+            
+            <!-- SELEKTOREA - Kodea + testuaren hasiera erakusten du -->
+            <select class="ra-link w-full text-xs p-1.5 border rounded bg-gray-50 text-gray-700">
+                ${options}
+            </select>
+            
+            <!-- BOKADILO EREMUA - Hemen testu osoa erakutsiko da -->
+            <div id="${infoId}" class="relative group hidden mt-1">
+                <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-flex items-center gap-1">
                     <i class="fas fa-info-circle text-[10px]"></i>
                     <span class="selected-code"></span>
-
-                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2
-                                bg-slate-800 text-white text-[9px] leading-tight rounded-lg shadow-xl
-                                opacity-0 invisible group-hover:opacity-100 group-hover:visible
-                                transition-all duration-200 z-[100] pointer-events-none">
-
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
                         <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
                             <span class="selected-title"></span>
                         </div>
-
                         <div class="whitespace-normal selected-description max-h-32 overflow-y-auto"></div>
-
-                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2
-                                    bg-slate-800 rotate-45"></div>
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <button onclick="this.closest('.ra-row').remove()"
-                class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
+        <button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
             <i class="fas fa-trash-alt"></i>
         </button>
     `;
 
     container.appendChild(div);
 
-    // ELEMENTUAK
-    const dropdownBtn = div.querySelector('.dropdown-btn');
-    const dropdownMenu = div.querySelector('.dropdown-menu');
-    const dropdownLabel = div.querySelector('.dropdown-label');
-
+    // --- EVENT LISTENER-a gehitu selektor-ean ---
+    const selector = div.querySelector('.ra-link');
     const infoDiv = div.querySelector(`#${infoId}`);
     const selectedCodeSpan = infoDiv.querySelector('.selected-code');
     const selectedTitleSpan = infoDiv.querySelector('.selected-title');
     const selectedDescSpan = infoDiv.querySelector('.selected-description');
-
-    // DROPDOWN IREKI / ITXI
-    dropdownBtn.addEventListener('click', () => {
-        dropdownMenu.classList.toggle('hidden');
-    });
-
-    // AUKERA HAUTATU
-    dropdownMenu.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const code = item.dataset.code;
-            const full = item.dataset.full;
-
-            dropdownLabel.textContent = code;
-            div.dataset.linked = code;
-
+    
+    selector.addEventListener('change', function(e) {
+        const selectedOption = this.options[this.selectedIndex];
+        const selectedValue = this.value;
+        
+        if (selectedValue && selectedOption.dataset) {
+            const code = selectedValue;
+            const fullText = selectedOption.dataset.fulltext || '';
+            const title = selectedOption.dataset.title || code;
+            
+            // Eguneratu bokadiloaren edukia TESTU OSOarekin
             selectedCodeSpan.textContent = code;
-            selectedTitleSpan.textContent = code;
-            selectedDescSpan.textContent = full;
-
+            selectedTitleSpan.textContent = code + ' - ' + (title.split(' ')[0] || 'Konpetentzia');
+            selectedDescSpan.textContent = fullText; // TESTU OSOA hemen!
+            
+            // Erakutsi bokadiloaren eremua
             infoDiv.classList.remove('hidden');
-            dropdownMenu.classList.add('hidden');
-        });
+            
+            // Animazio txiki bat
+            infoDiv.classList.add('animate-pulse');
+            setTimeout(() => infoDiv.classList.remove('animate-pulse'), 300);
+        } else {
+            // Ezkutatu bokadiloa baliorik ez badago
+            infoDiv.classList.add('hidden');
+        }
     });
-
-    // HASIERAKO BALIOA KARGATU
+    
+    // Konfiguratu hasierako balioa existitzen bada
     if (linkedValue) {
-        dropdownLabel.textContent = linkedValue;
-        const comp = this.tempEgresoComps.find(c =>
-            c.autoCode === linkedValue || c.code === linkedValue
-        );
-
-        if (comp) {
-            selectedCodeSpan.textContent = linkedValue;
-            selectedTitleSpan.textContent = comp.area || linkedValue;
-            selectedDescSpan.textContent = comp.text || "";
-            infoDiv.classList.remove("hidden");
+        const options = Array.from(selector.options);
+        const matchingOption = options.find(opt => opt.value === linkedValue);
+        
+        if (matchingOption) {
+            selector.value = linkedValue;
+            
+            // Trigger change event-a hasierako informazioa erakusteko
+            const event = new Event('change', { bubbles: true });
+            selector.dispatchEvent(event);
         }
     }
 }
@@ -6019,6 +6006,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
