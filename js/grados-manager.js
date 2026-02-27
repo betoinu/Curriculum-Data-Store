@@ -614,76 +614,80 @@ openEditSubjectModal() {
         if (modal) modal.classList.remove('hidden');
     }
 
-	async saveSubjectBasicData() {
-        console.log("📝 Datu basikoak gordetzen (Erreferentziak babestuz)...");
-        
-        if (!this.currentSubject) {
-            console.error("❌ Ez dago irakasgairik aukeratuta");
-            alert("Errorea: Ez dago irakasgairik aukeratuta datuak gordetzeko.");
-            return;
-        }
-
-        // 1. INPUT-ETAKO DATU BERRIAK OBJEKTU BATEAN BILDU
-        const codeInput = document.getElementById('subject_edit_code');
-        const nameInput = document.getElementById('subject_edit_name');
-        const creditsInput = document.getElementById('subject_edit_credits');
-        const langSelect = document.getElementById('subject_edit_language');
-        const semesterSelect = document.getElementById('subject_edit_semester');
-        const areaSelect = document.getElementById('subject_edit_area');
-        const typeSelect = document.getElementById('subject_edit_type');
-
-        const newValues = {};
-        if (codeInput) newValues.subjectCode = codeInput.value.trim();
-        if (nameInput) newValues.subjectTitle = nameInput.value.trim();
-        if (creditsInput) newValues.subjectCredits = parseFloat(creditsInput.value) || 0;
-        if (langSelect) newValues.language = langSelect.value;
-        if (semesterSelect) newValues.semester = semesterSelect.value;
-        if (areaSelect) newValues.subjectArea = areaSelect.value;
-        if (typeSelect) newValues.subjectType = typeSelect.value;
-
-        // DB-ra bidaltzeko objektu osoa sortu, baina memoriakoa oraindik ukitu gabe
-        const payloadToSave = { ...this.currentSubject, ...newValues };
-
-        // 2. DATU-BASEAN GORDE
-        try {
-            const success = await this.saveSubject(payloadToSave);
-
-            if (success) {
-                // KLABEA: Dena ondo badoa, memoriako JATORRIZKO OBJEKTUA eguneratu (mutate in-place).
-                // Horrela, koloreak (MatrixEngine) eta graduen zerrendako erreferentziak ez dira apurtzen.
-                Object.assign(this.currentSubject, newValues);
-
-                // Modala itxi
-                const modal = document.getElementById('editSubjectModal');
-                if (modal) {
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
-                }
-                
-                // Urteko bista eguneratu 
-                if (window.ui && typeof window.ui.renderYearView === 'function' && this.currentDegree) {
-                    const yearStr = this.currentYear ? String(this.currentYear) : "1";
-                    window.ui.renderYearView(this.currentDegree, yearStr);
-                }
-
-                // Eskuineko panela (xehetasunak) zuzenean eguneratu
-                if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
-                    window.ui.renderSubjectDetail(this.currentSubject);
-                    
-                    // OHARRA: renderYearView-k detailea ezkutatzen badu, hemen berriro bistaratu
-                    const detailView = document.getElementById('subjectDetailView');
-                    if (detailView) detailView.classList.remove('hidden');
-                }
-                
-                console.log("✅ Irakasgaiaren oinarrizko datuak ongi gorde dira eta UI-a eguneratu da!");
-            } else {
-                alert("❌ Errorea: Datu-baseak ez ditu aldaketak onartu.");
-            }
-        } catch (error) {
-            console.error("❌ Errorea saveSubjectBasicData funtzioan:", error);
-            alert("Errorea gordetzean: " + error.message);
-        }
+async saveSubjectBasicData() {
+    console.log("📝 Datu basikoak gordetzen (Erreferentziak babestuz)...");
+    
+    if (!this.currentSubject) {
+        console.error("❌ Ez dago irakasgairik aukeratuta");
+        alert("Errorea: Ez dago irakasgairik aukeratuta datuak gordetzeko.");
+        return;
     }
+
+    // 1. INPUT-ETAKO DATU BERRIAK OBJEKTU BATEAN BILDU
+    const codeInput = document.getElementById('subject_edit_code');
+    const nameInput = document.getElementById('subject_edit_name');
+    const creditsInput = document.getElementById('subject_edit_credits');
+    const langSelect = document.getElementById('subject_edit_language');
+    const semesterSelect = document.getElementById('subject_edit_semester');
+    const areaSelect = document.getElementById('subject_edit_area');
+    const typeSelect = document.getElementById('subject_edit_type');
+
+    const newValues = {};
+    
+    // 🔥 CORRECCIÓN: idAsig es el código en la BD, no subjectCode
+    if (codeInput) newValues.idAsig = codeInput.value.trim();  // Antes: subjectCode
+    
+    if (nameInput) newValues.subjectTitle = nameInput.value.trim();
+    if (creditsInput) newValues.subjectCredits = parseFloat(creditsInput.value) || 0;
+    
+    // 🔥 CORRECCIÓN: language debe guardarse tal cual del select
+    if (langSelect) newValues.language = langSelect.value;  // 'eu', 'es', 'en'
+    
+    if (semesterSelect) newValues.semester = semesterSelect.value;
+    if (areaSelect) newValues.subjectArea = areaSelect.value;
+    if (typeSelect) newValues.subjectType = typeSelect.value;
+
+    // DB-ra bidaltzeko objektu osoa sortu, baina memoriakoa oraindik ukitu gabe
+    const payloadToSave = { ...this.currentSubject, ...newValues };
+
+    // 2. DATU-BASEAN GORDE
+    try {
+        const success = await this.saveSubject(payloadToSave);
+
+        if (success) {
+            // Memoriako objektua eguneratu
+            Object.assign(this.currentSubject, newValues);
+
+            // Modala itxi
+            const modal = document.getElementById('editSubjectModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            
+            // Urteko bista eguneratu 
+            if (window.ui && typeof window.ui.renderYearView === 'function' && this.currentDegree) {
+                const yearStr = this.currentYear ? String(this.currentYear) : "1";
+                window.ui.renderYearView(this.currentDegree, yearStr);
+            }
+
+            // Eskuineko panela (xehetasunak) eguneratu
+            if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
+                window.ui.renderSubjectDetail(this.currentSubject);
+                
+                const detailView = document.getElementById('subjectDetailView');
+                if (detailView) detailView.classList.remove('hidden');
+            }
+            
+            console.log("✅ Irakasgaiaren oinarrizko datuak ongi gorde dira!");
+        } else {
+            alert("❌ Errorea: Datu-baseak ez ditu aldaketak onartu.");
+        }
+    } catch (error) {
+        console.error("❌ Errorea saveSubjectBasicData funtzioan:", error);
+        alert("Errorea gordetzean: " + error.message);
+    }
+}
 	
 /*openEditSubjectModal() {
         if (!this.currentSubject) {
@@ -6438,6 +6442,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
