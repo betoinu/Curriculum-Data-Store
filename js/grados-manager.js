@@ -548,8 +548,144 @@ async updateContentField(field, value) {
             this.openEditSubjectModal();
         }, 150);
     }
-	
+
 openEditSubjectModal() {
+        if (!this.currentSubject) {
+            console.error("❌ Ez dago irakasgairik aukeratuta editatzeko.");
+            return;
+        }
+        
+        const subj = this.currentSubject;
+        console.log("✏️ Irakasgaia editatzen (Datu basikoak soilik):", subj.subjectTitle);
+
+        // 1. ELEMENTUAK HAUTATU (DOM)
+        const codeInput = document.getElementById('subject_edit_code'); 
+        const nameInput = document.getElementById('subject_edit_name');
+        const creditsInput = document.getElementById('subject_edit_credits');
+        const langSelect = document.getElementById('subject_edit_language');
+        const semesterSelect = document.getElementById('subject_edit_semester');
+        const areaSelect = document.getElementById('subject_edit_area');
+        const typeSelect = document.getElementById('subject_edit_type');
+        
+        // 2. BALIOAK BETE
+        if (codeInput) codeInput.value = subj.subjectCode || subj.idAsig || '';
+        if (nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
+        if (creditsInput) creditsInput.value = subj.subjectCredits || subj.credits || 0;
+        if (langSelect) langSelect.value = subj.language || 'eu'; 
+        if (semesterSelect) semesterSelect.value = subj.semester || '1';
+
+        // 3. MOTAK (Types)
+        if (typeSelect) {
+            typeSelect.innerHTML = '<option value="">-- Hautatu --</option>';
+            const dbTypes = this.loadUniqueSubjectTypes ? this.loadUniqueSubjectTypes() : ['Derrigorrezkoa', 'Oinarrizkoa', 'Hautazkoa'];
+            dbTypes.forEach(tipo => {
+                const opt = document.createElement('option');
+                opt.value = tipo;
+                opt.textContent = tipo;
+                if (tipo === (subj.subjectType || subj.tipo)) opt.selected = true;
+                typeSelect.appendChild(opt);
+            });
+        }
+
+        // 4. AREAK (Areas) - Eremuaren konparaketa segurua
+        if (areaSelect && this.currentDegree) {
+            areaSelect.innerHTML = '<option value="">-- Hautatu --</option>';
+            const areas = this.currentDegree.subjectAreas || [];
+            
+            // Jatorrizko Area-ren izena atera beti testu bezala
+            const currentAreaStr = subj.subjectArea ? (typeof subj.subjectArea === 'object' ? subj.subjectArea.name : subj.subjectArea) : '';
+            
+            areas.forEach(area => {
+                const opt = document.createElement('option');
+                const areaName = typeof area === 'object' ? area.name : area;
+                opt.value = areaName;
+                opt.textContent = areaName;
+                
+                // Konparaketa zehatza
+                if (String(areaName).trim() === String(currentAreaStr).trim()) {
+                    opt.selected = true;
+                }
+                areaSelect.appendChild(opt);
+            });
+        }
+
+        // 5. MODALA ERAKUTSI
+        const modal = document.getElementById('editSubjectModal');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+	async saveSubjectBasicData() {
+        console.log("📝 Datu basikoak gordetzen (Erreferentziak babestuz)...");
+        
+        if (!this.currentSubject) {
+            console.error("❌ Ez dago irakasgairik aukeratuta");
+            alert("Errorea: Ez dago irakasgairik aukeratuta datuak gordetzeko.");
+            return;
+        }
+
+        // 1. INPUT-ETAKO DATU BERRIAK OBJEKTU BATEAN BILDU
+        const codeInput = document.getElementById('subject_edit_code');
+        const nameInput = document.getElementById('subject_edit_name');
+        const creditsInput = document.getElementById('subject_edit_credits');
+        const langSelect = document.getElementById('subject_edit_language');
+        const semesterSelect = document.getElementById('subject_edit_semester');
+        const areaSelect = document.getElementById('subject_edit_area');
+        const typeSelect = document.getElementById('subject_edit_type');
+
+        const newValues = {};
+        if (codeInput) newValues.subjectCode = codeInput.value.trim();
+        if (nameInput) newValues.subjectTitle = nameInput.value.trim();
+        if (creditsInput) newValues.subjectCredits = parseFloat(creditsInput.value) || 0;
+        if (langSelect) newValues.language = langSelect.value;
+        if (semesterSelect) newValues.semester = semesterSelect.value;
+        if (areaSelect) newValues.subjectArea = areaSelect.value;
+        if (typeSelect) newValues.subjectType = typeSelect.value;
+
+        // DB-ra bidaltzeko objektu osoa sortu, baina memoriakoa oraindik ukitu gabe
+        const payloadToSave = { ...this.currentSubject, ...newValues };
+
+        // 2. DATU-BASEAN GORDE
+        try {
+            const success = await this.saveSubject(payloadToSave);
+
+            if (success) {
+                // KLABEA: Dena ondo badoa, memoriako JATORRIZKO OBJEKTUA eguneratu (mutate in-place).
+                // Horrela, koloreak (MatrixEngine) eta graduen zerrendako erreferentziak ez dira apurtzen.
+                Object.assign(this.currentSubject, newValues);
+
+                // Modala itxi
+                const modal = document.getElementById('editSubjectModal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+                
+                // Urteko bista eguneratu 
+                if (window.ui && typeof window.ui.renderYearView === 'function' && this.currentDegree) {
+                    const yearStr = this.currentYear ? String(this.currentYear) : "1";
+                    window.ui.renderYearView(this.currentDegree, yearStr);
+                }
+
+                // Eskuineko panela (xehetasunak) zuzenean eguneratu
+                if (window.ui && typeof window.ui.renderSubjectDetail === 'function') {
+                    window.ui.renderSubjectDetail(this.currentSubject);
+                    
+                    // OHARRA: renderYearView-k detailea ezkutatzen badu, hemen berriro bistaratu
+                    const detailView = document.getElementById('subjectDetailView');
+                    if (detailView) detailView.classList.remove('hidden');
+                }
+                
+                console.log("✅ Irakasgaiaren oinarrizko datuak ongi gorde dira eta UI-a eguneratu da!");
+            } else {
+                alert("❌ Errorea: Datu-baseak ez ditu aldaketak onartu.");
+            }
+        } catch (error) {
+            console.error("❌ Errorea saveSubjectBasicData funtzioan:", error);
+            alert("Errorea gordetzean: " + error.message);
+        }
+    }
+	
+/*openEditSubjectModal() {
         if (!this.currentSubject) {
             console.error("❌ Ez dago irakasgairik aukeratuta editatzeko.");
             return;
@@ -678,170 +814,6 @@ async saveSubjectBasicData() {
         } catch (error) {
             console.error("❌ Errorea saveSubjectBasicData funtzioan:", error);
             alert("Errorea gordetzean: " + error.message);
-        }
-    }
-	
-/*openEditSubjectModal() {
-        if (!this.currentSubject) {
-            console.error("❌ Ez dago irakasgairik aukeratuta editatzeko.");
-            return;
-        }
-        const subj = this.currentSubject;
-        console.log("✏️ Irakasgaia editatzen:", subj.subjectTitle);
-
-        // 1. ELEMENTUAK HAUTATU (DOM)
-        const codeInput = document.getElementById('subject_edit_code'); 
-        const nameInput = document.getElementById('subject_edit_name');
-        const creditsInput = document.getElementById('subject_edit_credits'); // 🆕
-        const langSelect = document.getElementById('subject_edit_language'); // 🆕
-        const semesterSelect = document.getElementById('subject_edit_semester'); // 🆕
-        const areaSelect = document.getElementById('subject_edit_area');
-        const typeSelect = document.getElementById('subject_edit_type');
-        
-        // 2. BALIOAK BETE
-        // Testu sinpleak
-        if (codeInput) codeInput.value = subj.idAsig || subj.subjectCode || '';
-        if (nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
-        
-        // Kredituak (Zenbakia dela ziurtatu)
-        if (creditsInput) {
-            creditsInput.value = subj.subjectCredits || subj.credits || 0;
-        }
-
-        // 3. HIZKUNTZA (Language)
-        if (langSelect) {
-            // Balio posibleak: 'eu' (Euskara), 'es' (Gaztelania), 'en' (Ingelesa)
-            // Zure datu-basean nola gordetzen den arabera egokitu (Adib: "Euskara" edo "eu")
-            langSelect.value = subj.language || 'eu'; 
-        }
-
-        // 4. SEIHILEKOA (Semester)
-        if (semesterSelect) {
-            // Balioak: '1', '2', 'urtekoa'
-            semesterSelect.value = subj.semester || '1';
-        }
-
-        // 5. MOTAK (Types)
-        if (typeSelect) {
-            typeSelect.innerHTML = '';
-            // Kargatu motak (zure funtzioa erabiliz)
-            const dbTypes = this.loadUniqueSubjectTypes ? this.loadUniqueSubjectTypes() : ['Derrigorrezkoa', 'Oinarrizkoa', 'Hautazkoa'];
-            
-            const defaultOpt = document.createElement('option');
-            defaultOpt.value = "";
-            defaultOpt.textContent = "-- Hautatu --";
-            typeSelect.appendChild(defaultOpt);
-
-            dbTypes.forEach(tipo => {
-                const opt = document.createElement('option');
-                opt.value = tipo;
-                opt.textContent = tipo;
-                if (tipo === (subj.subjectType || subj.tipo)) opt.selected = true;
-                typeSelect.appendChild(opt);
-            });
-        }
-
-        // 6. AREAK (Areas)
-        if (areaSelect && this.currentDegree) {
-            areaSelect.innerHTML = '<option value="">-- Hautatu --</option>';
-            const areas = this.currentDegree.subjectAreas || [];
-            
-            areas.forEach(area => {
-                const opt = document.createElement('option');
-                const areaName = typeof area === 'object' ? area.name : area;
-                opt.value = areaName;
-                opt.textContent = areaName;
-                if (areaName === subj.subjectArea) opt.selected = true;
-                areaSelect.appendChild(opt);
-            });
-        }
-
-        // 7. KATALOGOAK (Checklist-ak)
-        // UI funtzioak erabiltzen badituzu, ziurtatu 'ui' kargatuta dagoela
-        if (window.ui && window.ui.renderChecklistSelector) {
-            
-            // A. IDU
-            window.ui.renderChecklistSelector(
-                'editIduContainer', 
-                this.adminCatalogs.iduGuidelines || [], 
-                subj.idujar || [], // Edo subj.content?.idujar
-                'idu_chk'
-            );
-
-            // B. ODS (SQL Listatik)
-            window.ui.renderChecklistSelector(
-                'editOdsContainer',
-                this.adminCatalogs.odsList || [], 
-                subj.detailODS || subj.ods || [], // detailODS lehenetsi
-                'ods_chk'
-            );
-
-            // C. KANPO PROIEKTUAK
-            window.ui.renderChecklistSelector(
-                'editExtProyContainer',
-                this.adminCatalogs.externalProjects || [], 
-                subj.extProy || [], 
-                'ext_chk'
-            );
-        }
-
-        // 8. MODALA ERAKUTSI
-        const modal = document.getElementById('editSubjectModal');
-        if (modal) {
-            modal.classList.remove('hidden');
-        } else {
-            console.error("❌ 'editSubjectModal' ez da aurkitu HTMLan!");
-        }
-    }*/
-	
-	// EN GRADOS-MANAGER.JS
-	/*async saveSubjectBasicData() {
-        console.log("📝 Datu basikoak eguneratzen (SQL Modua)...");
-        
-        if (!this.currentSubject) {
-            console.error("Ez dago irakasgairik aukeratuta");
-            return;
-        }
-
-        // 1. FORMULARIOKO INPUT-AK IRAKURRI
-        // Ziurtatu zure HTMLan ID hauek daudela. 
-        // Bestela aldatu IDak behean, zure HTMLaren arabera.
-        
-        const codeInput = document.getElementById('subject_edit_code') || document.getElementById('editSubjectCode');
-        const nameInput = document.getElementById('subject_edit_name') || document.getElementById('editSubjectTitle');
-        const areaSelect = document.getElementById('subject_edit_area') || document.getElementById('editSubjectArea');
-        const typeSelect = document.getElementById('subject_edit_type') || document.getElementById('editSubjectType');
-        const creditsInput = document.getElementById('editSubjectCredits'); // Hau berria izan daiteke
-        
-        // 2. MEMORIAKO OBJEKTUA EGUNERATU
-        // Kopia bat egiten dugu segurtasunagatik
-        const updatedSubject = { ...this.currentSubject };
-
-        if (codeInput) updatedSubject.idAsig = codeInput.value.trim(); // SQLn idAsig da gakoa
-        if (nameInput) updatedSubject.subjectTitle = nameInput.value.trim();
-        if (areaSelect) updatedSubject.subjectArea = areaSelect.value;
-        if (typeSelect) updatedSubject.subjectType = typeSelect.value;
-        if (creditsInput) updatedSubject.subjectCredits = parseFloat(creditsInput.value);
-
-        // ODS, IDU, Proiektuak... horiek jada memorian daude (currentSubject),
-        // ez ditugu inputetatik irakurri behar (ondo diozun bezala).
-
-        // 3. DATU BASEAN GORDE (SQL FUNTZIO BERRIA)
-        const success = await this.saveSubject(updatedSubject);
-
-        if (success) {
-            // 4. ARRAKASTA BADA, MODALA ITXI
-            const modal = document.getElementById('editSubjectModal');
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-            
-            // 5. URTEKO BISTA EGUNERATU (Izena/Kolorea aldatu bada)
-            if (window.ui && window.ui.renderYearView && this.currentDegree) {
-                const yearStr = this.currentYear ? String(this.currentYear) : "1";
-                window.ui.renderYearView(this.currentDegree, yearStr);
-            }
         }
     }*/
 	
@@ -6138,6 +6110,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
