@@ -343,7 +343,7 @@ export const ui = {
     },	
 
 		// --- 2. VISTA DE AÑO ---
-renderYearView: (degree, yearNum) => {
+/*renderYearView: (degree, yearNum) => {
         console.log(`🎨 UI: ${yearNum}. maila marrazten...`);
 
         // 1. PANELAK KUDEATU
@@ -445,7 +445,108 @@ renderYearView: (degree, yearNum) => {
             };
             container.appendChild(card);
         });
-    },
+    },*/
+
+	renderYearView: (degree, yearNum) => {
+    console.log(`🎨 UI: ${yearNum}. maila marrazten...`);
+
+    // 1. PANELAK KUDEATU
+    ['emptyState', 'subjectDetailView'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+
+    const viewContainer = document.getElementById('yearView');
+    if (viewContainer) {
+        viewContainer.classList.remove('hidden');
+    } else {
+        console.error("❌ 'yearView' ez da aurkitu");
+        return;
+    }
+
+    // Izenburua eguneratu
+    const pageTitle = document.getElementById('yearTitle');
+    if (pageTitle) pageTitle.textContent = `${yearNum}. Maila - ${degree.selectedDegree || degree.name}`;
+
+    // 2. GRID EDUKIONTZIA
+    const container = document.getElementById('subjectsGrid');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // 3. DATUAK IRAGAZI
+    const subjects = (degree.subjects || []).filter(s => String(s.year) === String(yearNum));
+
+    if (subjects.length === 0) {
+        container.innerHTML = `
+            <div class="col-span-full text-center py-10 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                <p class="text-gray-500 text-lg">Ez dago irakasgairik ${yearNum}. mailan.</p>
+            </div>`;
+        return;
+    }
+
+    // 4. TXARTELAK SORTU
+    subjects.forEach((subj) => {
+        const areaColor = ui.getAreaColor ? ui.getAreaColor(subj.subjectArea, degree) : '#ccc';
+        
+        const code = subj.idAsig || subj.subjectCode || subj.code || '---';
+        const subjTitle = subj.subjectTitle || subj.name || 'Izena gabe'; 
+        const credits = subj.subjectCredits || subj.credits || 0;
+        const semester = subj.semester ? `${subj.semester}.S` : '';
+        
+        // 🔥 CORRECCIÓN: Mostrar el language exactamente como está en la BD
+        const lang = subj.language || '';
+        const type = subj.type || subj.subjectType || '';
+        
+        // Badge simple con el texto original (sin interpretaciones)
+        let langBadge = '';
+        if (lang) {
+            langBadge = `<span class="text-[10px] text-gray-600 bg-gray-100 border border-gray-200 px-1.5 py-0.5 rounded">${lang}</span>`;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 cursor-pointer border-l-4 h-full flex flex-col justify-between relative';
+        card.style.borderLeftColor = areaColor;
+        
+        card.innerHTML = `
+            <div class="h-full flex flex-col">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
+                        ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
+                    </div>
+                    <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">
+                        ${credits} ECTS
+                    </span>
+                </div>
+                
+                <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
+                
+                <div class="mb-2">${langBadge}</div>
+
+                <div class="mt-auto pt-2 border-t border-gray-50">
+                    <div class="flex justify-between items-center">
+                        <p class="text-xs text-gray-400 truncate max-w-[60%]">${subj.subjectArea || 'Eremu gabe'}</p>
+                        
+                        ${type ? `
+                        <div class="flex items-center text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
+                            <i class="fas fa-tag mr-1 text-indigo-400"></i>
+                            <span class="truncate max-w-[80px]">${type}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        card.onclick = (e) => {
+            e.preventDefault();
+            if (window.gradosManager && window.gradosManager.selectSubject) {
+                window.gradosManager.selectSubject(subj);
+            }
+        };
+        container.appendChild(card);
+    });
+},
 
 	
 	// ✅ MANTÉN ESTA FUNCIÓN IGUAL - NO LA CAMBIES
@@ -1592,6 +1693,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
