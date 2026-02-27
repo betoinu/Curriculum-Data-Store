@@ -3307,6 +3307,229 @@ addRaRow(type, data = {}) {
     
     const linkedValue = data.linkedCompetency || data.raRelacionado || '';
 
+    // 🔥 CAMBIO IMPORTANTE: Generar código estandarizado si no existe
+    if (!codeValue) {
+        const count = container.children.length + 1;
+        const suffix = isZh ? 'ZH' : 'RA';
+        
+        // Generar el prefijo base usando la misma lógica que normalizarCodigosAlGuardar
+        const basePrefix = this.generateSubjectPrefix(this.currentSubject);
+        codeValue = `${basePrefix}_${suffix}${String(count).padStart(2, '0')}`;
+    }
+	 
+		// --- SELEKTOREA: Kodea + testuaren hasiera (moztuta) ---
+	    let options = '<option value="">-- Lotura gabe --</option>';
+	    if (this.tempEgresoComps && this.tempEgresoComps.length > 0) {
+	        options += this.tempEgresoComps.map(c => {
+	            const cCode = c.code || c.autoCode || '';
+	            const rawText = c.text || c.desc || c.description || c.title || ''; 
+	            const title = c.title || c.name || '';
+	            
+	            // Testuaren hasiera (60 karaktere) moztuta
+	            const shortText = rawText.length > 60 ? rawText.substring(0, 60) + '...' : rawText;
+	            
+	            const selected = (String(linkedValue) === String(cCode)) ? 'selected' : '';
+	            
+	            // Kodea + testuaren hasiera erakusten dugu
+	            // Eta data atributuetan testu osoa gordetzen dugu bokadiloan erakusteko
+	            return `<option value="${cCode}" ${selected} 
+	                    data-fulltext="${rawText.replace(/"/g, '&quot;')}"
+	                    data-title="${title.replace(/"/g, '&quot;')}">
+	                    ${cCode} - ${shortText}
+	            </option>`;
+	        }).join('');
+	    }
+	
+	    // HTML Sortu
+	    const div = document.createElement('div');
+	    div.className = `ra-row flex gap-2 items-start bg-white p-2 rounded border border-${colorClass}-200 mb-2 shadow-sm`;
+	    
+	    // Sortu ID bakarra infoDiv-rako
+	    const infoId = `info-${Date.now()}-${Math.random().toString(36).substr(2, 8)}`;
+	    
+	    div.innerHTML = `
+	        <div class="flex flex-col gap-1 w-24 shrink-0">
+	            <input type="text" 
+	                class="ra-code w-full p-1 border rounded text-[10px] font-bold text-${colorClass}-700 text-center uppercase" 
+	                value="${codeValue}" 
+	                placeholder="KODEA">
+	        </div>
+	        <div class="flex-1 flex flex-col gap-1">
+	            <div class="relative">
+	                <textarea 
+	                    class="ra-desc w-full text-xs p-1.5 border rounded min-h-[40px] pr-8 focus:ring-1 focus:ring-${colorClass}-300 outline-none" 
+	                    placeholder="Deskribapena..." 
+	                    rows="2">${descValue}</textarea>
+	                <button type="button" 
+	                        onclick="this.previousElementSibling.rows = this.previousElementSibling.rows === 2 ? 4 : 2"
+	                        class="absolute right-1 top-1 text-gray-400 hover:text-gray-600 bg-white rounded p-0.5 shadow-sm border border-gray-200 w-5 h-5 flex items-center justify-center">
+	                    <i class="fas fa-expand-alt text-xs"></i>
+	                </button>
+	            </div>
+	            
+	            <!-- SELEKTOREA - Kodea + testuaren hasiera erakusten du -->
+	            <select class="ra-link w-full text-xs p-1.5 border rounded bg-gray-50 text-gray-700">
+	                ${options}
+	            </select>
+	            
+	            <!-- BOKADILO EREMUA - Hemen testu osoa erakutsiko da -->
+	            <div id="${infoId}" class="relative group hidden mt-1">
+	                <div class="px-2 py-1 rounded border text-[10px] font-bold cursor-help transition bg-purple-100 text-purple-700 border-purple-200 inline-flex items-center gap-1">
+	                    <i class="fas fa-info-circle text-[10px]"></i>
+	                    <span class="selected-code"></span>
+	                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-2 bg-slate-800 text-white text-[9px] font-normal leading-tight rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] pointer-events-none">
+	                        <div class="font-black border-b border-slate-600 mb-1 pb-1 uppercase text-blue-300">
+	                            <span class="selected-title"></span>
+	                        </div>
+	                        <div class="whitespace-normal selected-description max-h-32 overflow-y-auto"></div>
+	                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 bg-slate-800 rotate-45"></div>
+	                    </div>
+	                </div>
+	            </div>
+	        </div>
+	        <button onclick="this.closest('.ra-row').remove()" class="text-gray-300 hover:text-red-500 px-1 self-start mt-1">
+	            <i class="fas fa-trash-alt"></i>
+	        </button>
+	    `;
+	
+	    container.appendChild(div);
+	
+	    // --- EVENT LISTENER-a gehitu selektor-ean ---
+	    const selector = div.querySelector('.ra-link');
+	    const infoDiv = div.querySelector(`#${infoId}`);
+	    const selectedCodeSpan = infoDiv.querySelector('.selected-code');
+	    const selectedTitleSpan = infoDiv.querySelector('.selected-title');
+	    const selectedDescSpan = infoDiv.querySelector('.selected-description');
+	    
+	    selector.addEventListener('change', function(e) {
+	        const selectedOption = this.options[this.selectedIndex];
+	        const selectedValue = this.value;
+	        
+	        if (selectedValue && selectedOption.dataset) {
+	            const code = selectedValue;
+	            const fullText = selectedOption.dataset.fulltext || '';
+	            const title = selectedOption.dataset.title || code;
+	            
+	            // Eguneratu bokadiloaren edukia TESTU OSOarekin
+	            selectedCodeSpan.textContent = code;
+	            selectedTitleSpan.textContent = code + ' - ' + (title.split(' ')[0] || 'Konpetentzia');
+	            selectedDescSpan.textContent = fullText; // TESTU OSOA hemen!
+	            
+	            // Erakutsi bokadiloaren eremua
+	            infoDiv.classList.remove('hidden');
+	            
+	            // Animazio txiki bat
+	            infoDiv.classList.add('animate-pulse');
+	            setTimeout(() => infoDiv.classList.remove('animate-pulse'), 300);
+	        } else {
+	            // Ezkutatu bokadiloa baliorik ez badago
+	            infoDiv.classList.add('hidden');
+	        }
+	    });
+	    
+	    // Konfiguratu hasierako balioa existitzen bada
+	    if (linkedValue) {
+	        const options = Array.from(selector.options);
+	        const matchingOption = options.find(opt => opt.value === linkedValue);
+	        
+	        if (matchingOption) {
+	            selector.value = linkedValue;
+	            
+	            // Trigger change event-a hasierako informazioa erakusteko
+	            const event = new Event('change', { bubbles: true });
+	            selector.dispatchEvent(event);
+	        }
+	    }
+	}
+
+generateSubjectPrefix(subject) {
+    if (!subject) return 'BD_X_XXX';
+    
+    // 1. Grado kodea
+    const grado = subject.degreeCode || "BD";
+    
+    // 2. Urtea (curso)
+    const curso = subject.course || subject.year || "1";
+    
+    // 3. Irakasgaiaren izena - ERROMATAR ZENBAKIA ATERATZEKO
+    const rawName = subject.name || subject.subjectTitle || "ASIG";
+    
+    // Erromatar zenbakiak arabiarretara bihurtzeko mapa
+    const romanToArabic = {
+        'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+        'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
+    };
+    
+    let romanNumber = "";
+    let baseName = "";
+    
+    // Bilatu erromatar zenbakia izenaren amaieran
+    Object.keys(romanToArabic).forEach(roman => {
+        const regex = new RegExp(`\\s+${roman}(\\s|$)`, 'gi');
+        const match = rawName.match(regex);
+        
+        if (match) {
+            romanNumber = roman;
+            baseName = rawName.replace(regex, '').trim();
+        }
+    });
+    
+    // Ez bada erromatar zenbakia aurkitu, bilatu arabiar zenbakia
+    if (!romanNumber) {
+        const arabicMatch = rawName.match(/\s+(\d+)(\s|$)/);
+        if (arabicMatch) {
+            romanNumber = arabicMatch[1];
+            baseName = rawName.replace(/\s+\d+(\s|$)/, '').trim();
+        } else {
+            baseName = rawName.trim();
+        }
+    }
+    
+    // Erromatar zenbakia arabiarrera bihurtu
+    let numberCode = "";
+    if (romanNumber) {
+        if (romanToArabic[romanNumber.toUpperCase()]) {
+            numberCode = romanToArabic[romanNumber.toUpperCase()];
+        } else {
+            numberCode = romanNumber;
+        }
+    }
+    
+    // Akronimoa sortu (3 letra)
+    const cleanName = baseName.replace(/[0-9\.\s]/g, '').toUpperCase();
+    const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
+    
+    // Prefijo final
+    if (numberCode && numberCode !== "") {
+        return `${grado}${curso}_${numberCode}${acronimo}`;
+    } else {
+        return `${grado}${curso}_${acronimo}`;
+    }
+}
+	
+/*addRaRow(type, data = {}) {
+    const isZh = type === 'zh';
+    const containerId = isZh ? 'editListZh' : 'editListTec';
+    const container = document.getElementById(containerId);
+    
+    if (!container) return;
+
+    const colorClass = isZh ? 'teal' : 'blue';
+
+    // DATUAK IRAKURTZEA
+    let codeValue = '';
+    let descValue = '';
+    
+    if (isZh) {
+        codeValue = data.zhCode || '';
+        descValue = data.zhDesc || '';
+    } else {
+        codeValue = data.raCode  || '';
+        descValue = data.raDesc || '';
+    }
+    
+    const linkedValue = data.linkedCompetency || data.raRelacionado || '';
+
     if (!codeValue) {
         const count = container.children.length + 1;
         const suffix = isZh ? 'ZH' : 'RA';
@@ -3436,7 +3659,7 @@ addRaRow(type, data = {}) {
             selector.dispatchEvent(event);
         }
     }
-}
+}*/
 
 	setupDragAndDrop(containerId) {
         const container = document.getElementById(containerId);
@@ -3497,7 +3720,7 @@ addRaRow(type, data = {}) {
 
 	
 // ************** FUNTZIO BERRIA: KODEAK NORMALIZATU GORDETZERAKO **************
-normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
+/*normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
     if (!subject) return;
     
     // 🎯 ALDAKETA: Erabili generateUnitAutoCode logika berdina
@@ -3597,8 +3820,113 @@ normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
             }
         }
     });
+}*/
+
+normalizarCodigosAlGuardar(subject, tecRAs, zhRAs) {
+    if (!subject) return;
+    
+    // 🎯 ALDAKETA: Erabili generateUnitAutoCode logika berdina
+    // ---------------------------------------------------------
+    let basePrefix = '';
+    
+    // 1. Grado kodea
+    const grado = subject.degreeCode || "BD";
+    
+    // 2. Urtea (curso)
+    const curso = subject.course || subject.year || "1";
+    
+    // 3. Irakasgaiaren izena - ERROMATAR ZENBAKIA ATERATZEKO
+    const rawName = subject.name || subject.subjectTitle || "ASIG";
+    
+    // Erromatar zenbakiak arabiarretara bihurtzeko mapa
+    const romanToArabic = {
+        'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+        'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10'
+    };
+    
+    let romanNumber = "";
+    let baseName = "";
+    
+    // Bilatu erromatar zenbakia izenaren amaieran
+    Object.keys(romanToArabic).forEach(roman => {
+        const regex = new RegExp(`\\s+${roman}(\\s|$)`, 'gi');
+        const match = rawName.match(regex);
+        
+        if (match) {
+            romanNumber = roman;
+            baseName = rawName.replace(regex, '').trim();
+        }
+    });
+    
+    // Ez bada erromatar zenbakia aurkitu, bilatu arabiar zenbakia
+    if (!romanNumber) {
+        const arabicMatch = rawName.match(/\s+(\d+)(\s|$)/);
+        if (arabicMatch) {
+            romanNumber = arabicMatch[1];
+            baseName = rawName.replace(/\s+\d+(\s|$)/, '').trim();
+        } else {
+            baseName = rawName.trim();
+        }
+    }
+    
+    // Erromatar zenbakia arabiarrera bihurtu
+    let numberCode = "";
+    if (romanNumber) {
+        if (romanToArabic[romanNumber.toUpperCase()]) {
+            numberCode = romanToArabic[romanNumber.toUpperCase()];
+        } else {
+            numberCode = romanNumber;
+        }
+    }
+    
+    // Akronimoa sortu (3 letra)
+    const cleanName = baseName.replace(/[0-9\.\s]/g, '').toUpperCase();
+    const acronimo = cleanName.substring(0, 3).padEnd(3, 'X');
+    
+    // PREFIXO BERRIA: generateUnitAutoCode-ren antzekoa
+    if (numberCode && numberCode !== "") {
+        basePrefix = `${grado}${curso}_${numberCode}${acronimo}`;
+    } else {
+        basePrefix = `${grado}${curso}_${acronimo}`;
+    }
+    // ---------------------------------------------------------
+    
+    // 🔥 CAMBIO IMPORTANTE: Normalizar TODOS los RAs, no solo los que no empiezan con basePrefix
+    tecRAs.forEach((ra, index) => {
+        // Extraer el número del RA si existe (RA1, RA2, etc.)
+        let numero = String(index + 1).padStart(2, '0');
+        
+        // Intentar extraer número del código existente
+        if (ra.code) {
+            const match = ra.code.match(/(?:RA|ZH)(\d+)$/i);
+            if (match) {
+                numero = match[1].padStart(2, '0');
+            }
+        }
+        
+        // Generar código estandarizado
+        ra.code = `${basePrefix}_RA${numero}`;
+        ra.id = ra.code;
+    });
+    
+    // Normalizar RAs transversales (ZH)
+    zhRAs.forEach((zh, index) => {
+        // Extraer el número del ZH si existe (ZH1, ZH2, etc.)
+        let numero = String(index + 1).padStart(2, '0');
+        
+        // Intentar extraer número del código existente
+        if (zh.code) {
+            const match = zh.code.match(/(?:RA|ZH)(\d+)$/i);
+            if (match) {
+                numero = match[1].padStart(2, '0');
+            }
+        }
+        
+        // Generar código estandarizado
+        zh.code = `${basePrefix}_ZH${numero}`;
+        zh.id = zh.code;
+    });
 }
-// Aldaketak egiteko funtzio temporala:
 	
 async saveRaChanges() {
     const s = this.currentSubject;
@@ -6110,6 +6438,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
