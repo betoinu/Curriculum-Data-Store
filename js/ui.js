@@ -488,7 +488,7 @@ export const ui = {
     subjects.forEach((subj) => {
         const areaColor = ui.getAreaColor ? ui.getAreaColor(subj.subjectArea, degree) : '#ccc';
         
-        const code = subj.idAsig || subj.subjectCode || subj.code || '---';
+        const code = subj.subjectCode || subj.code || '---';
         const subjTitle = subj.subjectTitle || subj.name || 'Izena gabe'; 
         const credits = subj.subjectCredits || subj.credits || 0;
         const semester = subj.semester ? `${subj.semester}.S` : '';
@@ -1693,6 +1693,7 @@ if (typeof window !== 'undefined') {
 		console.log("✅ UI JS Cargado correctamente vFINAL");
 
 	}
+
 
 
 
