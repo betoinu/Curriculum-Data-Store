@@ -171,7 +171,7 @@ async saveSubject(subjectData) {
         // Hauek erroan joan behar dute derrigorrez SQLan ondo gordetzeko.
         const dbFields = [
 			'id',
-    		'',        // text not null  ← ¡ERROR GRAVE!
+    		/*'',*/        // text not null  ← ¡ERROR GRAVE!
             'idAsig',
 			'subjectTitle',  // text not null
             'user_id',// uuid
@@ -271,8 +271,7 @@ async saveSubject(subjectData) {
         // '' da zure unique constraint (irakasgaiak_code_key)
         const { data, error } = await this.supabase
             .from('irakasgaiak')
-            /*.upsert(dbPayload, { onConflict: 'idAsig', ignoreDuplicates: false })*/
-			.upsert(dbPayload, { onConflict: 'id' })
+            .upsert(dbPayload, { onConflict: 'idAsig', ignoreDuplicates: false })
             .select()
             .single();
 
@@ -6443,6 +6442,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
