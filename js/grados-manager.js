@@ -271,7 +271,8 @@ async saveSubject(subjectData) {
         // '' da zure unique constraint (irakasgaiak_code_key)
         const { data, error } = await this.supabase
             .from('irakasgaiak')
-            .upsert(dbPayload, { onConflict: 'idAsig', ignoreDuplicates: false })
+            /*.upsert(dbPayload, { onConflict: 'idAsig', ignoreDuplicates: false })*/
+			.upsert(dbPayload, { onConflict: 'id' })
             .select()
             .single();
 
@@ -6442,6 +6443,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
