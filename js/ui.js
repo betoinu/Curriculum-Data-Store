@@ -447,7 +447,7 @@ export const ui = {
         });
     },*/
 
-	renderYearView: (degree, yearNum) => {
+renderYearView: (degree, yearNum) => {
     console.log(`🎨 UI: ${yearNum}. maila marrazten...`);
 
     // 1. PANELAK KUDEATU
@@ -507,36 +507,45 @@ export const ui = {
         card.className = 'group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-4 cursor-pointer border-l-4 h-full flex flex-col justify-between relative';
         card.style.borderLeftColor = areaColor;
         
-        card.innerHTML = `
-            <div class="h-full flex flex-col">
-                <div class="flex justify-between items-start mb-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
-                        ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
-                    </div>
-                    <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">
-                        ${credits} ECTS
-                    </span>
-                </div>
-                
-                <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
-                
-                <div class="mb-2">${langBadge}</div>
-
-                <div class="mt-auto pt-2 border-t border-gray-50">
-                    <div class="flex justify-between items-center">
-                        <p class="text-xs text-gray-400 truncate max-w-[60%]">${subj.subjectArea || 'Eremu gabe'}</p>
-                        
-                        ${type ? `
-                        <div class="flex items-center text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
-                            <i class="fas fa-tag mr-1 text-indigo-400"></i>
-                            <span class="truncate max-w-[80px]">${type}</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
+		card.innerHTML = `
+		    <div class="h-full flex flex-col">
+		        <div class="flex justify-between items-start mb-3">
+		            <div class="flex items-center gap-2">
+		                <span class="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded font-mono truncate max-w-[80px]">${code}</span>
+		                ${semester ? `<span class="text-[10px] text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">${semester}</span>` : ''}
+		            </div>
+		            
+		            <div class="flex items-center gap-2">
+		                <button onclick="event.stopPropagation(); window.gradosManager.deleteSubject('${yearNum}', ${index})" 
+		                        class="text-gray-300 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100" 
+		                        aria-label="Ezabatu irakasgaia">
+		                    <i class="fas fa-trash-alt"></i>
+		                </button>
+		
+		                <span class="text-[10px] font-bold text-white px-2 py-1 rounded min-w-[50px] text-center" style="background-color: ${areaColor}">
+		                    ${credits} ECTS
+		                </span>
+		            </div>
+		        </div>
+		        
+		        <h3 class="text-base font-bold text-gray-800 mb-2 line-clamp-2">${subjTitle}</h3>
+		        
+		        <div class="mb-2">${langBadge}</div>
+		
+		        <div class="mt-auto pt-2 border-t border-gray-50">
+		            <div class="flex justify-between items-center">
+		                <p class="text-xs text-gray-400 truncate max-w-[60%]">${subj.subjectArea || 'Eremu gabe'}</p>
+		                
+		                ${type ? `
+		                <div class="flex items-center text-[10px] text-gray-500 bg-gray-50 px-2 py-0.5 rounded">
+		                    <i class="fas fa-tag mr-1 text-indigo-400"></i>
+		                    <span class="truncate max-w-[80px]">${type}</span>
+		                </div>
+		                ` : ''}
+		            </div>
+		        </div>
+		    </div>
+		`;
         
         card.onclick = (e) => {
             e.preventDefault();
