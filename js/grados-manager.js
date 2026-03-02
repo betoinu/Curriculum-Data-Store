@@ -495,31 +495,44 @@ async updateContentField(field, value) {
 
     // --- CREACIÃ“N DE ASIGNATURA (NUEVA FUNCIÃ“N) ---
 	async crearNuevaAsignatura(yearNum) {
-        if (!this.currentDegree) {
-            alert("Mesedez, hautatu gradu bat lehenago.");
-            return;
-        }
-
-        // 1. Kalkulatu hurrengo kodea (Array laua iragaziz)
-        // Lehen: this.currentDegree.year[yearNum].length
-        // Orain: this.currentDegree.subjects iragazi
-        const subjectsInYear = (this.currentDegree.subjects || []).filter(s => s.year === yearNum);
-        const indice = subjectsInYear.length + 1;
-        
-        const gradoCodigo = this.currentDegree.codigo || 'G';
-        const idAsig = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+	    if (!this.currentDegree) {
+	        alert("Mesedez, hautatu gradu bat lehenago.");
+	        return;
+	    }
+	
+	    // 1. Kalkulatu hurrengo SUBJECTCODE (kode bisuala)
+	    const subjectsInYear = (this.currentDegree.subjects || []).filter(s => s.year === yearNum);
+	    const indice = subjectsInYear.length + 1;
+	    
+	    const gradoCodigo = this.currentDegree.codigo || 'G';
+	    const nuevoSubjectCode = `${gradoCodigo}_${yearNum}_${String(indice).padStart(3, '0')}`;
+	
+	    // 2. Kalkulatu hurrengo idAsig (ASG-xxx formatua)
+	    let ultimoNumero = 0;
+	    
+	    // Bilatu ASG-xxx patroia
+	    const asigRegex = /^ASG-(\d+)$/;
+	    (this.currentDegree.subjects || []).forEach(s => {
+	        const match = s.idAsig?.match(asigRegex);
+	        if (match) {
+	            const num = parseInt(match[1], 10);
+	            if (num > ultimoNumero) ultimoNumero = num;
+	        }
+	    });
+	    
+	    const nuevoIdAsig = `ASG-${String(ultimoNumero + 1).padStart(3, '0')}`;
 
         // 2. Objektua sortu
         const newSubj = {
-            idAsig: idAsig, // Gako nagusia
-            subjectTitle: 'Irakasgai Berria',
-            subjectCode: 'NEW',
-            year: yearNum,
-            subjectCredits: 6,
-            subjectType: 'Oinarrizkoa',
-			semester: 'Urtekoa',
-			language: 'Elebiduna',
-            idDegree: this.currentDegree.idDegree, // Lotura
+			idAsig: nuevoIdAsig,              // ASG-xxx formatua (ezin da "new")
+	        subjectTitle: 'Irakasgai Berria',
+	        subjectCode: nuevoSubjectCode,      // Kode bisuala (DG2_2BAL, BD1_MAT, etc.)
+	        year: yearNum,
+	        subjectCredits: 6,
+	        subjectType: 'Oinarrizkoa',
+	        semester: 'Urtekoa',
+	        language: 'Elebiduna',
+	        idDegree: this.currentDegree.idDegree,
 
             // JSON eremuak hutsik
             unitateak: [],
@@ -6441,6 +6454,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
