@@ -268,7 +268,6 @@ async saveSubject(subjectData) {
         });
 
         // 7. SUPABASE DEIA
-        // '' da zure unique constraint (irakasgaiak_code_key)
         const { data, error } = await this.supabase
             .from('irakasgaiak')
             .upsert(dbPayload, { onConflict: 'idAsig', ignoreDuplicates: false })
@@ -568,7 +567,7 @@ openEditSubjectModal() {
         const typeSelect = document.getElementById('subject_edit_type');
         
         // 2. BALIOAK BETE
-        if (codeInput) codeInput.value = subj.subjectCode || subj.idAsig || '';
+        if (codeInput) codeInput.value = subj.subjectCode || '';
         if (nameInput) nameInput.value = subj.subjectTitle || subj.name || '';
         if (creditsInput) creditsInput.value = subj.subjectCredits || subj.credits || 0;
         if (langSelect) langSelect.value = subj.language || 'eu'; 
@@ -635,7 +634,7 @@ async saveSubjectBasicData() {
     const newValues = {};
     
     // 🔥 CORRECCIÓN: idAsig es el código en la BD, no subjectCode
-    if (codeInput) newValues.idAsig = codeInput.value.trim();  // Antes: subjectCode
+    if (codeInput) newValues.subjectCode = codeInput.value.trim();  
     
     if (nameInput) newValues.subjectTitle = nameInput.value.trim();
     if (creditsInput) newValues.subjectCredits = parseFloat(creditsInput.value) || 0;
@@ -6442,6 +6441,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
