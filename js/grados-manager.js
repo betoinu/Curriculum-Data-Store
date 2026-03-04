@@ -885,7 +885,7 @@ async saveSubjectBasicData() {
         console.log("✅ Selektorea beteta.");
     }
 
-	async selectDegree(e) {
+async selectDegree(e) {
     const val = (e.target && e.target.value) ? e.target.value : e;
     
     if (val === "NEW_DEGREE") {
@@ -903,6 +903,8 @@ async saveSubjectBasicData() {
         return;
     }
 
+	this.currentYear = 1;
+	
     try {
         // 1. SUPABASE DEIA (Datuak ekarri)
         const { data: subjects, error } = await this.supabase
@@ -6454,6 +6456,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
