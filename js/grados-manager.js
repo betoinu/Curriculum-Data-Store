@@ -670,6 +670,14 @@ async saveSubjectBasicData() {
             // Memoriako objektua eguneratu
             Object.assign(this.currentSubject, newValues);
 
+			// HAU GEHITU: gradoaren zerrenda eguneratu
+			if (this.currentDegree && this.currentDegree.subjects) {
+			    const index = this.currentDegree.subjects.findIndex(s => s.idAsig === this.currentSubject.idAsig);
+			    if (index >= 0) {
+			        this.currentDegree.subjects[index] = { ...this.currentDegree.subjects[index], ...newValues };
+			    }
+			}
+
             // Modala itxi
             const modal = document.getElementById('editSubjectModal');
             if (modal) {
@@ -6456,6 +6464,7 @@ if (window.AppCoordinator) {
 window.openCompetenciesDashboard = () => window.gradosManager.openCompetenciesDashboard();
 
 export default gradosManager;
+
 
 
 
