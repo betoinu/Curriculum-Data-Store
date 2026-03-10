@@ -95,6 +95,131 @@ renderView(viewType) {
     }
 	
 createMatrixModal() {
+    const existing = document.getElementById('matrixModal');
+    if (existing) existing.remove();
+
+    const div = document.createElement('div');
+    div.id = 'matrixModal';
+    div.className = 'fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4 backdrop-blur-sm hidden';
+    div.innerHTML = `
+        <div class="bg-white w-full h-full max-w-[95%] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            <div class="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 border-b border-slate-700">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-purple-600 rounded-lg">
+                        <i class="fas fa-brain text-xl"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold leading-none">Curriculum Intelligence</h2>
+                        <span class="text-xs text-slate-400">Datuen analisia eta koherentzia</span>
+                    </div>
+                </div>
+                
+                <!-- ESFORTAZIO BOTOIAK (Gehitu hauek) -->
+                <div class="flex items-center gap-2">
+                    <button onclick="matrixEngine.printCurrentView()" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                            title="Inprimatu uneko ikuspegia">
+                        <i class="fas fa-print"></i>
+                    </button>
+                    
+                    <button onclick="matrixEngine.exportToExcel()" 
+                            class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                            title="Esportatu Excel-era">
+                        <i class="fas fa-file-excel"></i>
+                    </button>
+                    
+                    <button onclick="matrixEngine.exportToCSV()" 
+                            class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                            title="Esportatu CSV-ra">
+                        <i class="fas fa-file-csv"></i>
+                    </button>
+                    
+                    <button onclick="matrixEngine.recalculateData()" 
+                            class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition"
+                            title="Birkalkulatu datuak">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    
+                    <button onclick="document.getElementById('matrixModal').classList.add('hidden')" 
+                            class="text-slate-400 hover:text-white transition ml-2">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex flex-1 overflow-hidden">
+                <div class="w-64 bg-slate-900 p-4 border-r border-slate-700 overflow-y-auto space-y-2 shrink-0">
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2 block">Analisi Tresnak</label>
+                    
+                    <button onclick="matrixEngine.renderView('competencyMap')" 
+                            class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                        <div class="w-5 h-5 rounded bg-green-900/50 flex items-center justify-center group-hover:bg-green-600 transition">
+                            <i class="fas fa-th text-green-400 group-hover:text-white text-[10px]"></i>
+                        </div>
+                        <span>Konpetentzia Mapa</span>
+                    </button>
+
+                    <button onclick="matrixEngine.renderView('verticalProgression')" 
+                            class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                        <div class="w-5 h-5 rounded bg-blue-900/50 flex items-center justify-center group-hover:bg-blue-600 transition">
+                            <i class="fas fa-layer-group text-blue-400 group-hover:text-white text-[10px]"></i>
+                        </div>
+                        <span>Progresio Bertikala</span>
+                    </button>
+
+                    <button onclick="matrixEngine.renderView('areaStack')" 
+                            class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                        <div class="w-5 h-5 rounded bg-blue-900/50 flex items-center justify-center group-hover:bg-blue-600 transition">
+                            <i class="fas fa-chart-column text-blue-400 group-hover:text-white text-[10px]"></i>
+                        </div>
+                        <span>Eremuen Progresioa</span>
+                    </button>
+
+                    <button onclick="matrixEngine.renderView('contentFlow')" 
+                            class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                        <div class="w-5 h-5 rounded bg-emerald-900/50 flex items-center justify-center group-hover:bg-emerald-600 transition">
+                            <i class="fas fa-cubes text-emerald-400 group-hover:text-white text-[10px]"></i>
+                        </div>
+                        <span>Edukien Dentsitate Matrizea</span>
+                    </button>
+
+                    <button onclick="matrixEngine.renderView('activitiesMap')" 
+                            class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                        <div class="w-5 h-5 rounded bg-orange-900/50 flex items-center justify-center group-hover:bg-orange-600 transition">
+                            <i class="fas fa-globe-europe text-orange-400 group-hover:text-white text-[10px]"></i>
+                        </div>
+                        <span>Kanpo Jardueren Ekosistema</span>
+                    </button>
+
+                    <button onclick="matrixEngine.renderView('prerequisitesFlow')" 
+                            class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                        <div class="w-5 h-5 rounded bg-purple-900/50 flex items-center justify-center group-hover:bg-orange-600 transition">
+                            <i class="fas fa-project-diagram text-purple-500 group-hover:text-white text-[10px]"></i>
+                        </div>
+                        <span>Aurre-Ezagutza Fluxua</span>
+                    </button>
+                    
+                    <!-- Datuen freskatzeko botoia menuan ere (aukerakoa) -->
+                    <div class="pt-4 mt-4 border-t border-slate-700">
+                        <button onclick="matrixEngine.recalculateData()" 
+                                class="w-full text-xs bg-slate-800 border border-slate-600 p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition flex items-center gap-2 group">
+                            <div class="w-5 h-5 rounded bg-yellow-900/50 flex items-center justify-center group-hover:bg-yellow-600 transition">
+                                <i class="fas fa-sync-alt text-yellow-400 group-hover:text-white text-[10px]"></i>
+                            </div>
+                            <span>Datuak Freskatu</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="matrixContent" class="flex-1 overflow-auto p-6 bg-slate-100 relative"></div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(div);
+    this.container = document.getElementById('matrixContent');
+}
+	
+/*createMatrixModal() {
         const existing = document.getElementById('matrixModal');
         if (existing) existing.remove();
 
@@ -177,7 +302,227 @@ createMatrixModal() {
         `;
         document.body.appendChild(div);
         this.container = document.getElementById('matrixContent');
+    }*/
+
+// ============================================================
+// INPORTATU / ESPORTATU METODOAK
+// ============================================================
+
+/**
+ * Uneko ikuspegia inprimatu
+ */
+printCurrentView() {
+    if (!this.container) return;
+    
+    const printWindow = window.open('', '_blank');
+    const content = this.container.innerHTML;
+    const title = document.querySelector('#matrixModal h2')?.textContent || 'Curriculum Matrix';
+    
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${title}</title>
+            <meta charset="UTF-8">
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+            <style>
+                body { padding: 20px; background: white; }
+                .no-print { display: none !important; }
+                @media print {
+                    body { padding: 0; }
+                    .page-break { page-break-after: always; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="max-w-7xl mx-auto">
+                <h1 class="text-2xl font-bold mb-4">${title}</h1>
+                <div class="print-content">${content}</div>
+                <p class="text-xs text-gray-400 mt-8 no-print">Sortze data: ${new Date().toLocaleString()}</p>
+            </div>
+            <script>
+                window.onload = () => setTimeout(() => window.print(), 500);
+            </script>
+        </body>
+        </html>
+    `);
+    printWindow.document.close();
+}
+
+/**
+ * CSV-ra esportatu (uneko ikuspegia)
+ */
+exportToCSV() {
+    const data = this.extractTableData();
+    if (!data || data.length === 0) {
+        alert("Ez dago daturik esportatzeko");
+        return;
     }
+    
+    // CSV sortu
+    const csvContent = data.map(row => 
+        row.map(cell => {
+            if (cell === null || cell === undefined) return '';
+            // Komak baditu, " " artean jarri
+            const cellStr = String(cell).replace(/"/g, '""');
+            return cellStr.includes(',') ? `"${cellStr}"` : cellStr;
+        }).join(',')
+    ).join('\n');
+    
+    // Deskargatu
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // \uFEFF = BOM UTF-8
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `curriculum_matrix_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+}
+
+/**
+ * Excel-era esportatu (XLSX) - simple: CSV bezala baina .xls
+ */
+exportToExcel() {
+    const data = this.extractTableData();
+    if (!data || data.length === 0) {
+        alert("Ez dago daturik esportatzeko");
+        return;
+    }
+    
+    // HTML taula sortu Excel-entzat
+    let html = `
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Curriculum Matrix</title>
+            <style>
+                td, th { border: 1px solid #999; padding: 4px; }
+                table { border-collapse: collapse; }
+            </style>
+        </head>
+        <body>
+            <table>
+    `;
+    
+    data.forEach(row => {
+        html += '<tr>';
+        row.forEach(cell => {
+            html += `<td>${cell !== null && cell !== undefined ? cell : ''}</td>`;
+        });
+        html += '</tr>';
+    });
+    
+    html += '</table></body></html>';
+    
+    // Deskargatu .xls (Excel-ek irakur dezake)
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `curriculum_matrix_${new Date().toISOString().slice(0,10)}.xls`;
+    link.click();
+}
+
+/**
+ * Datuetatik taula laua atera (CSV/Excel erabiltzeko)
+ */
+extractTableData() {
+    // Hemen uneko viewType-a detektatu behar dugu.
+    // Momentuz, content-eko taulak bilatzen saiatu
+    const tables = this.container?.querySelectorAll('table');
+    if (tables && tables.length > 0) {
+        const data = [];
+        // Header
+        const headers = [];
+        tables[0].querySelectorAll('thead th').forEach(th => {
+            headers.push(th.textContent.trim());
+        });
+        if (headers.length > 0) data.push(headers);
+        
+        // Body
+        tables[0].querySelectorAll('tbody tr').forEach(tr => {
+            const row = [];
+            tr.querySelectorAll('td').forEach(td => {
+                row.push(td.textContent.trim());
+            });
+            if (row.length > 0) data.push(row);
+        });
+        return data;
+    }
+    
+    // Hutsik badago, saiatu konpetentzia mapa detektatzen
+    const compRows = this.container?.querySelectorAll('tr');
+    if (compRows && compRows.length > 0) {
+        const data = [];
+        compRows.forEach(tr => {
+            const row = [];
+            tr.querySelectorAll('th, td').forEach(cell => {
+                row.push(cell.textContent.trim());
+            });
+            data.push(row);
+        });
+        return data;
+    }
+    
+    return [];
+}
+
+/**
+ * Birkalkulatu datuak (gradoaren datuak berriro kargatu)
+ */
+async recalculateData() {
+    const gm = window.gradosManager;
+    if (!gm || !gm.currentDegree) {
+        alert("Ez dago gradu hautaturik.");
+        return;
+    }
+    
+    // Loading erakutsi
+    if (this.container) {
+        this.container.innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full text-slate-400">
+                <i class="fas fa-sync-alt fa-spin text-4xl text-purple-500 mb-4"></i>
+                <p class="font-mono text-sm">Datuak birkalkulatzen...</p>
+            </div>
+        `;
+    }
+    
+    try {
+        // Gradoaren datuak freskatu
+        if (gm.loadDegreeData) {
+            await gm.loadDegreeData(gm.currentDegree.idDegree);
+        }
+        
+        // Cachea eguneratu
+        if (gm.cachedData) {
+            gm.cachedData.year = gm.currentDegree.year;
+        }
+        
+        // Uneko ikuspegia berriz kargatu
+        const activeView = this.getActiveView();
+        setTimeout(() => {
+            this.renderView(activeView);
+        }, 300);
+        
+    } catch (error) {
+        console.error("Errorea datuak birkalkulatzean:", error);
+        alert("Errorea: " + error.message);
+    }
+}
+
+/**
+ * Uneko ikuspegi aktiboa detektatu
+ */
+getActiveView() {
+    // Saiatu botoi aktiboa bilatzen
+    const activeBtn = document.querySelector('#matrixModal button.bg-slate-800, #matrixModal button[class*="bg-slate-800"]');
+    if (activeBtn) {
+        const onclick = activeBtn.getAttribute('onclick');
+        if (onclick) {
+            const match = onclick.match(/renderView\(['"]([^'"]+)['"]\)/);
+            if (match) return match[1];
+        }
+    }
+    return 'competencyMap'; // Default
+}	
 	
     // --- HEMEN KONPONDU DUT "JAN" NUEN KODEA ---
     flattenSubjects(yearData) {
@@ -1257,5 +1602,6 @@ renderPrerequisitesFlow(subjects) {
 }
 
 window.matrixEngine = new MatrixEngine();
+
 
 
