@@ -561,140 +561,143 @@ async updateContentField(field, value) {
         }, 150);
     }*/
 
-async crearNuevaAsignatura(yearNum) {
-    if (!this.currentDegree) {
-        alert("Mesedez, hautatu gradu bat lehenago.");
-        return;
-    }
-
-    // 1. ASG TARTEA GRADUAREN ARABERA
-    const degreeCode = this.currentDegree.codigo; // BD, DG, MD, DP...
-    let minASG = 0;
-    let maxASG = 0;
-
-    switch (degreeCode) {
-        case 'BD': // Barne Diseinua
-            minASG = 1;
-            maxASG = 99;
-            break;
-        case 'DG': // Diseinu Grafikoa
-            minASG = 101;
-            maxASG = 199;
-            break;
-        case 'MD': // Moda
-            minASG = 201;
-            maxASG = 299;
-            break;
-        case 'DP': // Produktua
-            minASG = 301;
-            maxASG = 399;
-            break;
-        default:
-            // Gradu berriak → ASG-401tik aurrera
-            minASG = 401;
-            maxASG = 499;
-            break;
-    }
-
-    // 2. DB OSOAN ASG TARTE HORRETAN DAUDEN KODEAK LORTU
-    const { data: allSubjects } = await supabase
-        .from('irakasgaiak')
-        .select('idAsig');
-
-    let usedNumbers = [];
-
-    allSubjects.forEach(s => {
-        const match = s.idAsig?.match(/^ASG-(\d+)$/);
-        if (match) {
-            const num = parseInt(match[1], 10);
-            if (num >= minASG && num <= maxASG) {
-                usedNumbers.push(num);
-            }
-        }
-    });
-
-    // 3. HURRENGO ASG LIBREA AURKITU
-    let nextASG = minASG;
-    while (usedNumbers.includes(nextASG)) {
-        nextASG++;
-        if (nextASG > maxASG) {
-            alert("ASG kode guztiak erabilita daude gradu honetan.");
+// --- CREACIÓN DE ASIGNATURA ---
+    async crearNuevaAsignatura(yearNum) {
+        if (!this.currentDegree) {
+            alert("Mesedez, hautatu gradu bat lehenago.");
             return;
         }
+
+        // 1. ASG TARTEA GRADUAREN ARABERA
+        const degreeCode = this.currentDegree.codigo; // BD, DG, MD, DP...
+        let minASG = 0;
+        let maxASG = 0;
+
+        switch (degreeCode) {
+            case 'BD': // Barne Diseinua
+                minASG = 1;
+                maxASG = 99;
+                break;
+            case 'DG': // Diseinu Grafikoa
+                minASG = 101;
+                maxASG = 199;
+                break;
+            case 'MD': // Moda
+                minASG = 201;
+                maxASG = 299;
+                break;
+            case 'DP': // Produktua
+                minASG = 301;
+                maxASG = 399;
+                break;
+            default:
+                // Gradu berriak → ASG-401tik aurrera
+                minASG = 401;
+                maxASG = 499;
+                break;
+        }
+
+        // 2. DB OSOAN ASG TARTE HORRETAN DAUDEN KODEAK LORTU
+        // ✅ CORRECCIÓN: Se añade 'this.' a supabase
+        const { data: allSubjects } = await this.supabase
+            .from('irakasgaiak')
+            .select('idAsig');
+
+        let usedNumbers = [];
+
+        if (allSubjects) {
+            allSubjects.forEach(s => {
+                const match = s.idAsig?.match(/^ASG-(\d+)$/);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (num >= minASG && num <= maxASG) {
+                        usedNumbers.push(num);
+                    }
+                }
+            });
+        }
+
+        // 3. HURRENGO ASG LIBREA AURKITU
+        let nextASG = minASG;
+        while (usedNumbers.includes(nextASG)) {
+            nextASG++;
+            if (nextASG > maxASG) {
+                alert("ASG kode guztiak erabilita daude gradu honetan.");
+                return;
+            }
+        }
+
+        const nuevoIdAsig = `ASG-${String(nextASG).padStart(3, '0')}`;
+
+        // 4. SUBJECTCODE KALKULATU
+        const subjectsInYear = (this.currentDegree.subjects || []).filter(s => s.year === yearNum);
+        const indice = subjectsInYear.length + 1;
+        // ✅ CORRECCIÓN: Se añade 'this.' para llamar al método de la clase
+        const nuevoSubjectCode = this.generarSubjectCode("Irakasgai Berria", degreeCode, yearNum);
+
+        // 5. OBJEKTUA SORTU
+        const newSubj = {
+            idAsig: nuevoIdAsig,
+            subjectTitle: 'Irakasgai Berria',
+            subjectCode: nuevoSubjectCode,
+            year: yearNum,
+            subjectCredits: 6,
+            subjectType: 'Oinarrizkoa',
+            semester: 'Urtekoa',
+            language: 'Elebiduna',
+            idDegree: this.currentDegree.idDegree,
+
+            unitateak: [],
+            preReq: [],
+            idujar: [],
+            detailODS: [],
+            extProy: [],
+            signAct: [],
+            zhRAs: [],
+            currentOfficialRAs: [],
+            subjectCritEval: [],
+            matrizAlineacion: [],
+            matrizAsignatura: [],
+            ganttPlanifikazioa: []
+        };
+
+        // 6. GORDE
+        await this.saveData(newSubj);
+
+        // 7. UI EGUNERATU
+        this.selectYear(yearNum);
+        this.selectSubject(newSubj);
+
+        setTimeout(() => {
+            this.openEditSubjectModal();
+        }, 150);
     }
 
-    const nuevoIdAsig = `ASG-${String(nextASG).padStart(3, '0')}`;
+    // --- UTILS ---
+    generarSubjectCode(subjectTitle, degreeCode, yearNum) {
+        // 1. Errepikapen zenbakia bilatu (I, II, III...)
+        let repeticion = "";
+        const romanMatch = subjectTitle.match(/\b(I|II|III|IV|V)\b/i);
+        if (romanMatch) {
+            const roman = romanMatch[1].toUpperCase();
+            const romanMap = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
+            repeticion = romanMap[roman];
+        }
 
-    // 4. SUBJECTCODE KALKULATU (ZURE LOGIKA BEREAN)
-    const subjectsInYear = (this.currentDegree.subjects || []).filter(s => s.year === yearNum);
-    const indice = subjectsInYear.length + 1;
-    const nuevoSubjectCode = generarSubjectCode("Irakasgai Berria", degreeCode, yearNum);
+        // 2. 3 letra laburtua sortu
+        let mainWord = subjectTitle.split(" ")[0]; 
+        mainWord = mainWord.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // azentuak kendu
+        const abreviatura = mainWord.substring(0, 3).toUpperCase();
 
-    // 5. OBJEKTUA SORTU
-    const newSubj = {
-        idAsig: nuevoIdAsig,
-        subjectTitle: 'Irakasgai Berria',
-        subjectCode: nuevoSubjectCode,
-        year: yearNum,
-        subjectCredits: 6,
-        subjectType: 'Oinarrizkoa',
-        semester: 'Urtekoa',
-        language: 'Elebiduna',
-        idDegree: this.currentDegree.idDegree,
-
-        unitateak: [],
-        preReq: [],
-        idujar: [],
-        detailODS: [],
-        extProy: [],
-        signAct: [],
-        zhRAs: [],
-        currentOfficialRAs: [],
-        subjectCritEval: [],
-        matrizAlineacion: [],
-        matrizAsignatura: [],
-        ganttPlanifikazioa: []
-    };
-
-    // 6. GORDE
-    await this.saveData(newSubj);
-
-    // 7. UI EGUNERATU
-    this.selectYear(yearNum);
-    this.selectSubject(newSubj);
-
-    setTimeout(() => {
-        this.openEditSubjectModal();
-    }, 150);
-}
-
-generarSubjectCode(subjectTitle, degreeCode, yearNum) {
-
-    // 1. Errepikapen zenbakia bilatu (I, II, III...)
-    let repeticion = "";
-    const romanMatch = subjectTitle.match(/\b(I|II|III|IV|V)\b/i);
-    if (romanMatch) {
-        const roman = romanMatch[1].toUpperCase();
-        const romanMap = { I: 1, II: 2, III: 3, IV: 4, V: 5 };
-        repeticion = romanMap[roman];
+        // 3. SUBJECTCODE eraiki
+        if (repeticion) {
+            return `${degreeCode}${yearNum}_${repeticion}${abreviatura}`;
+        } else {
+            return `${degreeCode}${yearNum}_${abreviatura}`;
+        }
     }
 
-    // 2. 3 letra laburtua sortu
-    // Irakasgaiaren izenetik hitz nagusia hartu
-    let mainWord = subjectTitle.split(" ")[0]; 
-    mainWord = mainWord.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // azentuak kendu
-    const abreviatura = mainWord.substring(0, 3).toUpperCase();
-
-    // 3. SUBJECTCODE eraiki
-    if (repeticion) {
-        return `${degreeCode}${yearNum}_${repeticion}${abreviatura}`;
-    } else {
-        return `${degreeCode}${yearNum}_${abreviatura}`;
-    }
-}
 	
-	
-
 openEditSubjectModal() {
         if (!this.currentSubject) {
             console.error("❌ Ez dago irakasgairik aukeratuta editatzeko.");
