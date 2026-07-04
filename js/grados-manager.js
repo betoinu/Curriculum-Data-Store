@@ -668,7 +668,7 @@ async crearNuevaAsignatura(yearNum) {
     }, 150);
 }
 
-function generarSubjectCode(subjectTitle, degreeCode, yearNum) {
+generarSubjectCode(subjectTitle, degreeCode, yearNum) {
 
     // 1. Errepikapen zenbakia bilatu (I, II, III...)
     let repeticion = "";
